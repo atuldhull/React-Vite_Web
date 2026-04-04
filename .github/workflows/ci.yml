@@ -7,7 +7,7 @@ on:
     branches: [main]
 
 jobs:
-  lint-and-build:
+  lint-build-test:
     runs-on: ubuntu-latest
 
     steps:
@@ -22,14 +22,15 @@ jobs:
         run: npm ci --legacy-peer-deps
 
       - name: Lint
-        run: npm run lint --if-present
-        continue-on-error: true
+        run: npm run lint
+
+      - name: Test
+        run: npm test
 
       - name: Build
         run: npm run build
 
-      - name: Check build output
+      - name: Verify build output
         run: |
-          echo "Build artifacts:"
           ls -lh public/app/assets/*.js public/app/assets/*.css
-          echo "Build successful!"
+          echo "✅ Build successful"
