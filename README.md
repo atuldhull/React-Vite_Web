@@ -205,32 +205,104 @@ CSS variables auto-set: `--page-accent`, `--page-glow`, `--org-primary`, `--org-
 
 ---
 
-## SQL Schemas
+## SQL Migrations
 
-Run these in Supabase SQL editor:
-- `docs/messaging-schema.sql` — Chat, friendships, encryption tables
-- `docs/referral-schema.sql` — Referral system tables
+All in `migrations/` folder — run in Supabase SQL editor in numbered order (01 through 12).
+
+---
+
+## Scripts
+
+```bash
+npm start              # Production server (node server.js)
+npm run dev            # Dev server with auto-reload (nodemon)
+npm run dev:frontend   # Vite dev server
+npm run build          # Production frontend build → public/app/
+npm run lint           # ESLint check
+npm run lint:fix       # ESLint auto-fix
+npm run format         # Prettier format all files
+npm run format:check   # Prettier check (CI)
+npm test               # Test placeholder (Vitest installed)
+```
+
+---
+
+## CI/CD
+
+- **GitHub Actions** runs on every push/PR to `main`: lint + build
+- **Dependabot** checks npm dependencies weekly for security updates
+- Config: `.github/workflows/ci.yml`, `.github/dependabot.yml`
+
+---
+
+## Deployment
+
+### Render (Recommended — Free Tier)
+
+**Backend:**
+1. Create new Web Service → connect GitHub repo
+2. Build command: `npm install --legacy-peer-deps`
+3. Start command: `node server.js`
+4. Add environment variables (SUPABASE_URL, keys, etc.)
+
+**Frontend:**
+1. Create new Static Site → connect same repo
+2. Build command: `npm run build`
+3. Publish directory: `public/app`
+4. Add rewrite rule: `/*` → `/index.html` (SPA routing)
+
+### Railway / Fly.io
+1. Connect GitHub repo
+2. Set build + start commands same as above
+3. Add env vars in dashboard
+
+### Manual VPS
+```bash
+git clone https://github.com/atuldhull/React-Vite_Web.git
+cd React-Vite_Web
+npm install --legacy-peer-deps
+cp .env.example .env.local   # Fill in your keys
+npm run build                 # Build frontend
+npm start                     # Start backend (serves frontend from public/app/)
+```
+
+---
+
+## Architecture
+
+```
+Client (React SPA)
+  │ HTTP + WebSocket
+  ▼
+Express 5 Server (:3000)
+  ├── REST API (/api/*)
+  ├── Socket.IO (quiz, chat, notifications)
+  ├── Session middleware (express-session)
+  ├── Tenant middleware (auto org_id injection)
+  ├── Auth middleware (role-based: student/teacher/admin/super_admin)
+  └── Feature flag middleware (plan-based gating)
+        │
+        ▼
+  Supabase PostgreSQL
+  ├── 15+ tables (students, challenges, events, etc.)
+  ├── Service role key (server-side only)
+  └── Auth (email/password)
+```
 
 ---
 
 ## Development Log
 
-See [PROGRESS.md](PROGRESS.md) for the complete session-by-session changelog with every file created/modified.
+See [PROGRESS.md](PROGRESS.md) for the complete changelog (Phases 1–7).
 
 ---
 
-## Build
+## Code Quality
 
-```bash
-npx vite build    # Outputs to public/app/
-```
-
-```
-Build time: ~3.5s
-app.js:            2,322 KB (749 KB gzip)
-CinematicScene.js: 1,090 KB (332 KB gzip) — lazy-loaded
-app.css:             91 KB (22 KB gzip)
-```
+- **ESLint** — `eslint.config.js` (flat config, React + hooks plugins)
+- **Prettier** — `.prettierrc` (120 chars, double quotes, trailing commas)
+- **No TypeScript** — JS-only (TS migration planned for Phase 8)
+- **Vitest** — installed, test suite planned
 
 ---
 
