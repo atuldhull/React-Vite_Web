@@ -1,9 +1,6 @@
 import session from "express-session";
 
-/**
- * Centralised session middleware to keep auth behaviour consistent.
- * NOTE: Values mirror previous inline config to avoid behaviour changes.
- */
+const isProd = process.env.NODE_ENV === "production";
 const oneWeekMs = 1000 * 60 * 60 * 24 * 7;
 
 export const sessionMiddleware = session({
@@ -12,6 +9,8 @@ export const sessionMiddleware = session({
   saveUninitialized: false,
   cookie: {
     httpOnly: true,
+    secure: isProd,             // HTTPS only in production
+    sameSite: isProd ? "strict" : "lax", // CSRF protection
     maxAge: oneWeekMs,
   },
 });

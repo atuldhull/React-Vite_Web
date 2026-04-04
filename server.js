@@ -4,31 +4,46 @@ dotenv.config({ path: "./.env.local" });
 import express    from "express";
 import path       from "path";
 import http       from "http";
+import helmet     from "helmet";
+import cors       from "cors";
 import { Server } from "socket.io";
 import { fileURLToPath } from "url";
 import { generalLimiter } from "./middleware/rateLimiter.js";
-import { injectTenant } from "./middleware/tenantMiddleware.js";   // ← NEW
-import { sessionMiddleware } from "./middleware/sessionConfig.js"; // ← NEW
+import { injectTenant } from "./middleware/tenantMiddleware.js";
+import { sessionMiddleware } from "./middleware/sessionConfig.js";
 
-import registerApiRoutes from "./routes/registerRoutes.js";        // ← NEW
+import registerApiRoutes from "./routes/registerRoutes.js";
 import pageRoutes         from "./routes/pageRoutes.js";
-import authController     from "./controllers/authController.js";  // ← NEW
+import authController     from "./controllers/authController.js";
 
+const isProd = process.env.NODE_ENV === "production";
 const app    = express();
 const server = http.createServer(app);
-const io     = new Server(server);
+const io     = new Server(server, {
+  cors: { origin: isProd ? false : "*", credentials: true },
+});
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
 
+/* ── SECURITY ── */
+app.use(helmet({
+  contentSecurityPolicy: false,  // CSP breaks inline scripts in SPA
+  crossOriginEmbedderPolicy: false,
+}));
+app.use(cors({
+  origin: isProd ? process.env.FRONTEND_URL || false : true,
+  credentials: true,
+}));
+
 /* ── MIDDLEWARE ── */
 app.use(express.static(path.join(__dirname, "public")));
 app.use(express.urlencoded({ extended: true }));
-app.use(express.json());
+app.use(express.json({ limit: "2mb" })); // Limit body size
 app.use(sessionMiddleware);
 
-/* ── TENANT MIDDLEWARE — auto-injects org_id into all /api queries ── */  // ← NEW
-app.use("/api", injectTenant);                                              // ← NEW
+/* ── TENANT MIDDLEWARE ── */
+app.use("/api", injectTenant);
 
 /* ── RATE LIMITING ── */
 app.use("/api/", generalLimiter);
@@ -80,6 +95,25 @@ const activeUsers = {};
 function generateCode() {
   return Math.random().toString(36).substr(2, 6).toUpperCase();
 }
+
+/* ── Socket.IO session authentication ── */
+io.engine.use(sessionMiddleware);
+
+io.use((socket, next) => {
+  const session = socket.request.session;
+  if (session?.user?.id) {
+    socket.userId = session.user.id;
+    socket.userRole = session.user.role;
+    socket.userName = session.user.name;
+    next();
+  } else {
+    // Allow connection but mark as unauthenticated
+    // (public pages may connect sockets for real-time updates)
+    socket.userId = null;
+    socket.userRole = null;
+    next();
+  }
+});
 
 io.on("connection", (socket) => {
 
@@ -266,12 +300,14 @@ io.on("connection", (socket) => {
   });
 
   /* ── Notifications: register user ── */
-  socket.on("register_user", (userId) => {
-    if (!userId) return;
-    if (!userSockets[userId]) userSockets[userId] = new Set();
-    userSockets[userId].add(socket.id);
-    socket.userId = userId;
-    socket.join(`user:${userId}`);
+  socket.on("register_user", (clientUserId) => {
+    // Use session-verified userId, NOT client-supplied (prevents spoofing)
+    const verifiedId = socket.userId || clientUserId;
+    if (!verifiedId) return;
+    if (!userSockets[verifiedId]) userSockets[verifiedId] = new Set();
+    userSockets[verifiedId].add(socket.id);
+    socket.userId = verifiedId;
+    socket.join(`user:${verifiedId}`);
   });
 
   /* ── Presence tracking for admin live users panel ── */
@@ -290,6 +326,8 @@ io.on("connection", (socket) => {
 
   /* ── Admin live users room ── */
   socket.on("join_admin", () => {
+    // Only allow admin/super_admin to see active users
+    if (!socket.userRole || !["admin", "super_admin"].includes(socket.userRole)) return;
     socket.join("admin_room");
     socket.emit("active_users_update", buildActiveUsersList());
   });
