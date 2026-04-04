@@ -12,7 +12,7 @@
     "build": "vite build --config vite.config.js",
     "build:frontend": "vite build --config vite.config.js",
     "preview:frontend": "vite preview --config vite.config.js",
-    "lint": "eslint frontend/src/ --ext .js,.jsx",
+    "lint": "eslint frontend/src/ --ext .js,.jsx --quiet",
     "lint:fix": "eslint frontend/src/ --ext .js,.jsx --fix",
     "format": "prettier --write \"frontend/src/**/*.{js,jsx,css}\" \"controllers/**/*.js\" \"routes/**/*.js\"",
     "format:check": "prettier --check \"frontend/src/**/*.{js,jsx,css}\"",

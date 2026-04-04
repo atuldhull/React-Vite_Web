@@ -34,7 +34,7 @@ export const useAuthStore = create((set, get) => ({
     } catch (err) {
       const msg = err.response?.data?.error || err.response?.data?.message || "Login failed";
       set({ status: "error", error: msg });
-      throw new Error(msg);
+      throw new Error(msg, { cause: err });
     }
   },
 
@@ -47,7 +47,7 @@ export const useAuthStore = create((set, get) => ({
     } catch (err) {
       const msg = err.response?.data?.error || err.response?.data?.message || "Registration failed";
       set({ status: "error", error: msg });
-      throw new Error(msg);
+      throw new Error(msg, { cause: err });
     }
   },
 
