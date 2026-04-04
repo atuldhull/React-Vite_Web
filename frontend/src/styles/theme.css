@@ -1,0 +1,337 @@
+@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Outfit:wght@300;400;500;600;700;800&family=Syne:wght@600;700;800&display=swap");
+
+/* ══════════════════════════════════════
+   DARK MODE (default — "cosmic")
+══════════════════════════════════════ */
+:root {
+  color-scheme: dark;
+
+  /* Org branding (overridden dynamically by OrgThemeProvider) */
+  --org-primary: #7c3aed;
+  --org-secondary: #3b82f6;
+
+  --color-obsidian: 3 7 18;
+  --color-surface: 9 15 31;
+  --color-panel: 14 22 42;
+  --color-line: 123 97 255;
+  --color-primary: 131 82 255;
+  --color-secondary: 35 193 255;
+  --color-glow: 110 231 255;
+  --color-success: 45 212 191;
+  --color-warning: 251 191 36;
+  --color-danger: 248 113 113;
+  --color-text-primary: 239 244 255;
+  --color-text-muted: 154 169 201;
+  --color-text-dim: 93 108 141;
+
+  --space-2xs: 0.375rem; --space-xs: 0.5rem; --space-sm: 0.75rem; --space-md: 1rem;
+  --space-lg: 1.5rem; --space-xl: 2rem; --space-2xl: 3rem; --space-3xl: 4rem;
+  --radius-sm: 1rem; --radius-md: 1.5rem; --radius-lg: 2rem; --radius-xl: 2.5rem;
+  --shadow-orbit: 0 24px 90px rgba(50, 96, 255, 0.14), 0 0 0 1px rgba(123, 97, 255, 0.08);
+  --shadow-panel: 0 24px 60px rgba(0, 0, 0, 0.34), inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  --shadow-pulse: 0 0 0 1px rgba(110, 231, 255, 0.12), 0 16px 45px rgba(110, 231, 255, 0.12);
+
+  /* Monument accent colors */
+  --monument-desert: #D4A017;
+  --monument-pyramid: #7B4FE0;
+  --monument-glacier: #00CFFF;
+  --monument-jungle: #2ECC71;
+  --monument-city: #FF2D78;
+  --monument-abyss: #00FFC8;
+  --monument-sky: #B695F8;
+  --monument-magma: #FF6B35;
+
+  /* Math clip-path shapes */
+  --clip-hex: polygon(10% 0%, 90% 0%, 100% 50%, 90% 100%, 10% 100%, 0% 50%);
+  --clip-para: polygon(12px 0%, 100% 0%, calc(100% - 12px) 100%, 0% 100%);
+  --clip-notch: polygon(0 0, calc(100% - 20px) 0, 100% 20px, 100% 100%, 0 100%);
+  --clip-diamond: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+
+  /* Monument-aware surface — pages override this */
+  --page-accent: #D4A017;
+  --page-glow: rgba(212, 160, 23, 0.15);
+}
+
+/* ══════════════════════════════════════
+   MONUMENT DATA-ATTRIBUTE OVERRIDES
+   (includes 3D layer integration vars)
+══════════════════════════════════════ */
+[data-monument="desert"] {
+  --page-accent: var(--monument-desert);
+  --page-glow: rgba(212,160,23,0.12);
+  --monument-3d: 'desert';
+  --ui-overlay-bg: rgba(15, 10, 5, 0.35);
+  --ui-text-shadow: 0 0 20px rgba(212,160,23,0.4);
+}
+[data-monument="pyramid"] {
+  --page-accent: var(--monument-pyramid);
+  --page-glow: rgba(123,79,224,0.12);
+  --monument-3d: 'pyramid';
+  --ui-overlay-bg: rgba(5, 3, 15, 0.40);
+  --ui-text-shadow: 0 0 20px rgba(123,79,224,0.5);
+}
+[data-monument="glacier"] {
+  --page-accent: var(--monument-glacier);
+  --page-glow: rgba(0,207,255,0.12);
+  --monument-3d: 'glacier';
+  --ui-overlay-bg: rgba(0, 10, 20, 0.42);
+  --ui-text-shadow: 0 0 20px rgba(0,207,255,0.45);
+}
+[data-monument="jungle"] {
+  --page-accent: var(--monument-jungle);
+  --page-glow: rgba(46,204,113,0.10);
+  --monument-3d: 'jungle';
+  --ui-overlay-bg: rgba(3, 12, 5, 0.38);
+  --ui-text-shadow: 0 0 20px rgba(46,204,113,0.4);
+}
+[data-monument="city"] {
+  --page-accent: var(--monument-city);
+  --page-glow: rgba(255,45,120,0.15);
+  --monument-3d: 'neon';
+  --ui-overlay-bg: rgba(8, 3, 15, 0.45);
+  --ui-text-shadow: 0 0 20px rgba(255,45,120,0.5);
+}
+[data-monument="abyss"] {
+  --page-accent: var(--monument-abyss);
+  --page-glow: rgba(0,255,200,0.10);
+  --monument-3d: 'abyss';
+  --ui-overlay-bg: rgba(0, 5, 15, 0.50);
+  --ui-text-shadow: 0 0 20px rgba(0,255,200,0.45);
+}
+[data-monument="sky"] {
+  --page-accent: var(--monument-sky);
+  --page-glow: rgba(182,149,248,0.12);
+  --monument-3d: 'sky';
+  --ui-overlay-bg: rgba(8, 5, 20, 0.30);
+  --ui-text-shadow: 0 0 20px rgba(182,149,248,0.45);
+}
+[data-monument="magma"] {
+  --page-accent: var(--monument-magma);
+  --page-glow: rgba(255,107,53,0.12);
+  --monument-3d: 'magma';
+  --ui-overlay-bg: rgba(15, 4, 2, 0.45);
+  --ui-text-shadow: 0 0 20px rgba(255,107,53,0.5);
+}
+
+/* ══════════════════════════════════════
+   MONUMENT EXPERIENCE — 3D LAYER
+══════════════════════════════════════ */
+/* Page content sits ABOVE the 3D canvas */
+.monument-page-content {
+  position: relative;
+  z-index: 10;
+  background: var(--ui-overlay-bg, rgba(0,0,0,0.35));
+  backdrop-filter: blur(2px);
+  min-height: 100vh;
+}
+
+/* 3D canvas is fixed full-screen behind everything */
+.monument-canvas-wrapper {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100vw; height: 100vh;
+  z-index: 0;
+  pointer-events: none;
+}
+.monument-canvas-wrapper canvas {
+  pointer-events: auto;
+}
+
+/* ══════════════════════════════════════
+   LIGHT MODE
+══════════════════════════════════════ */
+[data-theme="light"] {
+  color-scheme: light;
+  --color-obsidian: 248 249 252;
+  --color-surface: 255 255 255;
+  --color-panel: 243 244 248;
+  --color-line: 100 80 200;
+  --color-primary: 109 60 230;
+  --color-secondary: 20 160 230;
+  --color-glow: 30 180 220;
+  --color-success: 16 185 160;
+  --color-warning: 230 170 20;
+  --color-danger: 230 80 80;
+  --color-text-primary: 20 24 40;
+  --color-text-muted: 80 90 110;
+  --color-text-dim: 140 150 170;
+  --shadow-orbit: 0 24px 60px rgba(109, 60, 230, 0.08), 0 0 0 1px rgba(109, 60, 230, 0.06);
+  --shadow-panel: 0 8px 30px rgba(0, 0, 0, 0.06), 0 0 0 1px rgba(0, 0, 0, 0.04);
+  --shadow-pulse: 0 0 0 1px rgba(20, 160, 230, 0.1), 0 8px 24px rgba(20, 160, 230, 0.08);
+}
+
+/* ══════════════════════════════════════
+   ECLIPSE (warm dark variant)
+══════════════════════════════════════ */
+[data-theme="eclipse"] {
+  --color-obsidian: 5 6 14;
+  --color-surface: 13 12 28;
+  --color-panel: 21 17 40;
+  --color-line: 204 120 92;
+  --color-primary: 238 129 77;
+  --color-secondary: 255 208 102;
+  --color-glow: 255 171 106;
+  --shadow-orbit: 0 24px 90px rgba(238, 129, 77, 0.16), 0 0 0 1px rgba(255, 208, 102, 0.12);
+  --shadow-pulse: 0 0 0 1px rgba(255, 208, 102, 0.18), 0 16px 45px rgba(238, 129, 77, 0.16);
+}
+
+/* ══════════════════════════════════════
+   GLOBAL BASE STYLES
+══════════════════════════════════════ */
+html { background: rgb(var(--color-obsidian)); }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: "Outfit", sans-serif;
+  background: rgb(var(--color-obsidian));
+  color: rgb(var(--color-text-primary));
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+button, input, textarea, select { font: inherit; }
+#root { min-height: 100vh; }
+a { color: inherit; text-decoration: none; }
+
+::selection {
+  background: rgba(var(--color-primary), 0.25);
+  color: rgb(var(--color-text-primary));
+}
+
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: rgba(var(--color-text-dim), 0.05); }
+::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(var(--color-primary), 0.5), rgba(var(--color-secondary), 0.5));
+}
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, rgba(var(--color-primary), 0.7), rgba(var(--color-secondary), 0.7));
+}
+
+/* Light mode scrollbar */
+[data-theme="light"] ::-webkit-scrollbar-track { background: rgba(0,0,0,0.03); }
+[data-theme="light"] ::-webkit-scrollbar-thumb { background: rgba(109,60,230,0.2); }
+
+/* ══════════════════════════════════════
+   MONUMENT TYPOGRAPHY
+══════════════════════════════════════ */
+h1, h2, h3, h4 { font-family: 'Space Grotesk', sans-serif; }
+
+.math-text { font-family: 'JetBrains Mono', monospace; font-feature-settings: "frac" 1; }
+
+/* ══════════════════════════════════════
+   MOBILE RESPONSIVENESS
+══════════════════════════════════════ */
+
+/* Touch-friendly targets on devices without hover */
+@media (hover: none) and (pointer: coarse) {
+  button, a, [role="button"], input, select, textarea {
+    min-height: 44px;
+  }
+  /* Larger tap targets for small interactive elements */
+  .font-mono.text-\[10px\], .font-mono.text-\[9px\], .font-mono.text-\[11px\] {
+    min-height: 36px;
+    display: inline-flex;
+    align-items: center;
+  }
+}
+
+/* Responsive heading sizes */
+@media (max-width: 640px) {
+  h1 { font-size: clamp(1.5rem, 6vw, 2.5rem) !important; }
+  h2 { font-size: clamp(1.25rem, 5vw, 2rem) !important; }
+  h3 { font-size: clamp(1rem, 4vw, 1.5rem) !important; }
+  /* Tighter padding on mobile */
+  .px-5 { padding-left: 1rem; padding-right: 1rem; }
+}
+
+/* Prevent horizontal overflow on mobile */
+@media (max-width: 480px) {
+  body { overflow-x: hidden; }
+  .overflow-x-auto { -webkit-overflow-scrolling: touch; }
+  /* Stack table cells better */
+  table { font-size: 0.75rem; }
+  td, th { padding: 0.35rem 0.5rem; }
+}
+
+/* ══════════════════════════════════════
+   EVENT STATUS COLORS
+   Used by EventStatusBadge + event cards
+══════════════════════════════════════ */
+:root {
+  --event-registering: 45 212 191;   /* teal — matches success */
+  --event-active:      110 231 255;  /* cyan — matches glow */
+  --event-completed:   154 169 201;  /* grey — matches text-muted */
+  --event-closed:      251 191 36;   /* amber — matches warning */
+  --event-cancelled:   248 113 113;  /* red — matches danger */
+  --event-waitlisted:  182 149 248;  /* lavender — matches sky */
+  --event-upcoming:    131 82 255;   /* purple — matches primary */
+}
+
+/* Event type accent colors */
+.event-type-hackathon   { --event-accent: var(--monument-magma); }
+.event-type-workshop    { --event-accent: var(--monument-jungle); }
+.event-type-competition { --event-accent: var(--monument-glacier); }
+.event-type-seminar     { --event-accent: var(--monument-pyramid); }
+.event-type-general     { --event-accent: var(--monument-desert); }
+
+/* ══════════════════════════════════════
+   EVENT CAPACITY BAR
+══════════════════════════════════════ */
+.event-capacity-bar {
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(var(--color-text-dim), 0.15);
+  overflow: hidden;
+  position: relative;
+}
+.event-capacity-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  background: linear-gradient(90deg, rgb(var(--color-success)), rgb(var(--color-primary)));
+  transition: width 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.event-capacity-bar-fill[data-warn="true"] {
+  background: linear-gradient(90deg, rgb(var(--color-warning)), rgb(var(--color-danger)));
+}
+.event-capacity-bar-fill[data-full="true"] {
+  background: rgb(var(--color-danger));
+}
+
+/* ══════════════════════════════════════
+   ACHIEVEMENT RARITY GLOW
+══════════════════════════════════════ */
+.achievement-common     { --ach-color: 154 169 201; }
+.achievement-uncommon   { --ach-color: 45 212 191; }
+.achievement-rare       { --ach-color: 35 193 255; }
+.achievement-epic       { --ach-color: 131 82 255; }
+.achievement-legendary  { --ach-color: 251 191 36; }
+
+.achievement-badge {
+  border: 1.5px solid rgba(var(--ach-color, 154 169 201), 0.3);
+  background: rgba(var(--ach-color, 154 169 201), 0.08);
+  transition: all 0.3s ease;
+}
+.achievement-badge:hover {
+  border-color: rgba(var(--ach-color, 154 169 201), 0.5);
+  box-shadow: 0 0 20px rgba(var(--ach-color, 154 169 201), 0.15);
+}
+
+/* ══════════════════════════════════════
+   EVENT TIMELINE CONNECTOR
+══════════════════════════════════════ */
+.event-timeline-line {
+  width: 2px;
+  background: linear-gradient(180deg, rgba(var(--color-primary), 0.4), rgba(var(--color-primary), 0.05));
+}
+.event-timeline-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid rgb(var(--color-primary));
+  background: rgb(var(--color-surface));
+}
+.event-timeline-dot[data-active="true"] {
+  background: rgb(var(--color-primary));
+  box-shadow: 0 0 8px rgba(var(--color-primary), 0.5);
+}

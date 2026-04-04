@@ -1,0 +1,5 @@
+{
+  "glsllint.enabled": false,
+  "glsl-linter.enabled": false,
+  "vscode-glsllint.enabled": false
+}

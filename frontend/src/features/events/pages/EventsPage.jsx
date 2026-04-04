@@ -1,0 +1,553 @@
+/**
+ * EventsPage — Complete event browsing + registration + check-in flow.
+ *
+ * User Flows:
+ *   1. Browse: Timeline of events with filters (All/Live/Upcoming/Completed)
+ *   2. Register: Click "Register" → confirm modal → success/waitlisted/error
+ *   3. Cancel: Click "Cancel Registration" → confirm → removed
+ *   4. Check-in: Click "Check In" → enter code (if required) → XP awarded
+ *   5. View Details: Expanded card with description, capacity, leaderboard link
+ *
+ * States: loading, empty, error, registered, waitlisted, attended, full
+ */
+
+import { motion, AnimatePresence } from "framer-motion";
+import { useEffect, useState, useCallback, useRef } from "react";
+import { useNavigate } from "react-router-dom";
+import MonumentBackground from "@/components/backgrounds/MonumentBackground";
+import { useMonument } from "@/hooks/useMonument";
+import Button from "@/components/ui/Button";
+import Card from "@/components/ui/Card";
+import Loader from "@/components/ui/Loader";
+import EventStatusBadge from "@/components/ui/EventStatusBadge";
+import EventTypeBadge from "@/components/ui/EventTypeBadge";
+import CapacityBar from "@/components/ui/CapacityBar";
+import EventQrCode from "@/components/ui/EventQrCode";
+import EventHero from "@/features/events/components/EventHero";
+import EventExplorer from "@/features/events/components/EventExplorer";
+import { events as eventsApi, insights } from "@/lib/api";
+import { useAuthStore } from "@/store/auth-store";
+
+// ── Helpers ──────────────────────────────────────────────
+
+function formatDate(d) {
+  if (!d) return "";
+  return new Date(d).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+}
+function formatTime(d) {
+  if (!d) return "";
+  return new Date(d).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+function timeUntil(d) {
+  if (!d) return "";
+  const diff = new Date(d) - new Date();
+  if (diff < 0) return "Started";
+  const days = Math.floor(diff / 86400000);
+  const hours = Math.floor((diff % 86400000) / 3600000);
+  if (days > 0) return `${days}d ${hours}h`;
+  const mins = Math.floor((diff % 3600000) / 60000);
+  return hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
+}
+
+// ── Main Component ───────────────────────────────────────
+
+export default function EventsPage() {
+  useMonument("jungle");
+  const navigate = useNavigate();
+  const user = useAuthStore((s) => s.user);
+
+  const [eventsList, setEventsList] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [filter, setFilter] = useState("all");       // status filter
+  const [typeFilter, setTypeFilter] = useState("all"); // category/type filter
+
+  // Modal/action states
+  const [selectedEvent, setSelectedEvent] = useState(null);
+  const [actionLoading, setActionLoading] = useState(null); // event id being acted on
+  const [actionResult, setActionResult] = useState(null); // { eventId, type, message }
+  const [checkinCode, setCheckinCode] = useState("");
+  const [showCheckin, setShowCheckin] = useState(null); // event id showing checkin input
+  const [recs, setRecs] = useState([]);
+  const [recPrefs, setRecPrefs] = useState(null);
+
+  // Fetch events
+  const fetchEvents = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const { data } = await eventsApi.list();
+      setEventsList(Array.isArray(data) ? data : []);
+    } catch {
+      setError("Failed to load events");
+      setEventsList([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchEvents(); }, [fetchEvents]);
+
+  // Fetch personalized recommendations (only if logged in)
+  useEffect(() => {
+    if (!user) return;
+    insights.recommendations()
+      .then(r => { setRecs(r.data?.recommendations || []); setRecPrefs(r.data?.preferences || null); })
+      .catch(() => {});
+  }, [user]);
+
+  // Clear action result after 4 seconds
+  useEffect(() => {
+    if (!actionResult) return;
+    const t = setTimeout(() => setActionResult(null), 4000);
+    return () => clearTimeout(t);
+  }, [actionResult]);
+
+  // Filter: apply both type and status filters
+  const filtered = eventsList.filter((e) => {
+    if (typeFilter !== "all" && (e.event_type || "general") !== typeFilter) return false;
+    if (filter !== "all") {
+      const s = e.status || "upcoming";
+      // "completed" filter should also match "past" status
+      if (filter === "completed") { if (s !== "completed" && s !== "past") return false; }
+      else if (s !== filter) return false;
+    }
+    return true;
+  });
+
+  // Event type counts (for explorer cards)
+  const typeCounts = {};
+  eventsList.forEach(e => {
+    const t = e.event_type || "general";
+    typeCounts[t] = (typeCounts[t] || 0) + 1;
+  });
+
+  // ── Actions ────────────────────────────────────────────
+
+  const handleRegister = async (event) => {
+    if (!user) { navigate("/login"); return; }
+    setActionLoading(event.id);
+    try {
+      const { data } = await eventsApi.register(event.id);
+      setActionResult({
+        eventId: event.id,
+        type: data.waitlisted ? "warning" : "success",
+        message: data.waitlisted
+          ? "You're on the waitlist — we'll notify you if a spot opens"
+          : "Registered successfully!",
+      });
+      fetchEvents(); // refresh counts
+    } catch (err) {
+      const msg = err.response?.data?.error || "Registration failed";
+      setActionResult({ eventId: event.id, type: "error", message: msg });
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleCancel = async (event) => {
+    if (!confirm("Cancel your registration?")) return;
+    setActionLoading(event.id);
+    try {
+      await eventsApi.cancelReg(event.id);
+      setActionResult({ eventId: event.id, type: "success", message: "Registration cancelled" });
+      fetchEvents();
+    } catch (err) {
+      setActionResult({ eventId: event.id, type: "error", message: err.response?.data?.error || "Cancel failed" });
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleCheckin = async (event) => {
+    if (!user) { navigate("/login"); return; }
+    setActionLoading(event.id);
+    try {
+      const { data } = await eventsApi.checkin(event.id, { code: checkinCode || undefined });
+      setActionResult({
+        eventId: event.id,
+        type: "success",
+        message: data.xp_awarded > 0
+          ? `Checked in! +${data.xp_awarded} XP earned`
+          : "Checked in successfully!",
+      });
+      setShowCheckin(null);
+      setCheckinCode("");
+      fetchEvents();
+    } catch (err) {
+      setActionResult({ eventId: event.id, type: "error", message: err.response?.data?.error || "Check-in failed" });
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  // Scroll to timeline
+  const timelineRef = useRef(null);
+  const scrollToTimeline = () => {
+    timelineRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
+  // Compute hero stats
+  const heroStats = {
+    total: eventsList.length,
+    upcoming: eventsList.filter(e => e.status === "upcoming" || e.status === "registering").length,
+    live: eventsList.filter(e => e.status === "active").length,
+  };
+
+  // ── Render ─────────────────────────────────────────────
+
+  if (loading) {
+    return (
+      <div style={{ position: "relative" }}>
+        <MonumentBackground monument="jungle" intensity={0.15} />
+        <div className="relative z-10 flex min-h-[60vh] items-center justify-center">
+          <Loader variant="orbit" size="lg" label="Loading events..." />
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div style={{ position: "relative" }}>
+        <MonumentBackground monument="jungle" intensity={0.15} />
+        <div className="relative z-10 flex min-h-[60vh] flex-col items-center justify-center gap-4">
+          <p className="text-4xl">⚠️</p>
+          <p className="text-sm text-danger">{error}</p>
+          <Button variant="secondary" size="sm" onClick={fetchEvents}>Retry</Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ position: "relative" }}>
+      <MonumentBackground monument="jungle" intensity={0.15} />
+      <div className="relative z-10 pb-16">
+        {/* Cinematic Entry Hero */}
+        <EventHero stats={heroStats} onExplore={scrollToTimeline} />
+
+        {/* Timeline section (scroll target) */}
+        <div ref={timelineRef} className="space-y-10 pt-10">
+
+        {/* Category Explorer — interactive environment cards */}
+        <EventExplorer
+          activeFilter={typeFilter}
+          onFilterChange={setTypeFilter}
+          eventCounts={typeCounts}
+          onExplore={scrollToTimeline}
+        />
+
+        {/* Status filter row (compact, below explorer) */}
+        <div className="flex flex-wrap items-center justify-center gap-2">
+          <span className="font-mono text-[9px] uppercase tracking-[0.2em] text-text-dim mr-1">Status:</span>
+          {[
+            { key: "all", label: "All" },
+            { key: "active", label: "Live" },
+            { key: "registering", label: "Open" },
+            { key: "upcoming", label: "Upcoming" },
+            { key: "completed", label: "Past" },
+          ].map((f) => (
+            <button
+              key={f.key}
+              onClick={() => setFilter(f.key === filter ? "all" : f.key)}
+              className={`rounded-full border px-2.5 py-1 font-mono text-[9px] uppercase tracking-wider transition ${
+                filter === f.key
+                  ? "border-primary/30 bg-primary/10 text-primary"
+                  : "border-line/10 bg-white/[0.02] text-text-dim hover:text-text-muted hover:border-line/20"
+              }`}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Recommended for You */}
+        {recs.length > 0 && filter === "all" && (
+          <motion.section initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mx-auto max-w-4xl">
+            <div className="flex items-center gap-3 mb-4">
+              <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-secondary">Recommended for You</p>
+              {recPrefs?.top_type && (
+                <span className="rounded-full border border-line/15 bg-white/5 px-2 py-0.5 font-mono text-[8px] uppercase text-text-dim">
+                  Based on your {recPrefs.top_type} interest
+                </span>
+              )}
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {recs.slice(0, 3).map(ev => (
+                <Card key={ev.id} variant="glass" interactive className="cursor-pointer" onClick={() => {
+                  const el = document.getElementById(`event-${ev.id}`);
+                  el?.scrollIntoView({ behavior: "smooth", block: "center" });
+                }}>
+                  <EventTypeBadge type={ev.event_type} />
+                  <h4 className="mt-2 font-display text-sm font-bold text-white truncate">{ev.title}</h4>
+                  <p className="mt-1 font-mono text-[10px] text-text-dim">
+                    {ev.starts_at || ev.date ? new Date(ev.starts_at || ev.date).toLocaleDateString() : ""}
+                  </p>
+                  <div className="mt-2 flex items-center justify-between">
+                    {ev.xp_reward > 0 && <span className="math-text text-[10px] text-primary">+{ev.xp_reward} XP</span>}
+                    <span className="font-mono text-[9px] text-text-dim">{ev.registration_count || 0} registered</span>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          </motion.section>
+        )}
+
+        {/* Empty state */}
+        {filtered.length === 0 && (
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="py-20 text-center">
+            <p className="text-4xl">📅</p>
+            <p className="mt-4 text-lg text-text-muted">No events found</p>
+            <p className="mt-2 text-sm text-text-dim">
+              {filter !== "all" ? "Try a different filter." : "Check back later for new events!"}
+            </p>
+          </motion.div>
+        )}
+
+        {/* Event Timeline */}
+        <div className="relative mx-auto max-w-4xl">
+          {/* Timeline vertical line */}
+          <div className="absolute left-6 top-0 hidden h-full md:block event-timeline-line" />
+
+          <div className="space-y-6">
+            <AnimatePresence mode="popLayout">
+              {filtered.map((event, i) => {
+                const status = event.status || "upcoming";
+                const isRegistered = event.user_registration && event.user_registration.status !== "cancelled";
+                const isAttended = event.user_registration?.status === "attended";
+                const isWaitlisted = event.user_registration?.status === "waitlisted";
+                const isActing = actionLoading === event.id;
+                const result = actionResult?.eventId === event.id ? actionResult : null;
+
+                return (
+                  <motion.div
+                    key={event.id}
+                    layout
+                    initial={{ opacity: 0, x: -30 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: 30 }}
+                    transition={{ delay: 0.1 + i * 0.06 }}
+                    id={`event-${event.id}`}
+                    className="relative md:pl-16"
+                  >
+                    {/* Timeline dot */}
+                    <div className="absolute left-4 top-8 hidden md:block">
+                      <span className={`event-timeline-dot`}
+                        data-active={status === "active" || status === "registering"} />
+                    </div>
+
+                    <Card variant={status === "active" ? "glow" : "glass"}>
+                      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                        {/* Left: Event info */}
+                        <div className="flex-1 min-w-0">
+                          {/* Badges row */}
+                          <div className="flex flex-wrap items-center gap-2">
+                            <EventStatusBadge status={status} />
+                            <EventTypeBadge type={event.event_type} />
+                            {event.xp_reward > 0 && (
+                              <span className="math-text rounded-full border border-primary/20 bg-primary/8 px-2 py-0.5 text-[10px] font-bold text-primary">
+                                +{event.xp_reward} XP
+                              </span>
+                            )}
+                            {isRegistered && !isAttended && (
+                              <span className={`rounded-full border px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider ${
+                                isWaitlisted
+                                  ? "border-warning/25 bg-warning/8 text-warning"
+                                  : "border-success/25 bg-success/8 text-success"
+                              }`}>
+                                {isWaitlisted ? "Waitlisted" : "Registered ✓"}
+                              </span>
+                            )}
+                            {isAttended && (
+                              <span className="rounded-full border border-success/25 bg-success/8 px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider text-success">
+                                Attended ✓
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Title */}
+                          <h3 className="mt-3 font-display text-2xl font-bold tracking-[-0.03em] text-white">
+                            {event.title}
+                          </h3>
+
+                          {/* Meta row */}
+                          <div className="mt-2 flex flex-wrap gap-4 font-mono text-[11px] text-text-dim">
+                            {(event.starts_at || event.date) && (
+                              <span>📅 {formatDate(event.starts_at || event.date)}</span>
+                            )}
+                            {(event.starts_at || event.date) && (
+                              <span>🕐 {formatTime(event.starts_at || event.date)}</span>
+                            )}
+                            {event.location && <span>📍 {event.location}</span>}
+                            {event.organiser && <span>by {event.organiser}</span>}
+                            {event.venue_type && event.venue_type !== "in-person" && (
+                              <span className="text-secondary">{event.venue_type === "online" ? "🌐 Online" : "🔄 Hybrid"}</span>
+                            )}
+                          </div>
+
+                          {/* Countdown for upcoming */}
+                          {(status === "upcoming" || status === "registering") && (event.starts_at || event.date) && (
+                            <p className="mt-1 math-text text-[11px] text-secondary">
+                              Starts in {timeUntil(event.starts_at || event.date)}
+                            </p>
+                          )}
+
+                          {/* Tags */}
+                          {event.tags?.length > 0 && (
+                            <div className="mt-2 flex flex-wrap gap-1.5">
+                              {event.tags.map((tag) => (
+                                <span key={tag} className="rounded-full bg-primary/8 px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider text-primary/70">
+                                  {tag}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+
+                          {/* Description (truncated) */}
+                          {event.description && (
+                            <p className="mt-3 text-sm leading-7 text-text-muted line-clamp-3">
+                              {event.description}
+                            </p>
+                          )}
+
+                          {/* Capacity bar */}
+                          {(event.capacity || event.registration_count > 0) && (
+                            <div className="mt-3 max-w-xs">
+                              <CapacityBar current={event.registration_count || 0} max={event.capacity} />
+                            </div>
+                          )}
+
+                          {/* QR Code (shown when registered, not yet attended) */}
+                          {isRegistered && !isAttended && event.user_registration?.qr_token && (
+                            <div className="mt-4">
+                              <EventQrCode
+                                eventId={event.id}
+                                qrToken={event.user_registration.qr_token}
+                                eventTitle={event.title}
+                              />
+                            </div>
+                          )}
+
+                          {/* Action result toast */}
+                          <AnimatePresence>
+                            {result && (
+                              <motion.div
+                                initial={{ opacity: 0, y: -8, height: 0 }}
+                                animate={{ opacity: 1, y: 0, height: "auto" }}
+                                exit={{ opacity: 0, y: -8, height: 0 }}
+                                className={`mt-3 rounded-lg border px-3 py-2 text-xs ${
+                                  result.type === "success" ? "border-success/25 bg-success/8 text-success" :
+                                  result.type === "warning" ? "border-warning/25 bg-warning/8 text-warning" :
+                                  "border-danger/25 bg-danger/8 text-danger"
+                                }`}
+                              >
+                                {result.message}
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+
+                          {/* Check-in code input */}
+                          <AnimatePresence>
+                            {showCheckin === event.id && (
+                              <motion.div
+                                initial={{ opacity: 0, height: 0 }}
+                                animate={{ opacity: 1, height: "auto" }}
+                                exit={{ opacity: 0, height: 0 }}
+                                className="mt-3 flex items-center gap-2"
+                              >
+                                <input
+                                  type="text"
+                                  placeholder="Enter check-in code"
+                                  value={checkinCode}
+                                  onChange={(e) => setCheckinCode(e.target.value)}
+                                  onKeyDown={(e) => e.key === "Enter" && handleCheckin(event)}
+                                  className="w-40 rounded-lg border border-line/15 bg-black/15 px-3 py-2 font-mono text-sm text-white outline-none focus:border-primary/30"
+                                  autoFocus
+                                />
+                                <Button size="sm" onClick={() => handleCheckin(event)} loading={isActing}>
+                                  Confirm
+                                </Button>
+                                <Button variant="ghost" size="sm" onClick={() => { setShowCheckin(null); setCheckinCode(""); }}>
+                                  Cancel
+                                </Button>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+                        </div>
+
+                        {/* Right: Action buttons */}
+                        <div className="flex flex-col items-end gap-2 flex-shrink-0">
+                          {/* Register button */}
+                          {(status === "upcoming" || status === "registering") && !isRegistered && !event.is_full && (
+                            <Button size="sm" onClick={() => handleRegister(event)} loading={isActing}>
+                              Register Now
+                            </Button>
+                          )}
+
+                          {/* Full — join waitlist */}
+                          {(status === "upcoming" || status === "registering") && !isRegistered && event.is_full && (
+                            <Button size="sm" variant="secondary" onClick={() => handleRegister(event)} loading={isActing}>
+                              Join Waitlist
+                            </Button>
+                          )}
+
+                          {/* Cancel registration */}
+                          {isRegistered && !isAttended && status !== "completed" && status !== "past" && (
+                            <Button variant="ghost" size="sm" onClick={() => handleCancel(event)} loading={isActing}>
+                              Cancel Registration
+                            </Button>
+                          )}
+
+                          {/* Check-in (for active/registering events when registered) */}
+                          {isRegistered && !isAttended && (status === "active" || status === "registering") && (
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              onClick={() => {
+                                if (event.requires_checkin) {
+                                  setShowCheckin(event.id);
+                                } else {
+                                  handleCheckin(event);
+                                }
+                              }}
+                              loading={isActing && showCheckin !== event.id}
+                            >
+                              Check In
+                            </Button>
+                          )}
+
+                          {/* External registration link (fallback) */}
+                          {event.registration_form_url && !isRegistered && (
+                            <a href={event.registration_form_url} target="_blank" rel="noopener noreferrer">
+                              <Button variant="ghost" size="sm">External Form ↗</Button>
+                            </a>
+                          )}
+
+                          {/* Online venue link */}
+                          {event.venue_link && (status === "active" || isRegistered) && (
+                            <a href={event.venue_link} target="_blank" rel="noopener noreferrer">
+                              <Button variant="ghost" size="sm">Join Online ↗</Button>
+                            </a>
+                          )}
+
+                          {/* View leaderboard for competitions */}
+                          {(event.event_type === "competition" || event.event_type === "hackathon") && status === "completed" && (
+                            <Button variant="ghost" size="sm" onClick={() => navigate(`/events/${event.id}/leaderboard`)}>
+                              Leaderboard
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    </Card>
+                  </motion.div>
+                );
+              })}
+            </AnimatePresence>
+          </div>
+        </div>
+        </div>
+      </div>
+    </div>
+  );
+}

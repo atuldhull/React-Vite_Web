@@ -1,0 +1,442 @@
+/**
+ * ChatPanel — Slide-out messaging panel (like Instagram DMs).
+ *
+ * Accessible from any page via a floating button.
+ * Features:
+ *   - Conversation list with unread counts
+ *   - Real-time messaging via Socket.IO
+ *   - E2EE encryption/decryption
+ *   - User search to start new conversations
+ *   - Typing indicators + read receipts
+ *   - Friend request management
+ */
+
+import { useState, useEffect, useRef, useCallback } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { io } from "socket.io-client";
+import { chat } from "@/lib/api";
+import { encryptMessage, decryptMessage, getPublicKey } from "@/lib/crypto";
+import { useAuthStore } from "@/store/auth-store";
+import Button from "@/components/ui/Button";
+
+// ═══════════════════════════════════════════════════════════
+// VIEWS
+// ═══════════════════════════════════════════════════════════
+
+const VIEW = { LIST: "list", CHAT: "chat", SEARCH: "search", REQUESTS: "requests" };
+
+// ═══════════════════════════════════════════════════════════
+// MAIN PANEL
+// ═══════════════════════════════════════════════════════════
+
+export default function ChatPanel({ open, onClose }) {
+  const user = useAuthStore((s) => s.user);
+  const [view, setView] = useState(VIEW.LIST);
+  const [conversations, setConversations] = useState([]);
+  const [activeConv, setActiveConv] = useState(null);
+  const [messages, setMessages] = useState([]);
+  const [input, setInput] = useState("");
+  const [sending, setSending] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState([]);
+  const [pendingRequests, setPendingRequests] = useState([]);
+  const [typing, setTyping] = useState(null);
+  const [peerKey, setPeerKey] = useState(null);
+  const scrollRef = useRef(null);
+  const socketRef = useRef(null);
+  const typingTimeout = useRef(null);
+
+  // ── Initialize E2EE keys + Socket.IO ──
+  useEffect(() => {
+    if (!user?.id || !open) return;
+
+    // Register E2EE public key
+    getPublicKey().then((pk) => {
+      chat.registerKey(pk).catch(() => {});
+    });
+
+    // Socket.IO for real-time
+    const socket = io(window.location.origin, { withCredentials: true, transports: ["websocket", "polling"] });
+    socketRef.current = socket;
+    socket.on("connect", () => socket.emit("register_user", user.id));
+
+    socket.on("chat:receive", async (msg) => {
+      if (msg.conversationId === activeConv?.id) {
+        try {
+          const senderKey = await chat.getKey(msg.senderId);
+          const decrypted = await decryptMessage(msg.encryptedContent, msg.iv, senderKey.data.publicKey);
+          setMessages((prev) => [...prev, { ...msg, content: decrypted, decrypted: true }]);
+          chat.markAsRead(msg.conversationId).catch(() => {});
+        } catch {
+          setMessages((prev) => [...prev, { ...msg, content: "[Encrypted]", decrypted: false }]);
+        }
+      }
+      loadConversations();
+    });
+
+    socket.on("chat:typing", ({ conversationId, userId }) => {
+      if (conversationId === activeConv?.id) {
+        setTyping(userId);
+        clearTimeout(typingTimeout.current);
+        typingTimeout.current = setTimeout(() => setTyping(null), 3000);
+      }
+    });
+
+    socket.on("chat:read", ({ conversationId }) => {
+      if (conversationId === activeConv?.id) {
+        setMessages((prev) => prev.map((m) => ({ ...m, is_read: true })));
+      }
+    });
+
+    return () => { socket.disconnect(); socketRef.current = null; };
+  }, [user?.id, open, activeConv?.id]);
+
+  // ── Load conversations ──
+  const loadConversations = useCallback(async () => {
+    try {
+      const { data } = await chat.getConversations();
+      setConversations(data || []);
+    } catch { /* ignore */ }
+  }, []);
+
+  useEffect(() => { if (open) loadConversations(); }, [open, loadConversations]);
+
+  // ── Load messages for active conversation ──
+  const loadMessages = useCallback(async (conv) => {
+    try {
+      const { data: msgs } = await chat.getMessages(conv.id);
+      const otherId = conv.participant_a === user.id ? conv.participant_b : conv.participant_a;
+
+      // Get peer's public key for decryption
+      const { data: keyData } = await chat.getKey(otherId);
+      setPeerKey(keyData.publicKey);
+
+      // Decrypt messages
+      const decrypted = await Promise.all(
+        (msgs || []).reverse().map(async (m) => {
+          try {
+            const senderKeyId = m.sender_id === user.id ? otherId : m.sender_id;
+            const { data: sk } = await chat.getKey(senderKeyId);
+            const content = await decryptMessage(m.encrypted_content, m.iv, sk.publicKey);
+            return { ...m, content, decrypted: true };
+          } catch {
+            return { ...m, content: "[Cannot decrypt]", decrypted: false };
+          }
+        }),
+      );
+
+      setMessages(decrypted);
+      chat.markAsRead(conv.id).catch(() => {});
+    } catch { /* ignore */ }
+  }, [user?.id]);
+
+  // ── Open a conversation ──
+  const openConversation = useCallback(async (conv) => {
+    setActiveConv(conv);
+    setView(VIEW.CHAT);
+    await loadMessages(conv);
+    setTimeout(() => {
+      if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }, 100);
+  }, [loadMessages]);
+
+  // ── Send message ──
+  const handleSend = async () => {
+    if (!input.trim() || !activeConv || !peerKey || sending) return;
+    setSending(true);
+    const text = input.trim();
+    setInput("");
+
+    try {
+      const { encrypted, iv } = await encryptMessage(text, peerKey);
+      const otherId = activeConv.participant_a === user.id ? activeConv.participant_b : activeConv.participant_a;
+
+      // Save to DB
+      await chat.sendMessage(activeConv.id, encrypted, iv, "text");
+
+      // Push via Socket.IO for real-time
+      socketRef.current?.emit("chat:send", {
+        conversationId: activeConv.id,
+        recipientId: otherId,
+        encryptedContent: encrypted,
+        iv,
+        messageType: "text",
+      });
+
+      // Add to local messages immediately
+      setMessages((prev) => [...prev, {
+        sender_id: user.id,
+        content: text,
+        decrypted: true,
+        created_at: new Date().toISOString(),
+      }]);
+
+      setTimeout(() => {
+        if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+      }, 50);
+    } catch (err) {
+      setInput(text); // restore input on failure
+    }
+    setSending(false);
+  };
+
+  // ── Typing indicator ──
+  const handleInputChange = (e) => {
+    setInput(e.target.value);
+    if (activeConv && socketRef.current) {
+      const otherId = activeConv.participant_a === user.id ? activeConv.participant_b : activeConv.participant_a;
+      socketRef.current.emit("chat:typing", { conversationId: activeConv.id, recipientId: otherId });
+    }
+  };
+
+  // ── Search users ──
+  const handleSearch = async (q) => {
+    setSearchQuery(q);
+    if (q.length < 2) { setSearchResults([]); return; }
+    try {
+      const { data } = await chat.searchUsers(q);
+      setSearchResults(data || []);
+    } catch { setSearchResults([]); }
+  };
+
+  // ── Start conversation with searched user ──
+  const startChat = async (otherUserId) => {
+    try {
+      const { data: conv } = await chat.getOrCreateConversation(otherUserId);
+      await loadConversations();
+      openConversation(conv);
+    } catch (err) {
+      alert(err.response?.data?.error || "Cannot start conversation");
+    }
+  };
+
+  // ── Load friend requests ──
+  const loadRequests = async () => {
+    try {
+      const { data } = await chat.getPending();
+      setPendingRequests(data || []);
+    } catch { /* ignore */ }
+  };
+
+  if (!open) return null;
+
+  const totalUnread = conversations.reduce((sum, c) => sum + (c.unreadCount || 0), 0);
+
+  return (
+    <AnimatePresence>
+      <motion.div
+        initial={{ x: "100%" }}
+        animate={{ x: 0 }}
+        exit={{ x: "100%" }}
+        transition={{ type: "spring", damping: 25, stiffness: 250 }}
+        className="fixed right-0 top-0 z-[60] flex h-full w-full flex-col border-l border-line/10 bg-surface/95 backdrop-blur-2xl sm:w-[400px]"
+      >
+        {/* ── Header ── */}
+        <div className="flex items-center justify-between border-b border-line/10 px-4 py-3">
+          {view === VIEW.CHAT ? (
+            <button onClick={() => { setView(VIEW.LIST); setActiveConv(null); }} className="flex items-center gap-2 text-sm text-text-muted hover:text-white">
+              <span>←</span>
+              <span>{activeConv?.otherUser?.name || "Back"}</span>
+            </button>
+          ) : (
+            <h3 className="text-sm font-semibold text-white" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
+              Messages {totalUnread > 0 && <span className="ml-1 rounded-full bg-primary px-1.5 py-0.5 text-[10px] text-white">{totalUnread}</span>}
+            </h3>
+          )}
+          <div className="flex items-center gap-2">
+            {view === VIEW.LIST && (
+              <>
+                <button onClick={() => { setView(VIEW.SEARCH); }} className="rounded-lg p-1.5 text-text-dim hover:bg-white/5 hover:text-white" title="New chat">
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                </button>
+                <button onClick={() => { setView(VIEW.REQUESTS); loadRequests(); }} className="rounded-lg p-1.5 text-text-dim hover:bg-white/5 hover:text-white" title="Friend requests">
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" /></svg>
+                </button>
+              </>
+            )}
+            <button onClick={onClose} className="rounded-lg p-1.5 text-text-dim hover:bg-white/5 hover:text-white">
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
+          </div>
+        </div>
+
+        {/* ── Conversation List ── */}
+        {view === VIEW.LIST && (
+          <div className="flex-1 overflow-y-auto">
+            {conversations.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-20 text-center">
+                <p className="text-2xl">💬</p>
+                <p className="mt-3 text-sm text-text-muted">No conversations yet</p>
+                <Button size="sm" variant="secondary" className="mt-3" onClick={() => setView(VIEW.SEARCH)}>
+                  Find people
+                </Button>
+              </div>
+            ) : (
+              conversations.map((conv) => (
+                <button
+                  key={conv.id}
+                  onClick={() => openConversation(conv)}
+                  className="flex w-full items-center gap-3 border-b border-line/5 px-4 py-3 text-left transition hover:bg-white/[0.03]"
+                >
+                  <div
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-lg"
+                    style={{ background: conv.otherUser?.avatar_color || "linear-gradient(135deg,#7c3aed,#3b82f6)" }}
+                  >
+                    {conv.otherUser?.avatar_emoji || conv.otherUser?.name?.charAt(0) || "?"}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-white">{conv.otherUser?.name || "User"}</p>
+                    <p className="truncate text-xs text-text-dim">{conv.otherUser?.title || "Student"}</p>
+                  </div>
+                  {conv.unreadCount > 0 && (
+                    <span className="flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-white">
+                      {conv.unreadCount}
+                    </span>
+                  )}
+                </button>
+              ))
+            )}
+          </div>
+        )}
+
+        {/* ── Chat View ── */}
+        {view === VIEW.CHAT && (
+          <>
+            <div ref={scrollRef} className="flex-1 space-y-2 overflow-y-auto px-4 py-3">
+              {messages.map((msg, i) => {
+                const isMine = msg.sender_id === user?.id;
+                return (
+                  <div key={msg.id || i} className={`flex ${isMine ? "justify-end" : "justify-start"}`}>
+                    <div
+                      className={`max-w-[80%] px-3 py-2 text-[13px] leading-relaxed ${
+                        isMine
+                          ? "rounded-2xl rounded-br-sm bg-primary/20 text-white"
+                          : "rounded-2xl rounded-bl-sm bg-white/[0.05] text-text-muted"
+                      }`}
+                    >
+                      {msg.content}
+                      <span className="mt-0.5 block text-right text-[9px] text-text-dim">
+                        {msg.created_at ? new Date(msg.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : ""}
+                        {isMine && msg.is_read && " ✓✓"}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+              {typing && <p className="text-xs text-text-dim italic">typing...</p>}
+            </div>
+
+            {/* Input */}
+            <div className="border-t border-line/10 px-3 py-2">
+              <div className="flex items-center gap-2">
+                <input
+                  value={input}
+                  onChange={handleInputChange}
+                  onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
+                  placeholder="Type a message..."
+                  className="flex-1 rounded-xl border border-line/15 bg-black/15 px-3 py-2 text-sm text-white outline-none focus:border-primary/30"
+                />
+                <Button size="sm" onClick={handleSend} loading={sending} disabled={!input.trim()}>
+                  Send
+                </Button>
+              </div>
+              <p className="mt-1 text-center text-[8px] text-text-dim">🔒 End-to-end encrypted</p>
+            </div>
+          </>
+        )}
+
+        {/* ── Search View — Find people + Add Friend / Message ── */}
+        {view === VIEW.SEARCH && (
+          <div className="flex-1 overflow-y-auto px-4 py-3">
+            <input
+              value={searchQuery}
+              onChange={(e) => handleSearch(e.target.value)}
+              placeholder="Search by name or email..."
+              autoFocus
+              className="w-full rounded-xl border border-line/15 bg-black/15 px-3 py-2 text-sm text-white outline-none focus:border-primary/30"
+            />
+            <div className="mt-3 space-y-2">
+              {searchResults.map((u) => (
+                <div
+                  key={u.user_id}
+                  className="flex items-center gap-3 rounded-xl border border-line/10 bg-black/10 px-3 py-2.5"
+                >
+                  <div
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-base"
+                    style={{ background: u.avatar_color || "linear-gradient(135deg,#7c3aed,#3b82f6)" }}
+                  >
+                    {u.avatar_emoji || u.name?.charAt(0) || "?"}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-white">{u.name}</p>
+                    <p className="text-[10px] text-text-dim">{u.title || "Student"} · {u.xp || 0} XP</p>
+                  </div>
+                  <div className="flex shrink-0 gap-1.5">
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={async () => {
+                        try {
+                          await chat.sendRequest(u.user_id);
+                          alert("Friend request sent!");
+                        } catch (err) {
+                          const msg = err.response?.data?.error || "Failed";
+                          if (msg.includes("already exists")) alert("Request already sent!");
+                          else alert(msg);
+                        }
+                      }}
+                    >
+                      Add
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={() => startChat(u.user_id)}
+                    >
+                      Chat
+                    </Button>
+                  </div>
+                </div>
+              ))}
+              {searchQuery.length >= 2 && searchResults.length === 0 && (
+                <p className="py-8 text-center text-sm text-text-dim">No users found</p>
+              )}
+            </div>
+            <Button variant="ghost" size="sm" className="mt-3" onClick={() => { setView(VIEW.LIST); setSearchQuery(""); setSearchResults([]); }}>
+              Back
+            </Button>
+          </div>
+        )}
+
+        {/* ── Friend Requests View ── */}
+        {view === VIEW.REQUESTS && (
+          <div className="flex-1 overflow-y-auto px-4 py-3">
+            <h4 className="font-mono text-[10px] uppercase tracking-wider text-text-dim">Pending Requests</h4>
+            {pendingRequests.length === 0 ? (
+              <p className="py-8 text-center text-sm text-text-dim">No pending requests</p>
+            ) : (
+              <div className="mt-3 space-y-2">
+                {pendingRequests.map((req) => (
+                  <div key={req.id} className="flex items-center gap-3 rounded-lg border border-line/10 bg-black/10 px-3 py-2">
+                    <div className="flex-1">
+                      <p className="text-sm text-white">{req.requester?.name || "User"}</p>
+                      <p className="text-[10px] text-text-dim">{req.requester?.email}</p>
+                    </div>
+                    <Button size="sm" onClick={async () => {
+                      await chat.respondRequest(req.id, true);
+                      loadRequests();
+                    }}>Accept</Button>
+                    <Button variant="ghost" size="sm" onClick={async () => {
+                      await chat.respondRequest(req.id, false);
+                      loadRequests();
+                    }}>Decline</Button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <Button variant="ghost" size="sm" className="mt-3" onClick={() => setView(VIEW.LIST)}>Back</Button>
+          </div>
+        )}
+      </motion.div>
+    </AnimatePresence>
+  );
+}

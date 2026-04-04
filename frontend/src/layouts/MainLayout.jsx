@@ -1,0 +1,318 @@
+import { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
+import { mainNavigation } from "@/app/navigation";
+import BrandMark from "@/components/navigation/BrandMark";
+import { cn } from "@/lib/cn";
+import { useAuthStore } from "@/store/auth-store";
+import { useUiStore } from "@/store/ui-store";
+
+function navClass(isActive) {
+  return cn(
+    "relative rounded-full px-4 py-2 font-mono text-[11px] uppercase tracking-[0.2em] transition duration-300",
+    isActive ? "text-white" : "text-text-muted hover:text-white",
+  );
+}
+
+export default function MainLayout() {
+  const location = useLocation();
+  const theme = useUiStore((state) => state.theme);
+  const toggleTheme = useUiStore((state) => state.toggleTheme);
+  const user = useAuthStore((s) => s.user);
+  const status = useAuthStore((s) => s.status);
+  const logout = useAuthStore((s) => s.logout);
+  const isAuth = status === "authenticated" && user;
+  const role = user?.role;
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  const navItems = mainNavigation;
+
+  const roleLinks = [];
+  if (isAuth) {
+    roleLinks.push({ to: "/dashboard", label: "Dashboard" });
+    roleLinks.push({ to: "/profile", label: "Profile" });
+    if (role === "teacher" || role === "admin" || role === "super_admin") {
+      roleLinks.push({ to: "/teacher", label: "Teacher Panel" });
+    }
+    if (role === "admin" || role === "super_admin") {
+      roleLinks.push({ to: "/admin", label: "Admin" });
+    }
+    if (role === "super_admin") {
+      roleLinks.push({ to: "/super-admin", label: "Super Admin" });
+    }
+  }
+
+  // Close mobile menu on navigation
+  const closeMobile = () => setMobileOpen(false);
+
+  return (
+    <div className="relative min-h-screen overflow-hidden bg-obsidian text-text-primary">
+      <div className="relative mx-auto flex min-h-screen w-full max-w-7xl flex-col px-4 pb-10 pt-4 sm:px-8 lg:px-10">
+        <motion.header
+          initial={{ y: -20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ duration: 0.5 }}
+          className="sticky top-3 z-40 mb-6"
+        >
+          <nav className="rounded-2xl border border-line/15 bg-surface/60 px-4 py-3 shadow-panel backdrop-blur-2xl sm:px-5">
+            <div className="flex items-center justify-between gap-3">
+              {/* Left: Brand + Desktop Nav */}
+              <div className="flex items-center gap-4 sm:gap-6">
+                <BrandMark />
+                <div className="hidden items-center gap-1 lg:flex">
+                  {navItems.map((item) => (
+                    <NavLink
+                      key={item.to}
+                      to={item.to}
+                      end={item.to === "/"}
+                      className={({ isActive }) => navClass(isActive)}
+                    >
+                      {({ isActive }) => (
+                        <>
+                          {isActive && (
+                            <motion.span
+                              layoutId="nav-pill"
+                              className="absolute inset-0 rounded-full border border-primary/30 bg-primary/12"
+                              transition={{ type: "spring", bounce: 0.2, duration: 0.5 }}
+                            />
+                          )}
+                          <span className="relative z-[1]">{item.label}</span>
+                        </>
+                      )}
+                    </NavLink>
+                  ))}
+                  {isAuth && (
+                    <>
+                      <NavLink to="/dashboard" className={({ isActive }) => navClass(isActive)}>
+                        {({ isActive }) => (
+                          <>
+                            {isActive && <motion.span layoutId="nav-pill" className="absolute inset-0 rounded-full border border-primary/30 bg-primary/12" transition={{ type: "spring", bounce: 0.2, duration: 0.5 }} />}
+                            <span className="relative z-[1]">Dashboard</span>
+                          </>
+                        )}
+                      </NavLink>
+                      <NavLink to="/projects" className={({ isActive }) => navClass(isActive)}>
+                        {({ isActive }) => (
+                          <>
+                            {isActive && <motion.span layoutId="nav-pill" className="absolute inset-0 rounded-full border border-primary/30 bg-primary/12" transition={{ type: "spring", bounce: 0.2, duration: 0.5 }} />}
+                            <span className="relative z-[1]">Projects</span>
+                          </>
+                        )}
+                      </NavLink>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* Right: Actions + Hamburger */}
+              <div className="flex items-center gap-2">
+                {/* Theme toggle — hidden on very small screens */}
+                <button
+                  onClick={toggleTheme}
+                  className="hidden items-center gap-1.5 rounded-full border border-line/15 bg-white/[0.03] px-2.5 py-1.5 font-mono text-[9px] uppercase tracking-wider text-text-muted transition hover:border-primary/25 hover:text-white sm:flex"
+                  aria-label="Toggle theme"
+                >
+                  {theme === "light" ? (
+                    <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><circle cx="12" cy="12" r="5" /><path d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72l1.42 1.42M1 12h2m18 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" /></svg>
+                  ) : theme === "eclipse" ? (
+                    <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z" /></svg>
+                  ) : (
+                    <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" /></svg>
+                  )}
+                  <span className="hidden md:inline">{theme}</span>
+                </button>
+
+                {isAuth ? (
+                  <>
+                    {/* Notification bell */}
+                    <Link to="/notifications" className="relative rounded-full border border-line/15 bg-white/[0.03] p-2 text-text-muted transition hover:text-white">
+                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                      </svg>
+                    </Link>
+
+                    {/* User dropdown — desktop only */}
+                    <div className="group relative hidden sm:block">
+                      <button className="flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.15em] text-white">
+                        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/30 text-[10px] font-bold">
+                          {(user.name || user.email || "U")[0].toUpperCase()}
+                        </span>
+                        <span className="hidden sm:inline">{user.name?.split(" ")[0] || "User"}</span>
+                      </button>
+                      <div className="invisible absolute right-0 top-full mt-2 w-48 rounded-xl border border-line/15 bg-surface/95 p-2 shadow-panel backdrop-blur-2xl transition-all group-hover:visible">
+                        <p className="px-3 py-1.5 font-mono text-[10px] uppercase tracking-wider text-text-dim">{role}</p>
+                        <Link to="/profile" className="block rounded-lg px-3 py-2 text-sm text-text-muted transition hover:bg-white/5 hover:text-white">Profile</Link>
+                        <Link to="/certificates" className="block rounded-lg px-3 py-2 text-sm text-text-muted transition hover:bg-white/5 hover:text-white">Certificates</Link>
+                        <Link to="/billing" className="block rounded-lg px-3 py-2 text-sm text-text-muted transition hover:bg-white/5 hover:text-white">Billing</Link>
+                        {roleLinks.filter((r) => r.to !== "/dashboard" && r.to !== "/profile").map((link) => (
+                          <Link key={link.to} to={link.to} className="block rounded-lg px-3 py-2 text-sm text-primary transition hover:bg-primary/5">{link.label}</Link>
+                        ))}
+                        <hr className="my-1 border-line/10" />
+                        <button onClick={logout} className="w-full rounded-lg px-3 py-2 text-left text-sm text-danger transition hover:bg-danger/5">Sign Out</button>
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <Link to="/login" className="rounded-full border border-line/15 bg-white/[0.03] px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.2em] text-text-muted transition hover:text-white sm:px-4 sm:text-[11px]">
+                      Sign in
+                    </Link>
+                    <Link to="/register" className="hidden rounded-full border border-primary/30 bg-primary/12 px-4 py-1.5 font-mono text-[11px] uppercase tracking-[0.2em] text-white transition hover:bg-primary/20 sm:block">
+                      Join
+                    </Link>
+                  </>
+                )}
+
+                {/* ── HAMBURGER BUTTON (mobile/tablet) ── */}
+                <button
+                  onClick={() => setMobileOpen(!mobileOpen)}
+                  className="flex h-10 w-10 items-center justify-center rounded-full border border-line/15 bg-white/[0.03] text-text-muted transition hover:text-white lg:hidden"
+                  aria-label="Toggle menu"
+                >
+                  {mobileOpen ? (
+                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  ) : (
+                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+                    </svg>
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {/* ── MOBILE DRAWER ── */}
+            <AnimatePresence>
+              {mobileOpen && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: "auto", opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+                  className="overflow-hidden lg:hidden"
+                >
+                  <div className="mt-3 space-y-1 border-t border-line/10 pt-3">
+                    {/* Nav links */}
+                    {navItems.map((item) => (
+                      <NavLink
+                        key={item.to}
+                        to={item.to}
+                        end={item.to === "/"}
+                        onClick={closeMobile}
+                        className={({ isActive }) =>
+                          cn(
+                            "block rounded-xl px-4 py-3 font-mono text-[11px] uppercase tracking-[0.2em] transition",
+                            isActive ? "bg-primary/12 text-white" : "text-text-muted active:bg-white/5",
+                          )
+                        }
+                      >
+                        {item.label}
+                      </NavLink>
+                    ))}
+
+                    {/* Auth links */}
+                    {isAuth && (
+                      <>
+                        <div className="my-2 border-t border-line/8" />
+                        {[
+                          { to: "/dashboard", label: "Dashboard" },
+                          { to: "/arena", label: "Arena" },
+                          { to: "/projects", label: "Projects" },
+                          { to: "/profile", label: "Profile" },
+                          { to: "/certificates", label: "Certificates" },
+                          { to: "/notifications", label: "Notifications" },
+                        ].map((item) => (
+                          <NavLink
+                            key={item.to}
+                            to={item.to}
+                            onClick={closeMobile}
+                            className={({ isActive }) =>
+                              cn(
+                                "block rounded-xl px-4 py-3 font-mono text-[11px] uppercase tracking-[0.2em] transition",
+                                isActive ? "bg-primary/12 text-white" : "text-text-muted active:bg-white/5",
+                              )
+                            }
+                          >
+                            {item.label}
+                          </NavLink>
+                        ))}
+
+                        {/* Role-specific links */}
+                        {roleLinks.filter(r => r.to !== "/dashboard" && r.to !== "/profile").length > 0 && (
+                          <>
+                            <div className="my-2 border-t border-line/8" />
+                            {roleLinks.filter(r => r.to !== "/dashboard" && r.to !== "/profile").map((link) => (
+                              <NavLink
+                                key={link.to}
+                                to={link.to}
+                                onClick={closeMobile}
+                                className={({ isActive }) =>
+                                  cn(
+                                    "block rounded-xl px-4 py-3 font-mono text-[11px] uppercase tracking-[0.2em] transition",
+                                    isActive ? "bg-primary/12 text-primary" : "text-primary/70 active:bg-primary/5",
+                                  )
+                                }
+                              >
+                                {link.label}
+                              </NavLink>
+                            ))}
+                          </>
+                        )}
+
+                        {/* Theme + Sign out */}
+                        <div className="my-2 border-t border-line/8" />
+                        <button
+                          onClick={() => { toggleTheme(); closeMobile(); }}
+                          className="block w-full rounded-xl px-4 py-3 text-left font-mono text-[11px] uppercase tracking-[0.2em] text-text-muted transition active:bg-white/5"
+                        >
+                          Theme: {theme}
+                        </button>
+                        <button
+                          onClick={() => { logout(); closeMobile(); }}
+                          className="block w-full rounded-xl px-4 py-3 text-left font-mono text-[11px] uppercase tracking-[0.2em] text-danger transition active:bg-danger/5"
+                        >
+                          Sign Out
+                        </button>
+                      </>
+                    )}
+
+                    {/* Not logged in */}
+                    {!isAuth && (
+                      <>
+                        <div className="my-2 border-t border-line/8" />
+                        <Link to="/login" onClick={closeMobile} className="block rounded-xl px-4 py-3 font-mono text-[11px] uppercase tracking-[0.2em] text-text-muted transition active:bg-white/5">
+                          Sign In
+                        </Link>
+                        <Link to="/register" onClick={closeMobile} className="block rounded-xl bg-primary/12 px-4 py-3 font-mono text-[11px] uppercase tracking-[0.2em] text-white transition active:bg-primary/20">
+                          Join the Collective
+                        </Link>
+                      </>
+                    )}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </nav>
+        </motion.header>
+
+        <main className="flex-1">
+          <Outlet />
+        </main>
+
+        <footer className="mt-16 border-t border-line/10 pt-8">
+          <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
+            <BrandMark />
+            <div className="flex flex-wrap justify-center gap-4 font-mono text-[11px] text-text-dim sm:gap-6">
+              <Link to="/leaderboard" className="transition hover:text-text-muted">Leaderboard</Link>
+              <Link to="/events" className="transition hover:text-text-muted">Events</Link>
+              <Link to="/gallery" className="transition hover:text-text-muted">Gallery</Link>
+              <Link to="/contact" className="transition hover:text-text-muted">Contact</Link>
+            </div>
+            <p className="font-mono text-[10px] text-text-dim">&copy; 2026 Math Collective</p>
+          </div>
+        </footer>
+      </div>
+    </div>
+  );
+}

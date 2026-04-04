@@ -1,0 +1,47 @@
+{
+  "name": "Math Collective",
+  "short_name": "MathCol",
+  "description": "Competitive mathematics platform — solve challenges, compete in live quizzes, earn XP.",
+  "start_url": "/app/",
+  "scope": "/app/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#030712",
+  "theme_color": "#7c3aed",
+  "categories": ["education", "games"],
+  "icons": [
+    {
+      "src": "/app/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/app/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "screenshots": [],
+  "shortcuts": [
+    {
+      "name": "Arena",
+      "short_name": "Arena",
+      "url": "/app/arena",
+      "icons": [{ "src": "/app/icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Dashboard",
+      "short_name": "Dash",
+      "url": "/app/dashboard",
+      "icons": [{ "src": "/app/icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Live Quiz",
+      "short_name": "Quiz",
+      "url": "/app/live-quiz",
+      "icons": [{ "src": "/app/icons/icon-192.png", "sizes": "192x192" }]
+    }
+  ]
+}
