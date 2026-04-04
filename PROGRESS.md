@@ -398,3 +398,51 @@
 📦 app.css: 91 KB (22 KB gzip)
 📦 No more lazy-loaded 3D chunks (CinematicScene removed)
 ```
+
+---
+
+## Phase 7: Feature Flag & SaaS Subscription System (April 4, 2026)
+
+### Feature Flag Architecture
+**What changed:** Built a complete plan-based feature gating system for multi-tenant SaaS.
+**Files created:**
+- `frontend/src/config/features.js` — Master feature definitions (18 features, 7 categories, plan-to-feature mapping)
+- `frontend/src/hooks/useFeatureFlag.js` — React hook for frontend feature gating with 60s cache
+- `frontend/src/components/ui/UpgradePrompt.jsx` — Upgrade prompt (inline/fullpage/badge variants)
+- `frontend/src/features/admin/pages/AdminFeaturesPage.jsx` — Org admin feature toggle dashboard
+
+**Files modified:**
+- `controllers/orgAdminController.js` — Added `getOrgFeatures` + `toggleOrgFeature`
+- `routes/orgAdminRoutes.js` — Added `GET/PATCH /org-admin/features`
+- `routes/eventRoutes.js` — Gated QR scan + event leaderboard behind feature flags
+- `routes/certificateRoutes.js` — Gated certificate creation behind `certificates` flag
+- `routes/teacherRoutes.js` — Gated AI generation behind `ai_tools` flag
+- `routes/insightsRoutes.js` — Gated analytics behind `analytics` flag
+- `routes/adminRoutes.js` — Gated data export behind `data_export` flag
+- `frontend/src/lib/api/index.js` — Added `orgAdmin.features()` + `orgAdmin.toggleFeature()`
+- `frontend/src/app/router.jsx` — Added `/admin/features` route
+- `frontend/src/features/superadmin/pages/SAAccessPage.jsx` — Updated to use centralized feature definitions
+
+### Feature Gating Summary
+| Feature Flag | Gated Routes |
+|-------------|-------------|
+| `ai_tools` | Teacher AI generate + save |
+| `certificates` | Certificate batch creation |
+| `qr_checkin` | Event QR scan |
+| `event_leaderboard` | Event score update + publish |
+| `analytics` | Event health + admin insights |
+| `data_export` | Admin ZIP export |
+
+### Plan Tiers
+- **Starter:** arena, leaderboard, events, notifications (4 features)
+- **Professional:** + AI tools, certificates, quiz, projects, gallery, achievements, QR check-in, event leaderboards (12 features)
+- **Enterprise:** + E2EE messaging, referrals, analytics, custom branding, data export, API access (18 features)
+
+### Org Admin Flow
+- Org admins see all features grouped by category
+- Can toggle ON/OFF features within their plan
+- Cannot enable features NOT in their plan (shows lock + upgrade link)
+- Plan limits shown (max users, challenges, events)
+
+### Bug Fixed
+- `useFeatureFlag` hook was calling `orgAdmin.stats()` and reading wrong field paths — features always appeared enabled. Fixed to call `orgAdmin.features()` with correct response parsing.

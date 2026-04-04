@@ -22,7 +22,7 @@ import {
   // Site settings
   getSiteSettings, updateSiteSetting,
 } from "../controllers/eventcontrollers.js";
-import { requireAuth, requireAdmin, requireTeacher } from "../middleware/authMiddleware.js";
+import { requireAuth, requireAdmin, requireTeacher, checkFeatureFlag } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
@@ -49,12 +49,12 @@ router.get("/:id/registrations",      requireTeacher, getRegistrations);
 // ── Attendance ──────────────────────────────────────────
 router.post("/:id/checkin",           requireAuth, checkinEvent);
 router.post("/:id/checkin-manual",    requireTeacher, manualCheckin);
-router.post("/:id/scan-qr",          requireTeacher, scanQrCheckin);
+router.post("/:id/scan-qr",          requireTeacher, checkFeatureFlag("qr_checkin"), scanQrCheckin);
 router.get("/:id/attendance",         requireTeacher, getAttendance);
 
 // ── Event Leaderboard ───────────────────────────────────
 router.get("/:id/leaderboard",        getEventLeaderboard);
-router.post("/:id/leaderboard",       requireTeacher, updateEventScore);
-router.post("/:id/leaderboard/publish", requireAdmin, publishEventResults);
+router.post("/:id/leaderboard",       requireTeacher, checkFeatureFlag("event_leaderboard"), updateEventScore);
+router.post("/:id/leaderboard/publish", requireAdmin, checkFeatureFlag("event_leaderboard"), publishEventResults);
 
 export default router;

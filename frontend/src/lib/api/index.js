@@ -242,6 +242,8 @@ export const orgAdmin = {
   invite: (email, role) => http.post("/org-admin/invite", { email, role }),
   branding: () => http.get("/org-admin/branding"),
   updateBranding: (data) => http.patch("/org-admin/branding", data),
+  features: () => http.get("/org-admin/features"),
+  toggleFeature: (feature, enabled) => http.patch("/org-admin/features", { feature, enabled }),
 };
 
 // ── Contact ──

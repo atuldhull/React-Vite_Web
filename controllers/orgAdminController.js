@@ -282,3 +282,126 @@ export const getOrgAnalytics = async (req, res) => {
     return res.status(500).json({ error: err.message });
   }
 };
+
+/* ═══════════════════════════════════════════════════════
+   FEATURE MANAGEMENT
+   Org admins can toggle features within their plan's allowance
+═══════════════════════════════════════════════════════ */
+
+/* GET /api/org-admin/features — get org features with plan context */
+export const getOrgFeatures = async (req, res) => {
+  const orgId = req.orgId;
+  try {
+    const { data: org } = await supabase
+      .from("organisations")
+      .select("feature_flags, plan_name, status")
+      .eq("id", orgId)
+      .single();
+
+    if (!org) return res.status(404).json({ error: "Organisation not found" });
+
+    // Get plan features
+    const { data: plan } = await supabase
+      .from("subscription_plans")
+      .select("features, max_users, max_challenges, max_events, display_name")
+      .eq("name", org.plan_name)
+      .maybeSingle();
+
+    const planFeatures = plan?.features || {};
+    const orgOverrides = org.feature_flags || {};
+
+    // Build merged view: for each feature, show plan default + org override + effective state
+    const merged = {};
+    const allKeys = new Set([...Object.keys(planFeatures), ...Object.keys(orgOverrides)]);
+    allKeys.forEach(key => {
+      const inPlan = planFeatures[key] ?? false;
+      const hasOverride = key in orgOverrides;
+      const overrideValue = orgOverrides[key];
+      merged[key] = {
+        in_plan: inPlan,
+        has_override: hasOverride,
+        override_value: hasOverride ? overrideValue : null,
+        effective: hasOverride ? overrideValue : inPlan,
+      };
+    });
+
+    return res.json({
+      plan_name: org.plan_name,
+      plan_display: plan?.display_name || org.plan_name,
+      plan_limits: {
+        max_users: plan?.max_users || -1,
+        max_challenges: plan?.max_challenges || -1,
+        max_events: plan?.max_events || -1,
+      },
+      features: merged,
+      org_overrides: orgOverrides,
+      plan_features: planFeatures,
+      status: org.status,
+    });
+  } catch (err) {
+    console.error("[OrgAdmin Features]", err.message);
+    return res.status(500).json({ error: "Failed" });
+  }
+};
+
+/* PATCH /api/org-admin/features — toggle a feature (within plan allowance) */
+export const toggleOrgFeature = async (req, res) => {
+  const orgId = req.orgId;
+  const { feature, enabled } = req.body;
+
+  if (!feature || typeof enabled !== "boolean") {
+    return res.status(400).json({ error: "feature (string) and enabled (boolean) required" });
+  }
+
+  try {
+    // Get current org data
+    const { data: org } = await supabase
+      .from("organisations")
+      .select("feature_flags, plan_name")
+      .eq("id", orgId)
+      .single();
+
+    if (!org) return res.status(404).json({ error: "Organisation not found" });
+
+    // Get plan to check if feature is available
+    const { data: plan } = await supabase
+      .from("subscription_plans")
+      .select("features")
+      .eq("name", org.plan_name)
+      .maybeSingle();
+
+    const planFeatures = plan?.features || {};
+    const inPlan = planFeatures[feature] ?? false;
+
+    // Org admins can only DISABLE features included in their plan
+    // They CANNOT enable features NOT in their plan (that requires super admin override)
+    if (enabled && !inPlan) {
+      return res.status(403).json({
+        error: `Cannot enable '${feature}' — not included in your ${org.plan_name} plan`,
+        upgrade_required: true,
+      });
+    }
+
+    // Update the override
+    const flags = { ...(org.feature_flags || {}) };
+    if (enabled && inPlan) {
+      // Enabling a plan feature = remove override (plan default is true)
+      delete flags[feature];
+    } else {
+      // Disabling = set explicit override to false
+      flags[feature] = enabled;
+    }
+
+    const { error } = await supabase
+      .from("organisations")
+      .update({ feature_flags: flags })
+      .eq("id", orgId);
+
+    if (error) return res.status(500).json({ error: error.message });
+
+    return res.json({ success: true, feature, enabled, flags });
+  } catch (err) {
+    console.error("[OrgAdmin Toggle Feature]", err.message);
+    return res.status(500).json({ error: "Failed" });
+  }
+};

@@ -13,7 +13,7 @@ import {
   getMyCertificates,
   deleteBatch,
 } from "../controllers/certificateController.js";
-import { requireAuth, requireTeacher } from "../middleware/authMiddleware.js";
+import { requireAuth, requireTeacher, checkFeatureFlag } from "../middleware/authMiddleware.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -52,7 +52,7 @@ router.post("/preview",           requireTeacher, previewCertificate);
 router.post("/match-students",    requireTeacher, matchStudents);
 
 // Create certificate batch
-router.post("/create",            requireTeacher, createCertificateBatch);
+router.post("/create",            requireTeacher, checkFeatureFlag("certificates"), createCertificateBatch);
 
 // Batch management
 router.get("/batches",            requireTeacher, getBatches);

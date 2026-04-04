@@ -1032,3 +1032,32 @@ The homepage was rebuilt as a scroll-synced cinematic video experience:
 | Earth textures (broken) | 2 files | ~1MB | TIFF mislabeled as JPG |
 | Stale docs | 3 files | ~40KB | MONUMENT_CHECKLIST, SETUP, PROJECT_REFERENCE |
 | **Total** | **33 files** | **~110MB** | — |
+
+### Feature Flag & Subscription System (April 4, 2026)
+Built a complete plan-based feature gating system:
+- **18 features** defined across 7 categories (Core, AI & Content, Engagement, Events, Communication, Analytics, Customization)
+- **3 plan tiers:** Starter (4 features), Professional (12 features), Enterprise (18 features)
+- **Org admin dashboard** (`/admin/features`): toggle features ON/OFF within plan, see plan limits, upgrade prompts for locked features
+- **Super admin override** (`/super-admin/access`): enable/disable any feature for any org regardless of plan
+- **Backend middleware** `checkFeatureFlag("key")` gates routes: AI tools, certificates, QR check-in, event leaderboards, analytics, data export
+- **Frontend hook** `useFeatureFlag("key")` checks if feature is enabled with 60s cache
+- **UpgradePrompt component** with inline/fullpage/badge variants
+- **Org admin API:** `GET/PATCH /org-admin/features` for reading and toggling features
+- Feature definitions centralized in `frontend/src/config/features.js`
+
+### Admin Data Export (April 4, 2026)
+- `GET /api/admin/export` downloads ZIP with 11 CSV files (students, challenges, attempts, events, registrations, attendance, leaderboard, achievements, user_achievements, notifications, friendships) + README.txt summary
+- Uses `archiver` package for streaming ZIP
+- Gated behind `data_export` feature flag (Enterprise plan)
+
+### Certificate Orientation Fix (April 4, 2026)
+- AI prompt hardened to enforce landscape orientation
+- Post-processing forces `\documentclass[a4paper,landscape]` even if AI ignores instruction
+- Adds geometry package with `landscape,paperwidth=297mm,paperheight=210mm` if missing
+
+### Mobile Responsiveness (April 4, 2026)
+- Hamburger menu replaces wrapped nav buttons on mobile (< 1024px)
+- Slide-down drawer with all nav links, role links, theme toggle, sign out
+- Touch-friendly: `min-height: 44px` on all interactive elements via `@media (hover: none)`
+- Responsive typography: headings scale down via `clamp()` on mobile
+- Overflow prevention: `overflow-x: hidden` on body below 480px

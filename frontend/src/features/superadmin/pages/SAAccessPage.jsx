@@ -4,21 +4,9 @@ import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import Loader from "@/components/ui/Loader";
 import { superAdmin } from "@/lib/api";
+import { FEATURE_DEFINITIONS as FEATURES } from "@/config/features";
 import MonumentBackground from "@/components/backgrounds/MonumentBackground";
 import { useMonument } from "@/hooks/useMonument";
-
-const FEATURES = [
-  { key: "arena", label: "Arena", desc: "Challenge solving arena" },
-  { key: "leaderboard", label: "Leaderboard", desc: "Public rankings" },
-  { key: "events", label: "Events", desc: "Event management & registration" },
-  { key: "certificates", label: "Certificates", desc: "Certificate generation" },
-  { key: "projects", label: "Projects", desc: "Team projects & submissions" },
-  { key: "quiz", label: "Live Quiz", desc: "Real-time quiz system" },
-  { key: "gallery", label: "Gallery", desc: "Photo gallery module" },
-  { key: "ai_tools", label: "AI Generation", desc: "AI-powered challenge generation" },
-  { key: "notifications", label: "Notifications", desc: "Push notification system" },
-  { key: "analytics", label: "Advanced Analytics", desc: "Detailed analytics dashboard" },
-];
 
 export default function SAAccessPage() {
   useMonument("magma");
@@ -172,7 +160,7 @@ export default function SAAccessPage() {
                   }`}>
                   <div>
                     <p className={`text-sm font-medium ${flags[feat.key] ? "text-white" : "text-text-muted"}`}>{feat.label}</p>
-                    <p className="text-[10px] text-text-dim">{feat.desc}</p>
+                    <p className="text-[10px] text-text-dim">{feat.description || feat.desc}</p>
                   </div>
                   <button onClick={() => toggle(feat.key)}
                     className={`relative h-7 w-12 shrink-0 rounded-full transition-colors ${flags[feat.key] ? "bg-success" : "bg-white/10"}`}>

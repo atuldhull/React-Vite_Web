@@ -9,7 +9,7 @@ import {
   getAllScheduledTests, deleteScheduledTest, clearAllAttempts,
   exportAllData,
 } from "../controllers/adminController.js";
-import { requireAdmin } from "../middleware/authMiddleware.js";
+import { requireAdmin, checkFeatureFlag } from "../middleware/authMiddleware.js";
 import { getActiveUsers } from "../server.js";
 
 const router = express.Router();
@@ -43,8 +43,8 @@ router.delete("/events/:id", deleteEvent);
 // Weekly reset
 router.post("/reset-week", triggerWeeklyReset);
 
-// Export
-router.get("/export",                     exportAllData);
+// Export (requires data_export feature)
+router.get("/export",                     checkFeatureFlag("data_export"), exportAllData);
 
 // Data management
 router.get("/data/teams",                 getAllTeams);

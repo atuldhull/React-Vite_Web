@@ -60,6 +60,7 @@ import AdminChallengesPage from "@/features/admin/pages/AdminChallengesPage";
 import AdminEventsPage from "@/features/admin/pages/AdminEventsPage";
 import AdminDataPage from "@/features/admin/pages/AdminDataPage";
 import AdminSettingsPage from "@/features/admin/pages/AdminSettingsPage";
+import AdminFeaturesPage from "@/features/admin/pages/AdminFeaturesPage";
 
 // Super Admin pages
 import SAAnalyticsPage from "@/features/superadmin/pages/SAAnalyticsPage";
@@ -150,6 +151,7 @@ function AnimatedRoutes() {
               <Route path="events" element={<AdminEventsPage />} />
               <Route path="data" element={<AdminDataPage />} />
               <Route path="settings" element={<AdminSettingsPage />} />
+              <Route path="features" element={<AdminFeaturesPage />} />
             </Route>
 
             {/* ── Super Admin ── */}

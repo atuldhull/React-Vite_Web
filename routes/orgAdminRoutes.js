@@ -17,6 +17,8 @@ import {
   getBranding,
   updateBranding,
   getOrgAnalytics,
+  getOrgFeatures,
+  toggleOrgFeature,
 } from "../controllers/orgAdminController.js";
 
 const router = express.Router();
@@ -38,5 +40,9 @@ router.post("/invite",                  inviteUser);
 /* ── Branding ── */
 router.get("/branding",   getBranding);
 router.patch("/branding", updateBranding);
+
+/* ── Feature Management ── */
+router.get("/features",    getOrgFeatures);
+router.patch("/features",  toggleOrgFeature);
 
 export default router;

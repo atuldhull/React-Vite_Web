@@ -82,7 +82,17 @@ All in `migrations/` folder:
 - JetBrains Mono — numbers, math symbols, XP (class: `math-text`)
 - Outfit — body text
 
+## Feature Flag System
+- Feature definitions: `frontend/src/config/features.js` (18 features, 7 categories)
+- Frontend hook: `frontend/src/hooks/useFeatureFlag.js` (check if feature enabled)
+- Upgrade prompt: `frontend/src/components/ui/UpgradePrompt.jsx` (shown when locked)
+- Org admin page: `/admin/features` — toggle features within plan
+- Super admin page: `/super-admin/access` — override any feature per org
+- Backend middleware: `checkFeatureFlag("feature_key")` gates routes by plan
+- Gated routes: AI tools, certificates, QR check-in, event leaderboards, analytics, data export
+
 ## Key Files
-- `PROGRESS.md` — Full development changelog
+- `PROGRESS.md` — Full development changelog (Phases 1–7)
 - `PROJECT_BRIEF.md` — Complete project documentation
 - `VISUAL_THEME_SYSTEM.md` — Monument CSS theme system documentation
+- `frontend/src/config/features.js` — Master feature definitions

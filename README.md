@@ -115,13 +115,24 @@ Atul_Web/
 - **User Management** — Create, delete, change roles
 - **AI Question Generator** — Same as teacher, with bulk operations
 - **Data Operations** — Clear attempts, reset XP, weekly reset
-- **Event Management** — Create/manage competitions
+- **Event Management** — Create/edit events, view registrations, attendance tracking, CSV export
+- **Event Health Metrics** — Fill rate, attendance rate, cancel rate, check-in method breakdown
+- **Platform Insights** — Active users, registration trends, top events, achievement stats
+- **Feature Management** — Toggle platform features ON/OFF within subscription plan
+- **Data Export** — Download all platform data as ZIP with 11 CSV files
 - **Site Settings** — Registration gate, org branding
 
+### For Super Admins
+- **Organisation Management** — Create, suspend, activate, delete orgs
+- **Subscription Plans** — Starter / Professional / Enterprise with feature-based gating
+- **Feature Flags** — Per-org feature overrides (enable/disable any feature for any org)
+- **Impersonation** — Log into any org as admin for debugging
+- **Audit Logs** — Track all admin actions across platform
+- **Payment History** — Razorpay payment records
+
 ### Homepage
-- **3D Earth** — Photorealistic globe with spaceships, day/night, atmosphere
 - **Scroll-synced video** — Cinematic desert monument journey, controlled by scroll
-- **Cross-fade transition** — White atmospheric flash between Earth and video
+- **Title overlay** — "Math Collective" with stats bar and scroll indicator
 
 ---
 
@@ -160,6 +171,29 @@ Each higher role inherits all lower role permissions.
 | Extreme | +100 XP | -20 XP |
 
 XP is floored at 0 (can never go negative total).
+
+---
+
+## Subscription Plans & Feature Flags
+
+| Feature | Starter | Professional | Enterprise |
+|---------|---------|-------------|-----------|
+| Arena + Leaderboard | Yes | Yes | Yes |
+| Events + Notifications | Yes | Yes | Yes |
+| AI Question Generator | - | Yes | Yes |
+| Certificates | - | Yes | Yes |
+| Live Quiz | - | Yes | Yes |
+| Team Projects | - | Yes | Yes |
+| Achievements | - | Yes | Yes |
+| QR Check-in | - | Yes | Yes |
+| E2EE Messaging | - | - | Yes |
+| Referral System | - | - | Yes |
+| Advanced Analytics | - | - | Yes |
+| Custom Branding | - | - | Yes |
+| Data Export | - | - | Yes |
+| API Access | - | - | Yes |
+
+Super admins can override any feature per org. Org admins can toggle features within their plan.
 
 ---
 
