@@ -8,7 +8,7 @@ import { describe, it, expect } from "vitest";
 import fs from "fs";
 import path from "path";
 
-const ROUTES_DIR = path.resolve("routes");
+const ROUTES_DIR = path.resolve("backend/routes");
 
 function readRoute(filename) {
   return fs.readFileSync(path.join(ROUTES_DIR, filename), "utf-8");
@@ -78,7 +78,7 @@ describe("Route Security — Auth Middleware", () => {
 
   it("arena submission requires auth check in controller (session-based)", () => {
     const controller = fs.readFileSync(
-      path.resolve("controllers/arenaController.js"),
+      path.resolve("backend/controllers/arenaController.js"),
       "utf-8"
     );
     expect(controller).toContain("req.session?.user?.id");

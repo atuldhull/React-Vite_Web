@@ -17,8 +17,8 @@ function readFile(filePath) {
 // ═══════════════════════════════════════════════════════════
 
 describe("Auth Flow Integration", () => {
-  const authController = readFile("controllers/authController.js");
-  const authMiddleware = readFile("middleware/authMiddleware.js");
+  const authController = readFile("backend/controllers/authController.js");
+  const authMiddleware = readFile("backend/middleware/authMiddleware.js");
 
   it("login endpoint validates email and password", () => {
     expect(authController).toContain("email");
@@ -63,7 +63,7 @@ describe("Auth Flow Integration", () => {
 // ═══════════════════════════════════════════════════════════
 
 describe("Tenant Isolation Integration", () => {
-  const tenantMiddleware = readFile("middleware/tenantMiddleware.js");
+  const tenantMiddleware = readFile("backend/middleware/tenantMiddleware.js");
 
   it("injectTenant middleware exists and exports a function", () => {
     expect(tenantMiddleware).toContain("export");
@@ -102,7 +102,7 @@ describe("Tenant Isolation Integration", () => {
 // ═══════════════════════════════════════════════════════════
 
 describe("Socket.IO Auth Integration", () => {
-  const serverCode = readFile("server.js");
+  const serverCode = readFile("backend/server.js");
 
   it("socket engine uses session middleware", () => {
     expect(serverCode).toContain("io.engine.use(sessionMiddleware)");
@@ -146,7 +146,7 @@ describe("Socket.IO Auth Integration", () => {
 // ═══════════════════════════════════════════════════════════
 
 describe("Feature Flag Integration", () => {
-  const authMiddleware = readFile("middleware/authMiddleware.js");
+  const authMiddleware = readFile("backend/middleware/authMiddleware.js");
 
   it("checkFeatureFlag queries organisations table for org flags", () => {
     expect(authMiddleware).toContain("organisations");

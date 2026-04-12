@@ -4,7 +4,7 @@
 
 Built with React 19 + Vite 8 (frontend), Express 5 + Supabase (backend), Three.js (3D), Socket.IO (real-time). Features AI-powered challenges, live quizzes, XP gamification, E2EE messaging, and a cinematic 3D homepage.
 
-> Last updated: April 13, 2026  
+> Last updated: April 13, 2026 (backend reorganised into `backend/`)  
 > Status: 136/136 tests passing · 0 ESLint issues · production build 3.2s
 
 ---
@@ -20,10 +20,10 @@ cp .env.example .env.local
 # Edit .env.local with your keys (see below)
 
 # Run backend (port 3000)
-node server.js
+npm start                 # or: node backend/server.js
 
 # Run frontend (port 5173)
-npx vite --host
+npm run dev:frontend      # or: npx vite --host
 ```
 
 Open [http://localhost:5173/app/](http://localhost:5173/app/)
@@ -51,33 +51,35 @@ Open [http://localhost:5173/app/](http://localhost:5173/app/)
 
 ```
 Atul_Web/
-├── server.js                      # Express 5 entry + Socket.IO
-├── config/                        # Supabase, OpenRouter clients
-├── services/
-│   └── realtime.js                # Decouples server.js from controllers
-│                                  # (breaks the old circular import)
-├── controllers/
-│   ├── adminController.js         # barrel -> admin/*.js (8 modules)
-│   ├── certificateController.js   # barrel -> certificate/*.js (5 modules)
-│   ├── paymentController.js       # barrel -> payment/*.js (7 modules)
-│   ├── superAdminController.js    # barrel -> superAdmin/*.js (5 modules)
-│   ├── event/                     # eventCrud, registration, attendance,
-│   │                              #   leaderboard, achievement, siteSettings
-│   ├── admin/                     # aiQuestions, users, events, stats, xp,
-│   │                              #   teamsProjects, scheduledTests, dataExport
-│   ├── certificate/               # assets, latex, batch, download, helpers
-│   ├── payment/                   # config, orders, verification, webhook,
-│   │                              #   upgrade, billing, invoiceEmail
-│   ├── superAdmin/                # analytics, organisations, plans,
-│   │                              #   impersonation, auditLogs
-│   ├── arenaController.js         # Challenge submission + penalty scoring
-│   ├── authController.js          # Register, login, logout
-│   ├── messagingController.js     # E2EE chat + friendships
-│   ├── notificationController.js  # Real-time notifications
-│   └── ...                        # challenge, contact, gallery, insights,
-│                                  #   referral, teacher, user, orgAdmin, ai
-├── middleware/                    # Auth guards + rate limiters + tenant
-├── routes/                        # Express route files (one per domain)
+├── backend/                       # All server-side code
+│   ├── server.js                  # Express 5 entry + Socket.IO
+│   ├── config/                    # Supabase, OpenRouter clients
+│   ├── services/
+│   │   └── realtime.js            # Decouples server.js from controllers
+│   │                              # (breaks the old circular import)
+│   ├── controllers/
+│   │   ├── adminController.js     # barrel -> admin/*.js (8 modules)
+│   │   ├── certificateController.js # barrel -> certificate/*.js (5 modules)
+│   │   ├── paymentController.js   # barrel -> payment/*.js (7 modules)
+│   │   ├── superAdminController.js # barrel -> superAdmin/*.js (5 modules)
+│   │   ├── event/                 # eventCrud, registration, attendance,
+│   │   │                          #   leaderboard, achievement, siteSettings
+│   │   ├── admin/                 # aiQuestions, users, events, stats, xp,
+│   │   │                          #   teamsProjects, scheduledTests, dataExport
+│   │   ├── certificate/           # assets, latex, batch, download, helpers
+│   │   ├── payment/               # config, orders, verification, webhook,
+│   │   │                          #   upgrade, billing, invoiceEmail
+│   │   ├── superAdmin/            # analytics, organisations, plans,
+│   │   │                          #   impersonation, auditLogs
+│   │   ├── arenaController.js     # Challenge submission + penalty scoring
+│   │   ├── authController.js      # Register, login, logout
+│   │   ├── messagingController.js # E2EE chat + friendships
+│   │   ├── notificationController.js # Real-time notifications
+│   │   └── ...                    # challenge, contact, gallery, insights,
+│   │                              #   referral, teacher, user, orgAdmin, ai
+│   ├── middleware/                # Auth guards + rate limiters + tenant
+│   ├── routes/                    # Express route files (one per domain)
+│   └── migrations/                # Numbered SQL migrations
 │
 ├── frontend/                      # React 19 + Vite 8 SPA
 │   ├── src/
@@ -114,16 +116,30 @@ Atul_Web/
 ├── tests/
 │   ├── unit/                      # roles, auth-guard (jsdom), arena-scoring,
 │   │                              #   event-status, feature-flags, security
-│   └── integration/               # api-smoke (supertest), payment (supertest)
+│   └── integration/               # api-smoke (supertest), payment (supertest),
+│                                  #   auth-flow (static analysis)
+│
+├── public/                        # SPA build output (served by backend)
+│   └── app/                       # Vite build target
 │
 ├── docs/
 │   ├── PAYMENT_SETUP.md           # Razorpay env vars + webhook setup guide
 │   └── ...SQL
+├── package.json                   # Single root (no monorepo); scripts point
+│                                  # at backend/server.js and vite for frontend
 ├── PROJECT_CONFIG.md
 ├── PROJECT_BRIEF.md
 ├── PROGRESS.md
 └── VISUAL_THEME_SYSTEM.md
 ```
+
+### Layout at a glance
+
+- **`backend/`** — everything Node.js: server, routes, controllers, middleware, services, config, SQL migrations. No UI code here.
+- **`frontend/`** — everything React/Vite: components, pages, hooks, stores, styles, static assets. No Express code here.
+- **`tests/`** — cross-cutting. Unit tests for pure logic (roles, scoring, status), jsdom-based component tests, and supertest-based API integration tests that import from `backend/`.
+- **`public/app/`** — Vite build output consumed by the Express static middleware in production. Safe to delete — `npm run build` regenerates it.
+- Root holds only shared configs (`vite.config.js`, `vitest.config.js`, `eslint.config.js`, `tailwind.config.cjs`, `postcss.config.cjs`), the `.env*` files, and documentation.
 
 ---
 

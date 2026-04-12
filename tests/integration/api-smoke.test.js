@@ -13,7 +13,7 @@ import request from "supertest";
 // ── Mock supabase BEFORE any route/controller imports that import it ──
 // config/supabase.js throws if SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY are missing,
 // so we intercept the entire module.
-vi.mock("../../config/supabase.js", () => {
+vi.mock("../../backend/config/supabase.js", () => {
   const buildQuery = () => {
     const q = {
       select: () => q,
@@ -51,10 +51,10 @@ vi.mock("../../config/supabase.js", () => {
 });
 
 // ── Now import routes (they'll get the mocked supabase) ──
-import botRoutes  from "../../routes/botRoutes.js";
-import authRoutes from "../../routes/authRoutes.js";
-import eventRoutes from "../../routes/eventRoutes.js";
-import sessionMiddleware from "../../middleware/sessionConfig.js";
+import botRoutes  from "../../backend/routes/botRoutes.js";
+import authRoutes from "../../backend/routes/authRoutes.js";
+import eventRoutes from "../../backend/routes/eventRoutes.js";
+import sessionMiddleware from "../../backend/middleware/sessionConfig.js";
 
 // ── Build a minimal test Express app ──
 function buildTestApp() {

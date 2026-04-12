@@ -6,17 +6,18 @@
 Multi-tenant competitive mathematics platform (React + Express + Supabase).
 
 ## Quick Commands
-- **Dev server:** `npx vite --host` (frontend on :5173 or :5174)
-- **Backend:** `node server.js` (API on :3000)
-- **Build:** `npx vite build` (outputs to public/app/)
+- **Dev server:** `npm run dev:frontend` (frontend on :5173)
+- **Backend:** `npm start` — runs `node backend/server.js` (API on :3000)
+- **Build:** `npm run build` (Vite outputs to `public/app/`; backend serves from there)
 - **Both:** Run backend + frontend in separate terminals
 
 ## Architecture
 - `frontend/` — React 19 + Vite 8 SPA (root for Vite)
-- `server.js` — Express 5 API + Socket.io
-- `services/realtime.js` — Decouples Socket.IO publishing from controllers (break for the old server.js <-> notificationController circular import)
-- `routes/` + `controllers/` + `middleware/` — Backend
-- `controllers/{event,admin,certificate,payment,superAdmin}/` — Per-domain sub-modules; each parent `*Controller.js` is a one-line barrel re-exporting them (keeps route imports stable)
+- `backend/` — **all Node.js server code** lives here (moved out of project root April 13, 2026)
+- `backend/server.js` — Express 5 API + Socket.io entry point
+- `backend/services/realtime.js` — Decouples Socket.IO publishing from controllers (break for the old server.js <-> notificationController circular import)
+- `backend/{routes,controllers,middleware,config,migrations}/` — Backend
+- `backend/controllers/{event,admin,certificate,payment,superAdmin}/` — Per-domain sub-modules; each parent `*Controller.js` is a one-line barrel re-exporting them (keeps route imports stable)
 - `frontend/src/features/` — Feature-based page components
 - `frontend/src/features/errors/` — 404 + 403 pages
 - `frontend/src/components/` — Shared components (ui/, backgrounds/, panda/, monument/, chat/, auth/)

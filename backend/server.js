@@ -1,13 +1,20 @@
+import path       from "path";
+import { fileURLToPath } from "url";
 import dotenv from "dotenv";
-dotenv.config({ path: "./.env.local" });
+
+// Resolve project root (one level above backend/) so we can locate .env.local
+// and the built SPA under public/app/ regardless of where node is invoked.
+const __filename = fileURLToPath(import.meta.url);
+const __dirname  = path.dirname(__filename);
+const PROJECT_ROOT = path.resolve(__dirname, "..");
+
+dotenv.config({ path: path.join(PROJECT_ROOT, ".env.local") });
 
 import express    from "express";
-import path       from "path";
 import http       from "http";
 import helmet     from "helmet";
 import cors       from "cors";
 import { Server } from "socket.io";
-import { fileURLToPath } from "url";
 import { generalLimiter } from "./middleware/rateLimiter.js";
 import { injectTenant } from "./middleware/tenantMiddleware.js";
 import { sessionMiddleware } from "./middleware/sessionConfig.js";
@@ -24,8 +31,9 @@ const io     = new Server(server, {
   cors: { origin: isProd ? false : "*", credentials: true },
 });
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname  = path.dirname(__filename);
+// SPA build output lives at <project-root>/public/app (Vite outDir)
+const PUBLIC_DIR  = path.join(PROJECT_ROOT, "public");
+const SPA_INDEX   = path.join(PUBLIC_DIR, "app", "index.html");
 
 /* ── SECURITY ── */
 app.use(helmet({
@@ -38,7 +46,7 @@ app.use(cors({
 }));
 
 /* ── MIDDLEWARE ── */
-app.use(express.static(path.join(__dirname, "public")));
+app.use(express.static(PUBLIC_DIR));
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json({
   limit: "2mb",
@@ -80,14 +88,14 @@ app.use("/", pageRoutes);
 /* ── 404 — serve SPA for unmatched routes (client-side routing) ── */
 app.use((req, res) => {
   if (req.path.startsWith("/api/")) return res.status(404).json({ error: "Not found" });
-  res.sendFile(path.join(__dirname, "public", "app", "index.html"));
+  res.sendFile(SPA_INDEX);
 });
 
 /* ── ERROR ── */
 app.use((err, req, res, _next) => {
   console.error("[ERROR]", err.stack);
   if (req.path.startsWith("/api/")) return res.status(500).json({ error: "Internal server error" });
-  res.sendFile(path.join(__dirname, "public", "app", "index.html"));
+  res.sendFile(SPA_INDEX);
 });
 
 /* ════════════════════════════════════════

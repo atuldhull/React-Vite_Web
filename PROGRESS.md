@@ -542,3 +542,26 @@ Started at 88 tests, mostly static code analysis (`fs.readFileSync` + string mat
 - `npm start` — backend boots clean, all endpoints return expected status (200/401/400/404).
 - `npm run dev:frontend` — Vite ready in 464ms, serves modules cleanly.
 - SPA deep links work through the backend (`/dashboard`, `/admin`, `/super-admin` all 200 -> index.html).
+
+### Follow-up: Project Restructure (April 13, 2026)
+
+Moved all server-side code into `backend/`:
+
+- `server.js` -> `backend/server.js`
+- `controllers/` -> `backend/controllers/`
+- `routes/` -> `backend/routes/`
+- `middleware/` -> `backend/middleware/`
+- `services/` -> `backend/services/`
+- `config/` -> `backend/config/`
+- `migrations/` -> `backend/migrations/`
+
+Moves performed via `git mv` so commit blame/history follows each file.
+
+Adjustments:
+
+- `backend/server.js`: resolves `.env.local` and `public/app/index.html` relative to project root (one level above `backend/`). Uses a computed `PROJECT_ROOT` rather than bare `__dirname`.
+- `package.json` scripts now point at `backend/server.js`. Lint + format globs include both `frontend/src/` and `backend/`.
+- `tests/`: updated every `readFile("server.js")` / `readFile("middleware/...")` / `readFile("controllers/...")` and every `import from "../../config/..."` / `"../../routes/..."` / `"../../middleware/..."` to point at `backend/`.
+- 136/136 tests still pass. Lint clean. Server boots from new location. SPA deep links resolve. Production build succeeds.
+
+Why: the old layout had backend code (routes, controllers, middleware, services, config, migrations, server.js) sprinkled at the project root, which made it hard to tell "what is this project even?" at a glance. New layout gives each half of the stack a single home folder; root is only shared configs + docs + tests.

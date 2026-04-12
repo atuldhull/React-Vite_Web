@@ -38,7 +38,7 @@ function resetStore() {
 }
 
 // ── Bypass auth middleware — inject a fake admin session ──
-vi.mock("../../middleware/authMiddleware.js", () => ({
+vi.mock("../../backend/middleware/authMiddleware.js", () => ({
   requireAuth:       (req, _res, next) => { req.userId = "user-1"; req.userRole = "admin"; next(); },
   requireAdmin:      (req, _res, next) => { req.userId = "user-1"; req.userRole = "admin"; req.orgId = "org-1"; next(); },
   requireTeacher:    (req, _res, next) => { req.userId = "user-1"; req.userRole = "teacher"; next(); },
@@ -48,12 +48,12 @@ vi.mock("../../middleware/authMiddleware.js", () => ({
 }));
 
 // ── Bypass tenant injection (would hit supabase otherwise) ──
-vi.mock("../../middleware/tenantMiddleware.js", () => ({
+vi.mock("../../backend/middleware/tenantMiddleware.js", () => ({
   injectTenant: (_req, _res, next) => next(),
 }));
 
 // ── Mock supabase ──
-vi.mock("../../config/supabase.js", () => {
+vi.mock("../../backend/config/supabase.js", () => {
   function buildQueryOn(tableName) {
     const filters = {};
     const q = {
@@ -152,7 +152,7 @@ vi.mock("nodemailer", () => ({
   default: { createTransport: () => ({ sendMail: async () => ({ accepted: ["x"] }) }) },
 }));
 
-const paymentRoutes = (await import("../../routes/paymentRoutes.js")).default;
+const paymentRoutes = (await import("../../backend/routes/paymentRoutes.js")).default;
 
 function buildApp() {
   const app = express();
