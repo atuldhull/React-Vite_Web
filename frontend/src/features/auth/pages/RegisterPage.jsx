@@ -71,7 +71,10 @@ export default function RegisterPage() {
           await http.post("/referral/apply", { code: refCode });
         } catch { /* referral is best-effort, don't block registration */ }
       }
-      navigate("/login");
+      // Replace (not push) — after successful register, back button should NOT
+      // return to the register form (which would be confusing and potentially
+      // re-submit a duplicate request).
+      navigate("/login", { replace: true, state: { justRegistered: true } });
     } catch (err) {
       setError(err.message || "Registration failed");
     } finally {
