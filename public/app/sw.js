@@ -1,3 +1,5 @@
+/* global self, caches, clients, fetch, URL, console, setTimeout, Request, Response, Promise */
+/* eslint-env serviceworker */
 /**
  * Service Worker — Math Collective PWA
  *

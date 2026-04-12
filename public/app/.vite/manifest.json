@@ -107,9 +107,143 @@
     "file": "assets/space-grotesk-vietnamese-700-normal.woff2",
     "src": "../node_modules/@fontsource/space-grotesk/files/space-grotesk-vietnamese-700-normal.woff2"
   },
+  "_AchievementBadge.js": {
+    "file": "assets/AchievementBadge.js",
+    "name": "AchievementBadge",
+    "imports": [
+      "_proxy.js"
+    ]
+  },
+  "_Button.js": {
+    "file": "assets/Button.js",
+    "name": "Button",
+    "imports": [
+      "index.html",
+      "_cn.js",
+      "_proxy.js"
+    ]
+  },
+  "_CapacityBar.js": {
+    "file": "assets/CapacityBar.js",
+    "name": "CapacityBar",
+    "imports": [
+      "_proxy.js"
+    ]
+  },
+  "_Card.js": {
+    "file": "assets/Card.js",
+    "name": "Card",
+    "imports": [
+      "_cn.js",
+      "_proxy.js"
+    ]
+  },
+  "_InputField.js": {
+    "file": "assets/InputField.js",
+    "name": "InputField",
+    "imports": [
+      "_chunk.js",
+      "_cn.js",
+      "_proxy.js",
+      "_react.js"
+    ]
+  },
+  "_MonumentHero.js": {
+    "file": "assets/MonumentHero.js",
+    "name": "MonumentHero",
+    "imports": [
+      "_chunk.js",
+      "_proxy.js",
+      "_use-scroll.js",
+      "_use-transform.js",
+      "_react.js"
+    ]
+  },
+  "_api2.js": {
+    "file": "assets/api2.js",
+    "name": "api",
+    "imports": [
+      "_http.js"
+    ]
+  },
+  "_auth-store.js": {
+    "file": "assets/auth-store.js",
+    "name": "auth-store",
+    "imports": [
+      "_chunk.js",
+      "_http.js",
+      "_react.js"
+    ]
+  },
+  "_chunk.js": {
+    "file": "assets/chunk.js",
+    "name": "chunk"
+  },
+  "_cn.js": {
+    "file": "assets/cn.js",
+    "name": "cn"
+  },
+  "_esm.js": {
+    "file": "assets/esm.js",
+    "name": "esm",
+    "imports": [
+      "_chunk.js"
+    ]
+  },
+  "_features.js": {
+    "file": "assets/features.js",
+    "name": "features"
+  },
   "_http.js": {
     "file": "assets/http.js",
-    "name": "http"
+    "name": "http",
+    "imports": [
+      "_chunk.js"
+    ],
+    "dynamicImports": [
+      "_auth-store.js"
+    ]
+  },
+  "_proxy.js": {
+    "file": "assets/proxy.js",
+    "name": "proxy",
+    "imports": [
+      "_chunk.js",
+      "_react.js"
+    ]
+  },
+  "_react.js": {
+    "file": "assets/react.js",
+    "name": "react",
+    "imports": [
+      "_chunk.js"
+    ]
+  },
+  "_use-scroll.js": {
+    "file": "assets/use-scroll.js",
+    "name": "use-scroll",
+    "imports": [
+      "_chunk.js",
+      "_proxy.js",
+      "_react.js"
+    ]
+  },
+  "_use-transform.js": {
+    "file": "assets/use-transform.js",
+    "name": "use-transform",
+    "imports": [
+      "_chunk.js",
+      "_proxy.js",
+      "_react.js"
+    ]
+  },
+  "_useMonument.js": {
+    "file": "assets/useMonument.js",
+    "name": "useMonument",
+    "imports": [
+      "_chunk.js",
+      "_react.js"
+    ]
   },
   "index.html": {
     "file": "assets/app.js",
@@ -117,11 +251,52 @@
     "src": "index.html",
     "isEntry": true,
     "imports": [
-      "_http.js"
+      "_chunk.js",
+      "_http.js",
+      "_api2.js",
+      "_cn.js",
+      "_auth-store.js",
+      "_proxy.js",
+      "_use-transform.js",
+      "_react.js"
     ],
     "dynamicImports": [
       "_http.js",
-      "index.html"
+      "src/features/home/pages/HomePage.jsx",
+      "src/features/public/pages/LeaderboardPage.jsx",
+      "src/features/public/pages/GalleryPage.jsx",
+      "src/features/public/pages/ContactPage.jsx",
+      "src/features/auth/pages/LoginPage.jsx",
+      "src/features/auth/pages/RegisterPage.jsx",
+      "src/features/arena/pages/ArenaPage.jsx",
+      "src/features/dashboard/pages/DashboardPage.jsx",
+      "src/features/events/pages/EventsPage.jsx",
+      "src/features/student/pages/ProfilePage.jsx",
+      "src/features/student/pages/CertificatesPage.jsx",
+      "src/features/student/pages/ProjectsPage.jsx",
+      "src/features/student/pages/NotificationsPage.jsx",
+      "src/features/student/pages/ReferralPage.jsx",
+      "src/features/student/pages/StudentProfilePage.jsx",
+      "src/features/student/pages/BillingPage.jsx",
+      "src/features/student/pages/LiveQuizPage.jsx",
+      "src/features/student/pages/TestHistoryPage.jsx",
+      "src/features/teacher/pages/TeacherDashboardPage.jsx",
+      "src/features/teacher/pages/TeacherStudentsPage.jsx",
+      "src/features/teacher/pages/TeacherChallengesPage.jsx",
+      "src/features/teacher/pages/TeacherCertificatesPage.jsx",
+      "src/features/teacher/pages/TeacherQuizPage.jsx",
+      "src/features/events/pages/EventScannerPage.jsx",
+      "src/features/admin/pages/AdminOverviewPage.jsx",
+      "src/features/admin/pages/AdminUsersPage.jsx",
+      "src/features/admin/pages/AdminChallengesPage.jsx",
+      "src/features/admin/pages/AdminEventsPage.jsx",
+      "src/features/admin/pages/AdminDataPage.jsx",
+      "src/features/admin/pages/AdminSettingsPage.jsx",
+      "src/features/admin/pages/AdminFeaturesPage.jsx",
+      "src/features/superadmin/pages/SAAnalyticsPage.jsx",
+      "src/features/superadmin/pages/SAOrganisationsPage.jsx",
+      "src/features/superadmin/pages/SAPlansPage.jsx",
+      "src/features/superadmin/pages/SAAccessPage.jsx"
     ],
     "css": [
       "assets/app.css"
@@ -154,6 +329,615 @@
       "assets/jetbrains-mono-latin-ext-400-normal.woff",
       "assets/jetbrains-mono-latin-400-normal.woff2",
       "assets/jetbrains-mono-latin-400-normal.woff"
+    ]
+  },
+  "src/features/admin/pages/AdminChallengesPage.jsx": {
+    "file": "assets/AdminChallengesPage.js",
+    "name": "AdminChallengesPage",
+    "src": "src/features/admin/pages/AdminChallengesPage.jsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_chunk.js",
+      "index.html",
+      "_Button.js",
+      "_Card.js",
+      "_InputField.js",
+      "_useMonument.js",
+      "_api2.js",
+      "_proxy.js",
+      "_react.js"
+    ]
+  },
+  "src/features/admin/pages/AdminDataPage.jsx": {
+    "file": "assets/AdminDataPage.js",
+    "name": "AdminDataPage",
+    "src": "src/features/admin/pages/AdminDataPage.jsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_chunk.js",
+      "index.html",
+      "_Button.js",
+      "_Card.js",
+      "_useMonument.js",
+      "_api2.js",
+      "_proxy.js",
+      "_react.js"
+    ]
+  },
+  "src/features/admin/pages/AdminEventsPage.jsx": {
+    "file": "assets/AdminEventsPage.js",
+    "name": "AdminEventsPage",
+    "src": "src/features/admin/pages/AdminEventsPage.jsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_chunk.js",
+      "index.html",
+      "_Button.js",
+      "_CapacityBar.js",
+      "_Card.js",
+      "_InputField.js",
+      "_useMonument.js",
+      "_api2.js",
+      "_proxy.js",
+      "_react.js"
+    ]
+  },
+  "src/features/admin/pages/AdminFeaturesPage.jsx": {
+    "file": "assets/AdminFeaturesPage.js",
+    "name": "AdminFeaturesPage",
+    "src": "src/features/admin/pages/AdminFeaturesPage.jsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_chunk.js",
+      "index.html",
+      "_Button.js",
+      "_Card.js",
+      "_features.js",
+      "_useMonument.js",
+      "_api2.js",
+      "_proxy.js",
+      "_react.js"
+    ]
+  },
+  "src/features/admin/pages/AdminOverviewPage.jsx": {
+    "file": "assets/AdminOverviewPage.js",
+    "name": "AdminOverviewPage",
+    "src": "src/features/admin/pages/AdminOverviewPage.jsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_chunk.js",
+      "index.html",
+      "_Card.js",
+      "_useMonument.js",
+      "_api2.js",
+      "_proxy.js",
+      "_react.js"
+    ]
+  },
+  "src/features/admin/pages/AdminSettingsPage.jsx": {
+    "file": "assets/AdminSettingsPage.js",
+    "name": "AdminSettingsPage",
+    "src": "src/features/admin/pages/AdminSettingsPage.jsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_chunk.js",
+      "index.html",
+      "_Button.js",
+      "_Card.js",
+      "_useMonument.js",
+      "_api2.js",
+      "_proxy.js",
+      "_react.js"
+    ]
+  },
+  "src/features/admin/pages/AdminUsersPage.jsx": {
+    "file": "assets/AdminUsersPage.js",
+    "name": "AdminUsersPage",
+    "src": "src/features/admin/pages/AdminUsersPage.jsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_chunk.js",
+      "index.html",
+      "_Button.js",
+      "_Card.js",
+      "_InputField.js",
+      "_useMonument.js",
+      "_api2.js",
+      "_proxy.js",
+      "_react.js"
+    ]
+  },
+  "src/features/arena/pages/ArenaPage.jsx": {
+    "file": "assets/ArenaPage.js",
+    "name": "ArenaPage",
+    "src": "src/features/arena/pages/ArenaPage.jsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_chunk.js",
+      "index.html",
+      "_MonumentHero.js",
+      "_Button.js",
+      "_Card.js",
+      "_useMonument.js",
+      "_api2.js",
+      "_proxy.js",
+      "_react.js"
+    ]
+  },
+  "src/features/auth/pages/LoginPage.jsx": {
+    "file": "assets/LoginPage.js",
+    "name": "LoginPage",
+    "src": "src/features/auth/pages/LoginPage.jsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_chunk.js",
+      "index.html",
+      "_http.js",
+      "_Button.js",
+      "_InputField.js",
+      "_useMonument.js",
+      "_api2.js",
+      "_auth-store.js",
+      "_proxy.js",
+      "_react.js"
+    ]
+  },
+  "src/features/auth/pages/RegisterPage.jsx": {
+    "file": "assets/RegisterPage.js",
+    "name": "RegisterPage",
+    "src": "src/features/auth/pages/RegisterPage.jsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_chunk.js",
+      "index.html",
+      "_http.js",
+      "_Button.js",
+      "_InputField.js",
+      "_useMonument.js",
+      "_auth-store.js",
+      "_proxy.js",
+      "_react.js"
+    ]
+  },
+  "src/features/dashboard/pages/DashboardPage.jsx": {
+    "file": "assets/DashboardPage.js",
+    "name": "DashboardPage",
+    "src": "src/features/dashboard/pages/DashboardPage.jsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_chunk.js",
+      "index.html",
+      "_MonumentHero.js",
+      "_AchievementBadge.js",
+      "_Button.js",
+      "_Card.js",
+      "_useMonument.js",
+      "_api2.js",
+      "_proxy.js",
+      "_react.js"
+    ]
+  },
+  "src/features/events/pages/EventScannerPage.jsx": {
+    "file": "assets/EventScannerPage.js",
+    "name": "EventScannerPage",
+    "src": "src/features/events/pages/EventScannerPage.jsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_chunk.js",
+      "index.html",
+      "_Button.js",
+      "_Card.js",
+      "_useMonument.js",
+      "_api2.js",
+      "_proxy.js",
+      "_react.js"
+    ]
+  },
+  "src/features/events/pages/EventsPage.jsx": {
+    "file": "assets/EventsPage.js",
+    "name": "EventsPage",
+    "src": "src/features/events/pages/EventsPage.jsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_chunk.js",
+      "index.html",
+      "_Button.js",
+      "_CapacityBar.js",
+      "_Card.js",
+      "_useMonument.js",
+      "_api2.js",
+      "_auth-store.js",
+      "_proxy.js",
+      "_use-scroll.js",
+      "_use-transform.js",
+      "_react.js"
+    ]
+  },
+  "src/features/home/pages/HomePage.jsx": {
+    "file": "assets/HomePage.js",
+    "name": "HomePage",
+    "src": "src/features/home/pages/HomePage.jsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_chunk.js",
+      "index.html",
+      "_http.js",
+      "_Button.js",
+      "_Card.js",
+      "_useMonument.js",
+      "_proxy.js",
+      "_react.js"
+    ]
+  },
+  "src/features/public/pages/ContactPage.jsx": {
+    "file": "assets/ContactPage.js",
+    "name": "ContactPage",
+    "src": "src/features/public/pages/ContactPage.jsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_chunk.js",
+      "index.html",
+      "_Button.js",
+      "_Card.js",
+      "_InputField.js",
+      "_api2.js",
+      "_proxy.js",
+      "_react.js"
+    ]
+  },
+  "src/features/public/pages/GalleryPage.jsx": {
+    "file": "assets/GalleryPage.js",
+    "name": "GalleryPage",
+    "src": "src/features/public/pages/GalleryPage.jsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_chunk.js",
+      "index.html",
+      "_proxy.js",
+      "_use-scroll.js",
+      "_use-transform.js",
+      "_react.js"
+    ]
+  },
+  "src/features/public/pages/LeaderboardPage.jsx": {
+    "file": "assets/LeaderboardPage.js",
+    "name": "LeaderboardPage",
+    "src": "src/features/public/pages/LeaderboardPage.jsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_chunk.js",
+      "index.html",
+      "_MonumentHero.js",
+      "_Button.js",
+      "_Card.js",
+      "_useMonument.js",
+      "_api2.js",
+      "_proxy.js",
+      "_react.js"
+    ]
+  },
+  "src/features/student/pages/BillingPage.jsx": {
+    "file": "assets/BillingPage.js",
+    "name": "BillingPage",
+    "src": "src/features/student/pages/BillingPage.jsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "index.html",
+      "_Card.js",
+      "_useMonument.js",
+      "_auth-store.js",
+      "_proxy.js"
+    ]
+  },
+  "src/features/student/pages/CertificatesPage.jsx": {
+    "file": "assets/CertificatesPage.js",
+    "name": "CertificatesPage",
+    "src": "src/features/student/pages/CertificatesPage.jsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_chunk.js",
+      "index.html",
+      "_Button.js",
+      "_Card.js",
+      "_useMonument.js",
+      "_api2.js",
+      "_proxy.js",
+      "_react.js"
+    ]
+  },
+  "src/features/student/pages/LiveQuizPage.jsx": {
+    "file": "assets/LiveQuizPage.js",
+    "name": "LiveQuizPage",
+    "src": "src/features/student/pages/LiveQuizPage.jsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_chunk.js",
+      "index.html",
+      "_Button.js",
+      "_Card.js",
+      "_InputField.js",
+      "_auth-store.js",
+      "_esm.js",
+      "_proxy.js",
+      "_react.js"
+    ]
+  },
+  "src/features/student/pages/NotificationsPage.jsx": {
+    "file": "assets/NotificationsPage.js",
+    "name": "NotificationsPage",
+    "src": "src/features/student/pages/NotificationsPage.jsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_chunk.js",
+      "index.html",
+      "_Button.js",
+      "_Card.js",
+      "_useMonument.js",
+      "_api2.js",
+      "_auth-store.js",
+      "_esm.js",
+      "_proxy.js",
+      "_react.js"
+    ]
+  },
+  "src/features/student/pages/ProfilePage.jsx": {
+    "file": "assets/ProfilePage.js",
+    "name": "ProfilePage",
+    "src": "src/features/student/pages/ProfilePage.jsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_chunk.js",
+      "index.html",
+      "_http.js",
+      "_MonumentHero.js",
+      "_AchievementBadge.js",
+      "_Button.js",
+      "_Card.js",
+      "_InputField.js",
+      "_useMonument.js",
+      "_api2.js",
+      "_proxy.js",
+      "_react.js"
+    ],
+    "dynamicImports": [
+      "_http.js"
+    ]
+  },
+  "src/features/student/pages/ProjectsPage.jsx": {
+    "file": "assets/ProjectsPage.js",
+    "name": "ProjectsPage",
+    "src": "src/features/student/pages/ProjectsPage.jsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_chunk.js",
+      "index.html",
+      "_Button.js",
+      "_Card.js",
+      "_InputField.js",
+      "_useMonument.js",
+      "_api2.js",
+      "_proxy.js",
+      "_react.js"
+    ]
+  },
+  "src/features/student/pages/ReferralPage.jsx": {
+    "file": "assets/ReferralPage.js",
+    "name": "ReferralPage",
+    "src": "src/features/student/pages/ReferralPage.jsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_chunk.js",
+      "index.html",
+      "_MonumentHero.js",
+      "_Button.js",
+      "_Card.js",
+      "_useMonument.js",
+      "_api2.js",
+      "_proxy.js",
+      "_react.js"
+    ]
+  },
+  "src/features/student/pages/StudentProfilePage.jsx": {
+    "file": "assets/StudentProfilePage.js",
+    "name": "StudentProfilePage",
+    "src": "src/features/student/pages/StudentProfilePage.jsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_chunk.js",
+      "index.html",
+      "_http.js",
+      "_MonumentHero.js",
+      "_Button.js",
+      "_Card.js",
+      "_useMonument.js",
+      "_api2.js",
+      "_auth-store.js",
+      "_esm.js",
+      "_proxy.js",
+      "_react.js"
+    ]
+  },
+  "src/features/student/pages/TestHistoryPage.jsx": {
+    "file": "assets/TestHistoryPage.js",
+    "name": "TestHistoryPage",
+    "src": "src/features/student/pages/TestHistoryPage.jsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_chunk.js",
+      "index.html",
+      "_Button.js",
+      "_Card.js",
+      "_useMonument.js",
+      "_api2.js",
+      "_proxy.js",
+      "_react.js"
+    ]
+  },
+  "src/features/superadmin/pages/SAAccessPage.jsx": {
+    "file": "assets/SAAccessPage.js",
+    "name": "SAAccessPage",
+    "src": "src/features/superadmin/pages/SAAccessPage.jsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_chunk.js",
+      "index.html",
+      "_Button.js",
+      "_Card.js",
+      "_features.js",
+      "_useMonument.js",
+      "_api2.js",
+      "_proxy.js",
+      "_react.js"
+    ]
+  },
+  "src/features/superadmin/pages/SAAnalyticsPage.jsx": {
+    "file": "assets/SAAnalyticsPage.js",
+    "name": "SAAnalyticsPage",
+    "src": "src/features/superadmin/pages/SAAnalyticsPage.jsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_chunk.js",
+      "index.html",
+      "_Card.js",
+      "_useMonument.js",
+      "_api2.js",
+      "_proxy.js",
+      "_react.js"
+    ]
+  },
+  "src/features/superadmin/pages/SAOrganisationsPage.jsx": {
+    "file": "assets/SAOrganisationsPage.js",
+    "name": "SAOrganisationsPage",
+    "src": "src/features/superadmin/pages/SAOrganisationsPage.jsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_chunk.js",
+      "index.html",
+      "_Button.js",
+      "_Card.js",
+      "_useMonument.js",
+      "_api2.js",
+      "_proxy.js",
+      "_react.js"
+    ]
+  },
+  "src/features/superadmin/pages/SAPlansPage.jsx": {
+    "file": "assets/SAPlansPage.js",
+    "name": "SAPlansPage",
+    "src": "src/features/superadmin/pages/SAPlansPage.jsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_chunk.js",
+      "index.html",
+      "_Button.js",
+      "_Card.js",
+      "_useMonument.js",
+      "_api2.js",
+      "_proxy.js",
+      "_react.js"
+    ]
+  },
+  "src/features/teacher/pages/TeacherCertificatesPage.jsx": {
+    "file": "assets/TeacherCertificatesPage.js",
+    "name": "TeacherCertificatesPage",
+    "src": "src/features/teacher/pages/TeacherCertificatesPage.jsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_chunk.js",
+      "index.html",
+      "_Button.js",
+      "_Card.js",
+      "_useMonument.js",
+      "_api2.js",
+      "_proxy.js",
+      "_react.js"
+    ]
+  },
+  "src/features/teacher/pages/TeacherChallengesPage.jsx": {
+    "file": "assets/TeacherChallengesPage.js",
+    "name": "TeacherChallengesPage",
+    "src": "src/features/teacher/pages/TeacherChallengesPage.jsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_chunk.js",
+      "index.html",
+      "_Button.js",
+      "_Card.js",
+      "_useMonument.js",
+      "_api2.js",
+      "_proxy.js",
+      "_react.js"
+    ]
+  },
+  "src/features/teacher/pages/TeacherDashboardPage.jsx": {
+    "file": "assets/TeacherDashboardPage.js",
+    "name": "TeacherDashboardPage",
+    "src": "src/features/teacher/pages/TeacherDashboardPage.jsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_chunk.js",
+      "index.html",
+      "_Button.js",
+      "_Card.js",
+      "_useMonument.js",
+      "_api2.js",
+      "_proxy.js",
+      "_react.js"
+    ]
+  },
+  "src/features/teacher/pages/TeacherQuizPage.jsx": {
+    "file": "assets/TeacherQuizPage.js",
+    "name": "TeacherQuizPage",
+    "src": "src/features/teacher/pages/TeacherQuizPage.jsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_chunk.js",
+      "index.html",
+      "_http.js",
+      "_Button.js",
+      "_Card.js",
+      "_useMonument.js",
+      "_api2.js",
+      "_esm.js",
+      "_proxy.js",
+      "_react.js"
+    ],
+    "dynamicImports": [
+      "_api2.js"
+    ]
+  },
+  "src/features/teacher/pages/TeacherStudentsPage.jsx": {
+    "file": "assets/TeacherStudentsPage.js",
+    "name": "TeacherStudentsPage",
+    "src": "src/features/teacher/pages/TeacherStudentsPage.jsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_chunk.js",
+      "index.html",
+      "_Button.js",
+      "_Card.js",
+      "_useMonument.js",
+      "_api2.js",
+      "_proxy.js",
+      "_react.js"
+    ]
+  },
+  "src/lib/api/index.js": {
+    "file": "assets/api.js",
+    "name": "api",
+    "src": "src/lib/api/index.js",
+    "isDynamicEntry": true,
+    "imports": [
+      "_api2.js"
+    ]
+  },
+  "src/store/auth-store.js": {
+    "file": "assets/auth-store2.js",
+    "name": "auth-store",
+    "src": "src/store/auth-store.js",
+    "isDynamicEntry": true,
+    "imports": [
+      "_auth-store.js"
     ]
   }
 }

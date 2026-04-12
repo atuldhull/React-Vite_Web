@@ -1,0 +1,2 @@
+import{a as e}from"./chunk.js";import{t}from"./react.js";var n=e(t(),1);function r(e){(0,n.useEffect)(()=>(document.body.setAttribute(`data-monument`,e),()=>document.body.removeAttribute(`data-monument`)),[e])}export{r as t};
+//# sourceMappingURL=useMonument.js.map
