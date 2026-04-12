@@ -74,7 +74,9 @@ describe("Security Hardening", () => {
   describe("Request Body Limits", () => {
     it("JSON body size is limited", () => {
       const code = readFile("server.js");
-      expect(code).toMatch(/express\.json\(\{.*limit/);
+      // `s` flag lets `.` match newlines so this works regardless of whether
+      // express.json({...}) is single-line or multi-line (e.g. with a verify cb).
+      expect(code).toMatch(/express\.json\(\{[\s\S]*limit/);
     });
   });
 

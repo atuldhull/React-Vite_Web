@@ -40,7 +40,17 @@ app.use(cors({
 /* ── MIDDLEWARE ── */
 app.use(express.static(path.join(__dirname, "public")));
 app.use(express.urlencoded({ extended: true }));
-app.use(express.json({ limit: "2mb" })); // Limit body size
+app.use(express.json({
+  limit: "2mb",
+  // Preserve raw body bytes for the Razorpay webhook so we can verify its
+  // HMAC signature. JSON.stringify(req.body) is NOT a safe substitute:
+  // key order / whitespace can differ, breaking the HMAC match.
+  verify: (req, _res, buf) => {
+    if (req.originalUrl === "/api/payment/webhook") {
+      req.rawBody = buf;
+    }
+  },
+}));
 app.use(sessionMiddleware);
 
 /* ── TENANT MIDDLEWARE ── */

@@ -31,12 +31,11 @@ const router = express.Router();
 /* ── Public ── */
 router.get("/plans", getPublicPlans);
 
-/* ── Webhook — must be BEFORE express.json() re-parse (raw body needed for sig check) ── */
-router.post("/webhook", express.raw({ type: "application/json" }), (req, res, next) => {
-  // Parse raw body back to JSON for our handler
-  if (Buffer.isBuffer(req.body)) req.body = JSON.parse(req.body.toString());
-  next();
-}, razorpayWebhook);
+/* ── Webhook — req.body is parsed JSON from express.json(). The raw body
+      bytes are preserved as req.rawBody (see server.js verify callback)
+      so the handler can HMAC-verify the Razorpay signature against the
+      exact bytes Razorpay signed. ── */
+router.post("/webhook", razorpayWebhook);
 
 /* ── Org admin protected ── */
 router.use(requireAdmin, injectTenant);
