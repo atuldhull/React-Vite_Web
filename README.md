@@ -52,7 +52,15 @@ Open [http://localhost:5173/app/](http://localhost:5173/app/)
 ```
 Atul_Web/
 ├── backend/                       # All server-side code
-│   ├── server.js                  # Express 5 entry + Socket.IO
+│   ├── server.js                  # Thin entrypoint: boots http+io, listens
+│   ├── app.js                     # Express app factory (createApp)
+│   ├── socket/                    # Socket.IO, split by concern
+│   │   ├── index.js               #   orchestrator
+│   │   ├── auth.js                #   session-based socket auth
+│   │   ├── notifications.js       #   register_user + pushNotification
+│   │   ├── presence.js            #   presence tracking + admin room
+│   │   ├── quiz.js                #   live quiz engine
+│   │   └── chat.js                #   E2EE chat relays
 │   ├── config/                    # Supabase, OpenRouter clients
 │   ├── services/
 │   │   └── realtime.js            # Decouples server.js from controllers
@@ -83,7 +91,14 @@ Atul_Web/
 │
 ├── frontend/                      # React 19 + Vite 8 SPA
 │   ├── src/
-│   │   ├── app/                   # App.jsx, router.jsx (lazy-loaded routes)
+│   │   ├── app/                   # App.jsx, router.jsx
+│   │   │   └── routes/            # one file per logical route group
+│   │   │       ├── publicRoutes.jsx
+│   │   │       ├── authRoutes.jsx
+│   │   │       ├── teacherRoutes.jsx
+│   │   │       ├── adminRoutes.jsx
+│   │   │       ├── superAdminRoutes.jsx
+│   │   │       └── errorRoutes.jsx
 │   │   ├── features/
 │   │   │   ├── errors/            # 404 + 403 pages
 │   │   │   ├── home/              # Homepage (scroll-synced video)

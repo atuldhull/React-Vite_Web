@@ -12,17 +12,18 @@ function readFile(filePath) {
 }
 
 describe("Security Hardening", () => {
+  // Express app setup now lives in app.js; server.js only boots.
   describe("Helmet", () => {
-    it("server.js imports and uses helmet", () => {
-      const code = readFile("backend/server.js");
+    it("app.js imports and uses helmet", () => {
+      const code = readFile("backend/app.js");
       expect(code).toContain('import helmet');
       expect(code).toContain("app.use(helmet(");
     });
   });
 
   describe("CORS", () => {
-    it("server.js imports and configures cors", () => {
-      const code = readFile("backend/server.js");
+    it("app.js imports and configures cors", () => {
+      const code = readFile("backend/app.js");
       expect(code).toContain('import cors');
       expect(code).toContain("app.use(cors(");
       expect(code).toContain("credentials: true");
@@ -49,31 +50,34 @@ describe("Security Hardening", () => {
 
   describe("Socket.IO Authentication", () => {
     it("uses session middleware on socket engine", () => {
-      const code = readFile("backend/server.js");
+      const code = readFile("backend/socket/auth.js");
       expect(code).toContain("io.engine.use(sessionMiddleware)");
     });
 
     it("has io.use auth middleware that checks session", () => {
-      const code = readFile("backend/server.js");
+      const code = readFile("backend/socket/auth.js");
       expect(code).toContain("io.use(");
       expect(code).toContain("socket.request.session");
     });
 
-    it("register_user uses session-verified userId not client-supplied", () => {
-      const code = readFile("backend/server.js");
-      expect(code).toContain("socket.userId || clientUserId");
-      expect(code).toContain("prevents spoofing");
+    it("register_user only accepts session-verified socket.userId (no client fallback)", () => {
+      const code = readFile("backend/socket/notifications.js");
+      // Handler must take zero args — dropped the client-supplied id entirely.
+      expect(code).toMatch(/socket\.on\(\s*["']register_user["']\s*,\s*\(\)\s*=>/);
+      // And must bail out when no verified session id exists.
+      expect(code).toMatch(/const verifiedId = socket\.userId/);
+      expect(code).toMatch(/if \(!verifiedId\)/);
     });
 
     it("admin room join requires admin role", () => {
-      const code = readFile("backend/server.js");
+      const code = readFile("backend/socket/presence.js");
       expect(code).toMatch(/join_admin[\s\S]*userRole[\s\S]*admin/);
     });
   });
 
   describe("Request Body Limits", () => {
     it("JSON body size is limited", () => {
-      const code = readFile("backend/server.js");
+      const code = readFile("backend/app.js");
       // `s` flag lets `.` match newlines so this works regardless of whether
       // express.json({...}) is single-line or multi-line (e.g. with a verify cb).
       expect(code).toMatch(/express\.json\(\{[\s\S]*limit/);
@@ -82,7 +86,7 @@ describe("Security Hardening", () => {
 
   describe("Rate Limiting", () => {
     it("general rate limiter is applied to all API routes", () => {
-      const code = readFile("backend/server.js");
+      const code = readFile("backend/app.js");
       expect(code).toContain('app.use("/api/", generalLimiter)');
     });
 

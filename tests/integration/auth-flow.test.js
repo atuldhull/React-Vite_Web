@@ -102,42 +102,48 @@ describe("Tenant Isolation Integration", () => {
 // ═══════════════════════════════════════════════════════════
 
 describe("Socket.IO Auth Integration", () => {
-  const serverCode = readFile("backend/server.js");
+  // After the split, these concerns live under backend/socket/*.js.
+  const authCode          = readFile("backend/socket/auth.js");
+  const notificationsCode = readFile("backend/socket/notifications.js");
+  const presenceCode      = readFile("backend/socket/presence.js");
+  const quizCode          = readFile("backend/socket/quiz.js");
+  const chatCode          = readFile("backend/socket/chat.js");
 
   it("socket engine uses session middleware", () => {
-    expect(serverCode).toContain("io.engine.use(sessionMiddleware)");
+    expect(authCode).toContain("io.engine.use(sessionMiddleware)");
   });
 
   it("io.use middleware extracts userId from session", () => {
-    expect(serverCode).toContain("socket.request.session");
-    expect(serverCode).toContain("socket.userId = session.user.id");
+    expect(authCode).toContain("socket.request.session");
+    expect(authCode).toContain("socket.userId   = session.user.id");
   });
 
   it("io.use middleware extracts userRole from session", () => {
-    expect(serverCode).toContain("socket.userRole = session.user.role");
+    expect(authCode).toContain("socket.userRole = session.user.role");
   });
 
-  it("register_user uses verified session userId, not client-supplied", () => {
-    expect(serverCode).toContain("socket.userId || clientUserId");
-    expect(serverCode).toContain("prevents spoofing");
+  it("register_user ONLY accepts session-verified socket.userId (no client fallback)", () => {
+    // Handler takes zero args — we dropped the client-supplied id.
+    expect(notificationsCode).toMatch(/socket\.on\(\s*["']register_user["']\s*,\s*\(\)\s*=>/);
+    expect(notificationsCode).toMatch(/const verifiedId = socket\.userId/);
+    expect(notificationsCode).toMatch(/if \(!verifiedId\)/);
   });
 
   it("admin room requires admin/super_admin role", () => {
-    expect(serverCode).toMatch(/join_admin[\s\S]{0,200}userRole/);
-    expect(serverCode).toMatch(/admin.*super_admin.*join_admin|join_admin[\s\S]*admin.*super_admin/s);
+    expect(presenceCode).toMatch(/join_admin[\s\S]{0,200}userRole/);
+    expect(presenceCode).toMatch(/\["admin", "super_admin"\]\.includes\(socket\.userRole\)/);
   });
 
   it("quiz session emits to room only, not broadcast", () => {
-    expect(serverCode).toMatch(/\.to\(.*room|\.to\(.*code/);
+    expect(quizCode).toMatch(/\.to\(.*code|\.to\(session\.teacherSocket/);
   });
 
   it("chat verifies senderId from socket, not request body", () => {
-    expect(serverCode).toContain("socket.userId");
-    expect(serverCode).toMatch(/senderId.*socket\.userId|socket\.userId.*sender/);
+    expect(chatCode).toContain("senderId:         socket.userId");
   });
 
   it("notification delivery targets specific user rooms", () => {
-    expect(serverCode).toMatch(/user:.*userId|join.*user:/);
+    expect(notificationsCode).toMatch(/user:\$\{userId\}|user:\$\{verifiedId\}/);
   });
 });
 

@@ -565,3 +565,37 @@ Adjustments:
 - 136/136 tests still pass. Lint clean. Server boots from new location. SPA deep links resolve. Production build succeeds.
 
 Why: the old layout had backend code (routes, controllers, middleware, services, config, migrations, server.js) sprinkled at the project root, which made it hard to tell "what is this project even?" at a glance. New layout gives each half of the stack a single home folder; root is only shared configs + docs + tests.
+
+### Phase 8.1: External review follow-through (April 13, 2026)
+
+An external code review came back at 7.2/10 (FE 7.8, BE 6.6). Three criticisms were security/correctness bugs I missed in the first pass, and two were architectural. All addressed:
+
+**Security / correctness**
+
+1. **`register_user` socket handler bypass.** The previous `socket.userId || clientUserId` fallback let an unauthenticated socket claim any user id and receive that user's notifications. Rewritten to accept zero args and drop the connection silently when there is no session-verified id.
+2. **`/api/debug` endpoint.** Previously public — leaked session info + row counts. Now wrapped in `if (!isProd)`, and within dev still requires admin / super_admin role.
+3. **ScrollManager comment/code mismatch.** The comment promised "don't scroll on POP" but the code always called `window.scrollTo`. Rewrote using `useNavigationType()` so Back/Forward actually preserve scroll position.
+
+**Architecture**
+
+4. **`backend/server.js` was 480 lines** mixing HTTP + Socket.IO + quiz engine + presence + chat + notifications + realtime registration. Split into:
+   - `backend/server.js` (45 lines) — just boots http + io + listens
+   - `backend/app.js` — Express app factory (middleware, routes, error handlers)
+   - `backend/socket/auth.js` — session-based socket auth
+   - `backend/socket/notifications.js` — `register_user` + `pushNotification`
+   - `backend/socket/presence.js` — presence tracking + admin room
+   - `backend/socket/quiz.js` — live quiz engine (session state + all events)
+   - `backend/socket/chat.js` — chat relays
+   - `backend/socket/index.js` — orchestrator that wires everything
+
+5. **`frontend/src/app/router.jsx` was ~240 lines**, about to grow as more pages get added. Split into six focused route modules under `frontend/src/app/routes/`:
+   - `publicRoutes.jsx` — public + student routes (MainLayout)
+   - `authRoutes.jsx` — login/register (AuthLayout + GuestOnlyRoute)
+   - `teacherRoutes.jsx` — teacher portal
+   - `adminRoutes.jsx` — admin portal
+   - `superAdminRoutes.jsx` — super-admin portal
+   - `errorRoutes.jsx` — 403 + 404 pages
+   
+   `router.jsx` is now pure composition: SessionLoader, ScrollManager, Suspense fallback, AnimatePresence + PageTransition shell, and `<Routes>{publicRoutes}{authRoutes}...</Routes>`.
+
+All 136 tests updated for the new file layout and still pass. Lint clean. Production build: 3.5s. Every endpoint returns the expected status code live (including the new `/api/debug` 403 behaviour).
