@@ -1,6 +1,6 @@
 ## Visual Theme System
 
-> Added: April 2026 | Last updated: April 4, 2026
+> Added: April 2026 | Last updated: April 13, 2026
 
 ### Concept: Mathematical Monuments
 
@@ -23,11 +23,14 @@ Every page in the app is visually set inside one of 8 hypothetical mathematical 
 
 | File | Purpose |
 |------|---------|
-| `frontend/src/styles/theme.css` | Monument CSS variables (`--monument-*`, `--page-accent`, `--page-glow`, clip-path tokens) |
+| `frontend/src/styles/theme.css` | Monument CSS variables (`--monument-*`, `--page-accent`, `--page-glow`, clip-path tokens, panda/avatar/ring helpers) |
 | `frontend/src/hooks/useMonument.js` | Hook that sets `data-monument` attribute on `document.body` for CSS scoping |
-| `frontend/src/components/backgrounds/MonumentBackground.jsx` | 8 animated biome backgrounds as a single switchable component |
+| `frontend/src/components/backgrounds/MonumentBackground.jsx` | Thin switch (53 lines) that picks the right biome component |
+| `frontend/src/components/backgrounds/monument/` | The 8 biome scenes — `DesertBg`, `PyramidBg`, `GlacierBg`, `JungleBg`, `CityBg`, `AbyssBg`, `SkyBg`, `MagmaBg` — plus shared `keyframes.js` |
 | `frontend/src/components/monument/MonumentHero.jsx` | Premium animated page headers with parallax |
-| `frontend/src/components/monument/MonumentRouter.jsx` | Route→monument context provider |
+| `frontend/src/components/monument/MonumentRouter.jsx` | Route->monument context provider |
+
+> Note: `MonumentBackground.jsx` was previously one 672-line file. It was split during the April 2026 architecture pass — the switch logic stayed behind, each biome moved to its own file, and the shared `@keyframes` block is now injected once via `ensureKeyframes()`. No behavioural change; purely a maintainability split.
 
 ### CSS Variable System
 

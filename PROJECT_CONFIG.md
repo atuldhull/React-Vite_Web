@@ -1,6 +1,6 @@
 # Math Collective — Project Configuration
 
-> Last updated: April 4, 2026
+> Last updated: April 13, 2026
 
 ## Project Type
 Multi-tenant competitive mathematics platform (React + Express + Supabase).
@@ -14,9 +14,16 @@ Multi-tenant competitive mathematics platform (React + Express + Supabase).
 ## Architecture
 - `frontend/` — React 19 + Vite 8 SPA (root for Vite)
 - `server.js` — Express 5 API + Socket.io
+- `services/realtime.js` — Decouples Socket.IO publishing from controllers (break for the old server.js <-> notificationController circular import)
 - `routes/` + `controllers/` + `middleware/` — Backend
+- `controllers/{event,admin,certificate,payment,superAdmin}/` — Per-domain sub-modules; each parent `*Controller.js` is a one-line barrel re-exporting them (keeps route imports stable)
 - `frontend/src/features/` — Feature-based page components
-- `frontend/src/components/` — Shared components (ui/, backgrounds/, panda/, monument/, chat/)
+- `frontend/src/features/errors/` — 404 + 403 pages
+- `frontend/src/components/` — Shared components (ui/, backgrounds/, panda/, monument/, chat/, auth/)
+- `frontend/src/components/auth/` — `ProtectedRoute`, `GuestOnlyRoute`
+- `frontend/src/components/backgrounds/monument/` — 8 biome scenes + shared keyframes (extracted from the old 672-line `MonumentBackground.jsx`)
+- `tests/unit/` + `tests/integration/` — Vitest (plus supertest + jsdom for jsx tests)
+- `docs/PAYMENT_SETUP.md` — Razorpay setup guide
 
 ## Key Conventions
 - **Vite base:** `/app/` — all static assets resolve under `/app/`
@@ -24,10 +31,13 @@ Multi-tenant competitive mathematics platform (React + Express + Supabase).
 - **Static files (prod):** `public/app/` (build output)
 - **Videos:** `frontend/public/videos/desert_monument.mp4` (homepage cinematic)
 - **Imports:** Use `@/` alias (maps to `frontend/src/`)
-- **Styling:** Tailwind CSS + CSS custom properties in `frontend/src/styles/theme.css`
+- **Styling:** Tailwind CSS + CSS custom properties in `frontend/src/styles/theme.css`. No hardcoded hex colors in JSX `style` props — use `var(--page-accent)` etc.
 - **State:** Zustand stores in `frontend/src/store/`
-- **API client:** `frontend/src/lib/api/index.js` (Axios)
-- **Animations:** Framer Motion for UI, GSAP for scroll
+- **API client:** `frontend/src/lib/api/index.js` (Axios). HTTP 401 is auto-handled by an interceptor in `lib/http.js`.
+- **Animations:** Framer Motion for UI, GSAP for scroll. Shared variants live in `frontend/src/lib/animations.js` (fadeUp, fadeUpHero, scaleIn, slideInLeft).
+- **Async patterns:** `useFetch(fetcher, { immediate, deps })` and `useAsync(action)` in `frontend/src/hooks/useFetch.js` replace the old setLoading/try/catch/finally/setError boilerplate.
+- **Role helper:** `frontend/src/lib/roles.js` — `ROLES` constant, `dashboardForRole(role)`, `hasRole(user, allowed)`. Single source of truth for post-login redirects.
+- **Code splitting:** Every page in `router.jsx` is loaded via `React.lazy()`. A `<Suspense>` fallback (orbit loader) shows while the chunk fetches.
 
 ## Monument Theme System
 Every page uses `useMonument('name')` + `<MonumentBackground monument="name" />`.
@@ -92,7 +102,11 @@ All in `migrations/` folder:
 - Gated routes: AI tools, certificates, QR check-in, event leaderboards, analytics, data export
 
 ## Key Files
-- `PROGRESS.md` — Full development changelog (Phases 1–7)
+- `PROGRESS.md` — Full development changelog (Phases 1-8)
 - `PROJECT_BRIEF.md` — Complete project documentation
 - `VISUAL_THEME_SYSTEM.md` — Monument CSS theme system documentation
+- `docs/PAYMENT_SETUP.md` — Razorpay env vars + webhook setup
 - `frontend/src/config/features.js` — Master feature definitions
+- `frontend/src/config/design-tokens.js` — Animation timings, z-index layers, component sizes, event constants (early-bird threshold, winner XP multipliers)
+- `frontend/src/lib/roles.js` — Role constants + dashboardForRole + hasRole
+- `frontend/src/lib/animations.js` — Shared framer-motion variants

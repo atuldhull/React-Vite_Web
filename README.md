@@ -4,7 +4,8 @@
 
 Built with React 19 + Vite 8 (frontend), Express 5 + Supabase (backend), Three.js (3D), Socket.IO (real-time). Features AI-powered challenges, live quizzes, XP gamification, E2EE messaging, and a cinematic 3D homepage.
 
-> Last updated: April 4, 2026
+> Last updated: April 13, 2026  
+> Status: 136/136 tests passing · 0 ESLint issues · production build 3.2s
 
 ---
 
@@ -50,44 +51,78 @@ Open [http://localhost:5173/app/](http://localhost:5173/app/)
 
 ```
 Atul_Web/
-├── server.js                  # Express 5 entry point + Socket.IO
-├── config/                    # Supabase, OpenRouter clients
-├── controllers/               # All backend logic
-│   ├── arenaController.js     # Challenge submission + penalty scoring
-│   ├── authController.js      # Register, login, logout
-│   ├── challengeController.js # Challenge CRUD
-│   ├── messagingController.js # E2EE chat + friendships
-│   ├── notificationController.js # Real-time notifications
-│   ├── teacherController.js   # AI question generation
-│   ├── certificateController.js # PDF certificate generation
-│   └── referralController.js  # Referral system
-├── middleware/                 # Auth guards (requireAuth, requireTeacher, etc.)
-├── routes/                    # Express route files
+├── server.js                      # Express 5 entry + Socket.IO
+├── config/                        # Supabase, OpenRouter clients
+├── services/
+│   └── realtime.js                # Decouples server.js from controllers
+│                                  # (breaks the old circular import)
+├── controllers/
+│   ├── adminController.js         # barrel -> admin/*.js (8 modules)
+│   ├── certificateController.js   # barrel -> certificate/*.js (5 modules)
+│   ├── paymentController.js       # barrel -> payment/*.js (7 modules)
+│   ├── superAdminController.js    # barrel -> superAdmin/*.js (5 modules)
+│   ├── event/                     # eventCrud, registration, attendance,
+│   │                              #   leaderboard, achievement, siteSettings
+│   ├── admin/                     # aiQuestions, users, events, stats, xp,
+│   │                              #   teamsProjects, scheduledTests, dataExport
+│   ├── certificate/               # assets, latex, batch, download, helpers
+│   ├── payment/                   # config, orders, verification, webhook,
+│   │                              #   upgrade, billing, invoiceEmail
+│   ├── superAdmin/                # analytics, organisations, plans,
+│   │                              #   impersonation, auditLogs
+│   ├── arenaController.js         # Challenge submission + penalty scoring
+│   ├── authController.js          # Register, login, logout
+│   ├── messagingController.js     # E2EE chat + friendships
+│   ├── notificationController.js  # Real-time notifications
+│   └── ...                        # challenge, contact, gallery, insights,
+│                                  #   referral, teacher, user, orgAdmin, ai
+├── middleware/                    # Auth guards + rate limiters + tenant
+├── routes/                        # Express route files (one per domain)
 │
-├── frontend/                  # React 19 + Vite 8 SPA
+├── frontend/                      # React 19 + Vite 8 SPA
 │   ├── src/
-│   │   ├── app/               # App.jsx, router.jsx
-│   │   ├── features/          # Feature-based pages
-│   │   │   ├── home/          # Homepage (3D Earth + cinematic video)
-│   │   │   ├── arena/         # Challenge arena (random questions)
-│   │   │   ├── student/       # Dashboard, profile, notifications
-│   │   │   ├── teacher/       # Challenge manager, quiz hosting
-│   │   │   ├── admin/         # User/challenge/event management
-│   │   │   └── superadmin/    # Org/subscription management
-│   │   ├── components/        # Shared UI (Button, Card, backgrounds)
-│   │   ├── hooks/             # useMonument, usePerformanceTier, etc.
-│   │   ├── store/             # Zustand stores
-│   │   ├── lib/               # API client, crypto, http
-│   │   └── styles/            # theme.css, tailwind.css
+│   │   ├── app/                   # App.jsx, router.jsx (lazy-loaded routes)
+│   │   ├── features/
+│   │   │   ├── errors/            # 404 + 403 pages
+│   │   │   ├── home/              # Homepage (scroll-synced video)
+│   │   │   ├── arena/             # Challenge arena
+│   │   │   ├── events/            # Event browser + scanner
+│   │   │   ├── student/
+│   │   │   │   ├── pages/
+│   │   │   │   │   ├── profile/   # 7 sub-components (1068 -> 364 lines)
+│   │   │   │   │   └── liveQuiz/  # 6 phase screens (981 -> 332 lines)
+│   │   │   ├── teacher/
+│   │   │   │   └── pages/teacherQuiz/  # 5 sub-components (937 -> 366)
+│   │   │   ├── admin/
+│   │   │   └── superadmin/
+│   │   ├── components/
+│   │   │   ├── auth/              # ProtectedRoute, GuestOnlyRoute
+│   │   │   ├── backgrounds/
+│   │   │   │   └── monument/      # 8 biome scenes (MonumentBackground
+│   │   │   │                      #   was 672 lines, now 53 + sub-files)
+│   │   │   └── ui/
+│   │   ├── hooks/
+│   │   │   ├── useFetch.js        # shared loading/error/data pattern
+│   │   │   └── useMonument.js
+│   │   ├── lib/
+│   │   │   ├── animations.js      # shared framer-motion variants
+│   │   │   ├── roles.js           # dashboardForRole, hasRole
+│   │   │   └── http.js            # axios + 401 interceptor
+│   │   └── styles/
 │   └── public/
-│       ├── textures/          # Earth, terrain, sky HDRIs
-│       └── videos/            # Cinematic desert video
 │
-├── docs/                      # SQL schemas
-├── PROJECT_CONFIG.md          # Project configuration & conventions
-├── PROJECT_BRIEF.md           # Complete project documentation
-├── PROGRESS.md                # Full development changelog
-└── PROJECT_BRIEF.md           # Complete project documentation
+├── tests/
+│   ├── unit/                      # roles, auth-guard (jsdom), arena-scoring,
+│   │                              #   event-status, feature-flags, security
+│   └── integration/               # api-smoke (supertest), payment (supertest)
+│
+├── docs/
+│   ├── PAYMENT_SETUP.md           # Razorpay env vars + webhook setup guide
+│   └── ...SQL
+├── PROJECT_CONFIG.md
+├── PROJECT_BRIEF.md
+├── PROGRESS.md
+└── VISUAL_THEME_SYSTEM.md
 ```
 
 ---
@@ -145,9 +180,16 @@ Atul_Web/
 | `SUPABASE_SERVICE_ROLE_KEY` | Yes | Supabase service role key |
 | `OPENROUTER_API_KEY` | Yes | OpenRouter API key (for AI) |
 | `SESSION_SECRET` | Yes | Random 32+ char string |
-| `RAZORPAY_KEY_ID` | For payments | Razorpay key |
-| `RAZORPAY_SECRET` | For payments | Razorpay secret |
+| `CONTACT_EMAIL` | Yes | Gmail account used to send contact + invoice emails |
+| `CONTACT_APP_PASSWORD` | Yes | Gmail app password for `CONTACT_EMAIL` |
+| `RAZORPAY_KEY_ID` | For payments | Razorpay public key id (safe to expose to frontend) |
+| `RAZORPAY_KEY_SECRET` | For payments | Razorpay API secret (server-only) |
+| `RAZORPAY_WEBHOOK_SECRET` | For payments | HMAC key for webhook — **required in production** |
+| `PUBLIC_URL` | No | Base URL used in invoice emails (falls back to relative URLs) |
+| `FRONTEND_URL` | Prod | CORS allow-list when `NODE_ENV=production` |
 | `PORT` | No | Server port (default: 3000) |
+
+See [docs/PAYMENT_SETUP.md](docs/PAYMENT_SETUP.md) for the full Razorpay setup walkthrough.
 
 ---
 
@@ -216,14 +258,27 @@ All in `migrations/` folder — run in Supabase SQL editor in numbered order (01
 ```bash
 npm start              # Production server (node server.js)
 npm run dev            # Dev server with auto-reload (nodemon)
-npm run dev:frontend   # Vite dev server
-npm run build          # Production frontend build → public/app/
-npm run lint           # ESLint check
+npm run dev:frontend   # Vite dev server (port 5173)
+npm run build          # Production frontend build -> public/app/
+npm run lint           # ESLint check (0 errors, 0 warnings on main)
 npm run lint:fix       # ESLint auto-fix
 npm run format         # Prettier format all files
 npm run format:check   # Prettier check (CI)
-npm test               # Test placeholder (Vitest installed)
+npm test               # Vitest run — 136 tests
+npm run test:watch     # Vitest watch mode
 ```
+
+## Testing
+
+136 tests across 10 files (2.5s total):
+
+| Layer | Files | Count | Coverage |
+|-------|-------|-------|----------|
+| Unit | `tests/unit/` | 110 | Pure logic: arena scoring, event status, feature flags, role helpers, security config, route guards |
+| Integration | `tests/integration/` | 26 | Real HTTP via `supertest`: auth flow, bot auth, payment (create/verify/webhook), 404 handling |
+| Component | `tests/unit/auth-guard.test.jsx` | 10 | React + jsdom: ProtectedRoute, GuestOnlyRoute across every role/state |
+
+Run a single file: `npx vitest run tests/integration/payment.test.js`
 
 ---
 
@@ -299,10 +354,18 @@ See [PROGRESS.md](PROGRESS.md) for the complete changelog (Phases 1–7).
 
 ## Code Quality
 
-- **ESLint** — `eslint.config.js` (flat config, React + hooks plugins)
+- **ESLint** — `eslint.config.js` (flat config, React + hooks plugins). 0 errors, 0 warnings.
 - **Prettier** — `.prettierrc` (120 chars, double quotes, trailing commas)
-- **No TypeScript** — JS-only (TS migration planned for Phase 8)
-- **Vitest** — installed, test suite planned
+- **No TypeScript** — JS-only. TS migration is still the single largest architectural gap.
+- **Vitest** — 136 tests across unit, integration (supertest), and component (jsdom) layers.
+
+### Architectural Highlights
+
+- **Barrel-split controllers** — every previously-God controller (event, admin, certificate, payment, superAdmin) is now one-line barrel files re-exporting from per-domain sub-modules. Largest remaining: `messagingController.js` at 537 lines.
+- **Route-based code splitting** — 34 page components load via `React.lazy()` with a Suspense fallback. Initial bundle no longer ships admin/teacher code to guests.
+- **Auth hardening** — HTTP 401 interceptor + `ProtectedRoute` + `GuestOnlyRoute` + `dashboardForRole` helper. 403 / 404 pages render in place so the URL stays accurate.
+- **Payment security** — webhook signature verified against raw request bytes (not re-serialized JSON), timing-safe HMAC compare, refuses to boot unsigned webhooks in production. Idempotent via shared `applyPlanUpgrade` helper. See `docs/PAYMENT_SETUP.md`.
+- **Decoupled realtime** — `services/realtime.js` breaks the old circular import between `server.js` and the notification controller. Controllers no longer reach back into `server.js` for `pushNotification`.
 
 ---
 

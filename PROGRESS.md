@@ -446,3 +446,99 @@
 
 ### Bug Fixed
 - `useFeatureFlag` hook was calling `orgAdmin.stats()` and reading wrong field paths — features always appeared enabled. Fixed to call `orgAdmin.features()` with correct response parsing.
+
+---
+
+## Phase 8: Architecture, Security, and Test-Coverage Pass (April 11-13, 2026)
+
+This phase was a focused audit + remediation of the whole codebase. Commits `ad0ecd3` through `8851af7` on `main`.
+
+### Modularization
+
+| Before | After | Result |
+|--------|-------|--------|
+| `eventcontrollers.js` (1,007 lines) | `controllers/event/` with 8 sub-modules + barrel | Largest sub-module 239 lines |
+| `adminController.js` (651 lines) | `controllers/admin/` with 8 sub-modules + 15-line barrel | Largest sub-module 154 lines |
+| `certificateController.js` (622 lines) | `controllers/certificate/` with 5 sub-modules + 18-line barrel | Largest sub-module 323 lines (latex + xelatex pipeline) |
+| `superAdminController.js` (569 lines) | `controllers/superAdmin/` with 5 sub-modules + 23-line barrel | Largest sub-module 211 lines |
+| `paymentController.js` (421 lines) | `controllers/payment/` with 7 sub-modules + 11-line barrel | All under 200 lines |
+| `ProfilePage.jsx` (1,068 lines) | `profile/` with 7 sub-components | Container 364 lines |
+| `LiveQuizPage.jsx` (981 lines) | `liveQuiz/` with 6 phase screens | Container 332 lines |
+| `TeacherQuizPage.jsx` (937 lines) | `teacherQuiz/` with 5 sub-components | Container 366 lines |
+| `MonumentBackground.jsx` (672 lines) | `backgrounds/monument/` with 8 biome files + keyframes | Main file 53 lines |
+
+Every split preserves the original imports via barrel re-exports — no route file, no consumer had to change.
+
+### Security Fixes
+
+- **`/api/bot/chat` requires auth.** Previously unauthenticated — abuse vector against the OpenRouter AI API. Added `requireAuth` + message count and payload size limits. Regression-tested in `tests/integration/api-smoke.test.js`.
+- **Contact form XSS patched.** `controllers/contactController.js` now HTML-escapes every user-controlled string before interpolating into email HTML, and validates email format + length caps.
+- **Hardcoded `localhost:3000` removed** from contact email template — uses `PUBLIC_URL` / `FRONTEND_URL` env var instead.
+- **Socket.IO presence event trusts only session-verified `userId`.** Previously accepted a client-supplied id, allowing presence spoofing. `register_user` had already been fixed; `presence` now matches.
+- **Payment webhook signature verification was broken** — it signed `JSON.stringify(req.body)` which is NOT byte-stable vs what Razorpay signed. Now preserves the raw request bytes via `express.json({ verify })` and verifies against those. Added timing-safe HMAC compare on both webhook and client-verify paths.
+- **Payment webhook refuses to accept unsigned requests in production.** Previously it printed a console warning and silently accepted — a forgery vector if the secret env var was ever accidentally unset.
+- **`getRazorpay()` async bug fixed** — was being called without `await` in `createOrder`, which would have surfaced as a runtime failure the first time a real order was attempted.
+- **Payment idempotency** via shared `applyPlanUpgrade` helper — `verify` and `webhook` race paths now re-read the payment row and skip mutation if already paid.
+
+### Auth + Routing Hardening
+
+- `frontend/src/lib/roles.js`: new `ROLES`, `dashboardForRole`, `hasRole` helpers. Single source of truth.
+- `frontend/src/components/auth/GuestOnlyRoute.jsx`: new guard — `/login` and `/register` now redirect authenticated users to their role-specific dashboard.
+- `ProtectedRoute`: preserves the intended path in `location.state.from`, renders the 403 page in place (URL stays accurate) instead of a silent redirect to `/dashboard`.
+- `LoginPage`: returns to `state.from` after login, uses `{replace: true}` so back button can't re-expose `/login`.
+- `RegisterPage`: now navigates with `{replace: true}` after registration.
+- `MainLayout.handleLogout`: awaits backend session destroy, then `navigate("/login", {replace: true})` — prevents back-button leaks.
+- `frontend/src/lib/http.js`: axios 401 interceptor calls `handleSessionExpired()` on the auth store so protected routes redirect on the next render when the server session expires.
+- `frontend/src/features/errors/NotFoundPage.jsx` + `ForbiddenPage.jsx`: new dedicated error pages (previous router just `Navigate`'d to `/`).
+
+### Circular Import Fixed
+
+- `services/realtime.js` introduced — `server.js` registers its `pushNotification` + `getActiveUsers` implementations; controllers and routes import from this service instead of reaching back into `server.js`. Breaks the old `server.js <-> notificationController.js` cycle, which made isolated controller imports fail.
+
+### Navigation Fluency
+
+- **Route-based code splitting.** All 34 page components in `router.jsx` converted to `React.lazy()`. Initial bundle no longer ships admin / teacher / super-admin code to guests. A `<Suspense>` fallback (orbit loader) shows while a chunk fetches.
+- **Scroll management overhaul.** The previous `ScrollToTop` scrolled on every pathname change — including Back presses, which jumped the user to the top of any page they returned to. Replaced with a `ScrollManager` that relies on the browser's native scroll restoration for POP (back/forward) navigations.
+- Production build restored to green (was failing with rolldown resolve errors). `vite build` now completes in ~3.2s and produces 137 chunks.
+
+### Shared Utilities
+
+- `frontend/src/hooks/useFetch.js`: `useFetch(fetcher, { immediate, deps })` + `useAsync(action)` replace the 15+ duplicated `setLoading/try/catch/finally/setError/setData` patterns across components. Cancels stale responses on unmount / refetch.
+- `frontend/src/lib/animations.js`: shared `fadeUp`, `fadeUpHero`, `scaleIn`, `slideInLeft` variants. Previously redefined inline in 11+ components.
+- `frontend/src/config/design-tokens.js`: centralized constants (animation timings, z-index layers, component sizes, early-bird threshold, winner XP multipliers).
+- `frontend/src/lib/roles.js`: role utilities (described above).
+
+### Test Suite Expansion
+
+Started at 88 tests, mostly static code analysis (`fs.readFileSync` + string matching, no actual HTTP). Finished at **136 tests across three layers**:
+
+- **Unit (110):** existing + new `tests/unit/roles.test.js` (15 tests), `tests/unit/auth-guard.test.jsx` (10 tests, jsdom + React Testing Library).
+- **Integration (26):** new `tests/integration/api-smoke.test.js` (12 tests, real HTTP via supertest) + `tests/integration/payment.test.js` (14 tests — create-order validation, signature rejection, verify idempotency, webhook happy path + replay + failed event).
+- Mocks: Supabase via in-memory store, Razorpay client, nodemailer — all via `vi.mock()` so no external service is touched.
+- Added `supertest` and `@testing-library/dom` as dev dependencies.
+
+### Lint + Theme Cleanup
+
+- Fixed every ESLint issue (159 at start, now 0): `catch(err)` with unused `err` -> bare `catch`, removed dead imports, added explanatory comments to 4 intentional empty-catch blocks in the cert LaTeX pipeline, fixed scoping bug in `routes/quizRoutes.js` (`rest` was `no-undef`), declared service-worker globals in `frontend/public/sw.js`, properly ignored `frontend/dist/`.
+- 123 hardcoded hex colors across 17 JSX files replaced with `var(--color-*)` / `var(--monument-*)` references. Canvas/WebGL code (where CSS vars aren't readable) intentionally left alone.
+
+### Documentation
+
+- `docs/PAYMENT_SETUP.md`: end-to-end guide covering env vars, webhook dashboard configuration, flow diagram, and the 503 fallback when keys aren't set.
+- `README.md`, `PRODUCTION_CHECKLIST.md`, `PROJECT_CONFIG.md`, `VISUAL_THEME_SYSTEM.md` updated to reflect the new architecture.
+
+### What's Still Open
+
+- No TypeScript (single biggest architectural gap — would catch an entire class of bugs the test suite can't).
+- `ProfilePage.js` chunk is 470 kB gzipped — needs deferred tsparticles / emoji-picker loading.
+- Frontend component test coverage is still thin (10 of 97 components).
+- `messagingController.js` (537 lines) flagged as acceptable single-purpose but could be split for consistency.
+
+### Verified End-to-End (April 13, 2026)
+
+- `npm run lint` — 0 errors, 0 warnings across 248 files.
+- `npm test` — 136/136 passing in 2.55s.
+- `npm run build` — production build succeeds in 3.20s, 137 chunks.
+- `npm start` — backend boots clean, all endpoints return expected status (200/401/400/404).
+- `npm run dev:frontend` — Vite ready in 464ms, serves modules cleanly.
+- SPA deep links work through the backend (`/dashboard`, `/admin`, `/super-admin` all 200 -> index.html).

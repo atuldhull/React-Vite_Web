@@ -1,5 +1,8 @@
 # Production Ops Checklist
 
+> Last updated: April 13, 2026.
+> Items marked `[x]` are verified in source + covered by automated tests.
+
 ## Pre-Deployment
 
 ### Environment Variables (Required)
@@ -75,10 +78,29 @@ FRONTEND_URL=https://yourdomain.com        # For CORS whitelist
 
 ### Socket.IO Security
 - [x] Session middleware on socket engine
-- [x] `userId` verified from session (not client-supplied)
+- [x] `userId` verified from session (not client-supplied) — `register_user` AND `presence` events both ignore the client-supplied id and use the session id
 - [x] Admin room restricted to admin/super_admin roles
 - [ ] Add rate limiting on quiz creation events
 - [ ] Add rate limiting on chat message events
+
+### Payments (Razorpay)
+- [x] `/api/payment/webhook` verifies `x-razorpay-signature` against the **raw** request body bytes (not re-serialized JSON)
+- [x] Timing-safe HMAC compare on both verify + webhook paths
+- [x] Webhook refuses to accept unsigned requests when `NODE_ENV=production`
+- [x] `verifyPayment` and webhook share an idempotent `applyPlanUpgrade` helper — whichever arrives first wins, the other is a no-op
+- [x] Invoice email template HTML-escapes user-controlled values
+- [x] `/api/payment/create-order` returns 503 (graceful) when keys missing — server still boots
+- [x] Full setup guide: `docs/PAYMENT_SETUP.md`
+- [ ] Set Razorpay dashboard webhook to `https://<your-domain>/api/payment/webhook` and subscribe to `payment.captured` + `payment.failed`
+
+### Auth / Routing
+- [x] `ProtectedRoute` blocks render with a loader while session is being checked (no flash of protected content)
+- [x] `GuestOnlyRoute` redirects authenticated users away from `/login` and `/register`
+- [x] `LoginPage` + `RegisterPage` both `navigate(..., {replace: true})` so back button can't re-expose auth pages
+- [x] Logout awaits backend session destroy, then replaces history — no back-button leaks
+- [x] HTTP 401 interceptor (`frontend/src/lib/http.js`) wipes client auth state on server session expiry
+- [x] 403 page rendered in place (not a silent redirect) so URL stays accurate
+- [x] 404 page with role-aware "home" button
 
 ### Feature Flags
 - [x] `checkFeatureFlag()` middleware gates premium features
@@ -107,10 +129,11 @@ curl https://yourdomain.com/api/achievements   # Should return 200 + JSON
 - [ ] Track response times (add `morgan` or custom timing middleware)
 
 ### Performance
+- [x] Route-based code splitting via `React.lazy()` — 137 chunks on last build; guests no longer download admin/teacher/super-admin code
 - [ ] Enable Supabase connection pooling (Settings → Database → Connection pooling)
 - [ ] Consider CDN for static assets (Cloudflare free tier)
 - [ ] Enable gzip compression (`compression` npm package)
-- [ ] Review bundle size: `app.js` should be <3MB, `app.css` <100KB
+- [ ] `ProfilePage.js` chunk is 470 kB gzipped — defer tsparticles / emoji-picker to push below 300 kB
 
 ### Backups
 - [ ] Supabase: enable daily database backups
@@ -133,3 +156,16 @@ curl https://yourdomain.com/api/achievements   # Should return 200 + JSON
 - [ ] Monitor Supabase usage (free tier: 500MB DB, 2GB bandwidth)
 - [ ] Monitor OpenRouter API usage (AI question generation)
 - [ ] Check session store memory usage (switch to Redis if >1000 concurrent users)
+- [ ] Monitor Razorpay webhook delivery success in the Razorpay dashboard (Settings -> Webhooks -> Recent deliveries). Retries only fire on non-2xx responses — handler is idempotent.
+
+## Automated Tests
+
+All of the following run in `npm test` (136 tests, ~2.5s):
+
+- **Unit (110):** arena scoring, event status computation, feature flag resolution, role helpers, security config presence, route-guard imports, auth-guard component behavior under jsdom.
+- **Integration (26):** real HTTP via supertest against a minimal test app with mocked Supabase + Razorpay + nodemailer.
+  - Auth: login/register input validation, session probe, 401 on protected routes.
+  - Bot: regression guard for `requireAuth` on `/api/bot/chat`.
+  - Payments: order creation (missing fields, unknown plan, free-plan refusal, happy path), client verify (signature rejection, happy path, idempotent replay), webhook (bad signature, happy path, replay no-op, failed event).
+
+CI should run `npm run lint && npm test && npm run build` — all three pass cleanly on `main`.
