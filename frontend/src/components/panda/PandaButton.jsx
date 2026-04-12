@@ -1,4 +1,4 @@
-import { motion, useMotionValue, useSpring, useTransform } from "framer-motion";
+import { motion, useMotionValue, useSpring } from "framer-motion";
 import { useRef } from "react";
 import { OrbitRing, RippleBurst } from "./PandaAnimations";
 
@@ -43,11 +43,11 @@ export default function PandaButton({ open, onClick, launching }) {
       <motion.div
         animate={{
           boxShadow: open
-            ? "0 0 40px rgba(131,82,255,0.4), 0 0 80px rgba(110,231,255,0.15)"
+            ? "0 0 40px rgba(var(--color-primary),0.4), 0 0 80px rgba(var(--color-glow),0.15)"
             : [
-                "0 0 20px rgba(131,82,255,0.2), 0 0 40px rgba(110,231,255,0.08)",
-                "0 0 35px rgba(131,82,255,0.35), 0 0 60px rgba(110,231,255,0.15)",
-                "0 0 20px rgba(131,82,255,0.2), 0 0 40px rgba(110,231,255,0.08)",
+                "0 0 20px rgba(var(--color-primary),0.2), 0 0 40px rgba(var(--color-glow),0.08)",
+                "0 0 35px rgba(var(--color-primary),0.35), 0 0 60px rgba(var(--color-glow),0.15)",
+                "0 0 20px rgba(var(--color-primary),0.2), 0 0 40px rgba(var(--color-glow),0.08)",
               ],
         }}
         transition={open ? { duration: 0.3 } : { duration: 3, repeat: Infinity, ease: "easeInOut" }}
@@ -72,7 +72,7 @@ export default function PandaButton({ open, onClick, launching }) {
           <motion.div
             animate={open ? { scale: 1 } : { scale: [1, 1.04, 1] }}
             transition={open ? {} : { duration: 2, repeat: Infinity, ease: "easeInOut" }}
-            className="absolute inset-0 rounded-full bg-gradient-to-br from-[#1a0a30] via-[#0f0820] to-[#0a1525] border-2 border-primary/30"
+            className="absolute inset-0 rounded-full bg-gradient-to-br from-[var(--color-panda-dark)] via-[var(--color-panda-mid)] to-[var(--color-panda-deep)] border-2 border-primary/30"
           />
 
           {/* Panda face */}
@@ -89,14 +89,14 @@ export default function PandaButton({ open, onClick, launching }) {
             <div className="relative mt-1.5 flex h-10 w-10 items-center justify-center rounded-full bg-white shadow-[0_0_15px_rgba(255,255,255,0.2)]">
               {/* Eye patches */}
               <div className="absolute flex w-8 justify-between" style={{ top: 10 }}>
-                <div className="flex h-4 w-4 items-center justify-center rounded-full bg-[#1a1a2e]">
+                <div className="flex h-4 w-4 items-center justify-center rounded-full bg-[var(--color-panda-eye)]">
                   <motion.div
                     animate={{ scale: [1, 1.2, 1] }}
                     transition={{ duration: 2, repeat: Infinity, delay: 0.5 }}
                     className="h-1.5 w-1.5 rounded-full bg-white"
                   />
                 </div>
-                <div className="flex h-4 w-4 items-center justify-center rounded-full bg-[#1a1a2e]">
+                <div className="flex h-4 w-4 items-center justify-center rounded-full bg-[var(--color-panda-eye)]">
                   <motion.div
                     animate={{ scale: [1, 1.2, 1] }}
                     transition={{ duration: 2, repeat: Infinity, delay: 0.5 }}
@@ -105,7 +105,7 @@ export default function PandaButton({ open, onClick, launching }) {
                 </div>
               </div>
               {/* Nose */}
-              <div className="absolute bottom-2 h-1.5 w-2.5 rounded-full bg-[#1a1a2e]" />
+              <div className="absolute bottom-2 h-1.5 w-2.5 rounded-full bg-[var(--color-panda-eye)]" />
             </div>
           </motion.div>
 

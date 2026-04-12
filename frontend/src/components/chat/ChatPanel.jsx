@@ -89,6 +89,7 @@ export default function ChatPanel({ open, onClose }) {
     });
 
     return () => { socket.disconnect(); socketRef.current = null; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, open, activeConv?.id]);
 
   // ── Load conversations ──
@@ -174,7 +175,7 @@ export default function ChatPanel({ open, onClose }) {
       setTimeout(() => {
         if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
       }, 50);
-    } catch (err) {
+    } catch {
       setInput(text); // restore input on failure
     }
     setSending(false);
@@ -280,7 +281,7 @@ export default function ChatPanel({ open, onClose }) {
                 >
                   <div
                     className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-lg"
-                    style={{ background: conv.otherUser?.avatar_color || "linear-gradient(135deg,#7c3aed,#3b82f6)" }}
+                    style={{ background: conv.otherUser?.avatar_color || "var(--color-avatar-fallback)" }}
                   >
                     {conv.otherUser?.avatar_emoji || conv.otherUser?.name?.charAt(0) || "?"}
                   </div>
@@ -363,7 +364,7 @@ export default function ChatPanel({ open, onClose }) {
                 >
                   <div
                     className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-base"
-                    style={{ background: u.avatar_color || "linear-gradient(135deg,#7c3aed,#3b82f6)" }}
+                    style={{ background: u.avatar_color || "var(--color-avatar-fallback)" }}
                   >
                     {u.avatar_emoji || u.name?.charAt(0) || "?"}
                   </div>

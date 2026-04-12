@@ -47,6 +47,14 @@
   --clip-notch: polygon(0 0, calc(100% - 20px) 0, 100% 20px, 100% 100%, 0 100%);
   --clip-diamond: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
 
+  /* UI element colors */
+  --color-panda-dark: #1a0a30;
+  --color-panda-mid: #0f0820;
+  --color-panda-deep: #0a1525;
+  --color-panda-eye: #1a1a2e;
+  --color-avatar-fallback: linear-gradient(135deg, var(--org-primary), var(--org-secondary));
+  --color-ring-border: rgba(255,255,255,0.24);
+
   /* Monument-aware surface — pages override this */
   --page-accent: #D4A017;
   --page-glow: rgba(212, 160, 23, 0.15);

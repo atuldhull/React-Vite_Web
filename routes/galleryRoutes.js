@@ -4,7 +4,7 @@ import path    from "path";
 import fs      from "fs";
 import { fileURLToPath } from "url";
 import { getGallery, uploadImage, deleteImage, createCategory } from "../controllers/galleryController.js";
-import { requireAuth, requireTeacher, requireAdmin } from "../middleware/authMiddleware.js";
+import { requireTeacher, requireAdmin } from "../middleware/authMiddleware.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 

@@ -32,7 +32,7 @@ export default function AdminFeaturesPage() {
       setLoading(true);
       const res = await orgAdmin.features();
       setData(res.data);
-    } catch (err) {
+    } catch {
       setData(null);
     }
     setLoading(false);

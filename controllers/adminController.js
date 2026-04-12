@@ -116,7 +116,7 @@ export const saveAIQuestion = async (req, res) => {
 
     if (error) return res.status(500).json({ error: error.message });
     return res.status(201).json({ success: true, challenge: data });
-  } catch (err) {
+  } catch {
     return res.status(500).json({ error: "Failed to save question" });
   }
 };
@@ -139,7 +139,7 @@ export const getAllUsers = async (req, res) => {
 
     if (error) return res.status(500).json({ error: error.message });
     return res.json({ users: data || [], total: count || 0, page, limit });
-  } catch (err) {
+  } catch {
     return res.status(500).json({ error: "Failed to fetch users" });
   }
 };
@@ -223,7 +223,7 @@ export const resetUserPassword = async (req, res) => {
 
     if (error) return res.status(500).json({ error: error.message });
     return res.json({ success: true, message: "Password reset successfully" });
-  } catch (err) {
+  } catch {
     return res.status(500).json({ error: "Failed to reset password" });
   }
 };
@@ -248,7 +248,7 @@ export const updateUserRole = async (req, res) => {
 
     if (error) return res.status(500).json({ error: error.message });
     return res.json({ success: true });
-  } catch (err) {
+  } catch {
     return res.status(500).json({ error: "Failed to update role" });
   }
 };
@@ -269,7 +269,7 @@ export const deleteUser = async (req, res) => {
     if (error) return res.status(500).json({ error: error.message });
 
     return res.json({ success: true, message: "User deleted" });
-  } catch (err) {
+  } catch {
     return res.status(500).json({ error: "Failed to delete user" });
   }
 };
@@ -288,7 +288,7 @@ export const getAdminEvents = async (req, res) => {
 
     if (error) return res.status(500).json({ error: error.message });
     return res.json(data || []);
-  } catch (err) {
+  } catch {
     return res.status(500).json({ error: "Failed to fetch events" });
   }
 };
@@ -305,7 +305,7 @@ export const createEvent = async (req, res) => {
 
     if (error) return res.status(500).json({ error: error.message });
     return res.status(201).json({ success: true, event: data });
-  } catch (err) {
+  } catch {
     return res.status(500).json({ error: "Failed to create event" });
   }
 };
@@ -320,7 +320,7 @@ export const updateEvent = async (req, res) => {
 
     if (error) return res.status(500).json({ error: error.message });
     return res.json({ success: true, event: data });
-  } catch (err) {
+  } catch {
     return res.status(500).json({ error: "Failed to update event" });
   }
 };
@@ -330,7 +330,7 @@ export const deleteEvent = async (req, res) => {
     const { error } = await supabase.from("events").delete().eq("id", req.params.id);
     if (error) return res.status(500).json({ error: error.message });
     return res.json({ success: true });
-  } catch (err) {
+  } catch {
     return res.status(500).json({ error: "Failed to delete event" });
   }
 };
@@ -373,7 +373,7 @@ export const getAdminStats = async (req, res) => {
       topStudents:     topStudents     || [],
       recentActivity:  recentActivity  || [],
     });
-  } catch (err) {
+  } catch {
     return res.status(500).json({ error: "Failed to fetch stats" });
   }
 };
@@ -421,7 +421,7 @@ export const clearUserAttempts = async (req, res) => {
       .eq("user_id", req.params.userId);
     if (error) return res.status(500).json({ error: error.message });
     return res.json({ success: true, message: "Arena attempts cleared" });
-  } catch (err) {
+  } catch {
     return res.status(500).json({ error: "Failed" });
   }
 };
@@ -435,7 +435,7 @@ export const resetUserXP = async (req, res) => {
       .eq("user_id", req.params.userId);
     if (error) return res.status(500).json({ error: error.message });
     return res.json({ success: true, message: "XP reset to 0" });
-  } catch (err) {
+  } catch {
     return res.status(500).json({ error: "Failed" });
   }
 };
@@ -448,7 +448,7 @@ export const deleteTeam = async (req, res) => {
     const { error } = await supabase.from("teams").delete().eq("id", req.params.teamId);
     if (error) return res.status(500).json({ error: error.message });
     return res.json({ success: true, message: "Team and project deleted" });
-  } catch (err) {
+  } catch {
     return res.status(500).json({ error: "Failed" });
   }
 };
@@ -460,7 +460,7 @@ export const deleteProject = async (req, res) => {
     const { error } = await supabase.from("projects").delete().eq("id", req.params.projectId);
     if (error) return res.status(500).json({ error: error.message });
     return res.json({ success: true, message: "Project deleted" });
-  } catch (err) {
+  } catch {
     return res.status(500).json({ error: "Failed" });
   }
 };
@@ -495,7 +495,7 @@ export const getAllTeams = async (req, res) => {
     }));
 
     return res.json(enriched);
-  } catch (err) {
+  } catch {
     return res.status(500).json({ error: "Failed" });
   }
 };
@@ -509,7 +509,7 @@ export const getAllScheduledTests = async (req, res) => {
       .order("created_at", { ascending: false });
     if (error) return res.status(500).json({ error: error.message });
     return res.json(data || []);
-  } catch (err) {
+  } catch {
     return res.status(500).json({ error: "Failed" });
   }
 };
@@ -521,7 +521,7 @@ export const deleteScheduledTest = async (req, res) => {
     const { error } = await supabase.from("scheduled_tests").delete().eq("id", req.params.testId);
     if (error) return res.status(500).json({ error: error.message });
     return res.json({ success: true });
-  } catch (err) {
+  } catch {
     return res.status(500).json({ error: "Failed" });
   }
 };
@@ -540,7 +540,7 @@ export const clearAllAttempts = async (req, res) => {
       .update({ xp: 0, weekly_xp: 0 })
       .gte("id", "00000000-0000-0000-0000-000000000000");
     return res.json({ success: true, message: "All attempts cleared and XP reset" });
-  } catch (err) {
+  } catch {
     return res.status(500).json({ error: "Failed" });
   }
 };

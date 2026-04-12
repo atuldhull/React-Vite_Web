@@ -9,7 +9,7 @@
  *   4. Keeps the video paused when scroll is idle
  */
 
-import React, { useRef, useEffect } from "react";
+import { useRef, useEffect } from "react";
 
 const VIDEO_SRC = "/app/videos/desert_monument.mp4";
 

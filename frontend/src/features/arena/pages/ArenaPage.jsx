@@ -1,4 +1,4 @@
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 import MonumentBackground from "@/components/backgrounds/MonumentBackground";
 import MonumentHero from "@/components/monument/MonumentHero";
@@ -122,6 +122,7 @@ export default function ArenaPage() {
       setArenaStats(st.data);
     });
     loadRandomChallenge(difficulty);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleSubmit = async () => {

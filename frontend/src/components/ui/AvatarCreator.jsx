@@ -11,12 +11,10 @@
  * All customization saves to Supabase via avatar_config JSONB field.
  */
 
-import { useState, useRef, useEffect, useMemo, useCallback } from "react";
+import { useState, useRef, useMemo, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { createAvatar } from "@dicebear/core";
 import * as avatarStyles from "@dicebear/collection";
-import Button from "@/components/ui/Button";
-
 // ═══════════════════════════════════════════════════════════
 // AVAILABLE STYLES
 // ═══════════════════════════════════════════════════════════

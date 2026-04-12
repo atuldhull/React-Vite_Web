@@ -63,7 +63,7 @@ export const getAllChallenges = async (req, res) => {
     return res.json((data || []).map(c => ({
       ...c, difficulty: (c.difficulty || "medium").toUpperCase(),
     })));
-  } catch (err) {
+  } catch {
     return res.status(500).json({ error: "Failed to fetch challenges" });
   }
 };
@@ -77,7 +77,7 @@ export const getChallengeById = async (req, res) => {
     if (!data)  return res.status(404).json({ error: "Challenge not found" });
     data.difficulty = (data.difficulty || "medium").toUpperCase();
     return res.json(data);
-  } catch (err) { return res.status(500).json({ error: "Failed" }); }
+  } catch { return res.status(500).json({ error: "Failed" }); }
 };
 
 /* CREATE — POST /api/challenge */
@@ -100,7 +100,7 @@ export const createChallenge = async (req, res) => {
 
     if (error) return res.status(500).json({ error: error.message });
     return res.status(201).json({ success: true, challenge: data });
-  } catch (err) { return res.status(500).json({ error: "Failed to create" }); }
+  } catch { return res.status(500).json({ error: "Failed to create" }); }
 };
 
 /* UPDATE — PATCH /api/challenge/:id */
@@ -113,7 +113,7 @@ export const updateChallenge = async (req, res) => {
     const { data, error } = await supabase.from("challenges").update(updates).eq("id", req.params.id).select().single();
     if (error) return res.status(500).json({ error: error.message });
     return res.json({ success: true, challenge: data });
-  } catch (err) { return res.status(500).json({ error: "Failed to update" }); }
+  } catch { return res.status(500).json({ error: "Failed to update" }); }
 };
 
 /* DELETE — DELETE /api/challenge/:id */
@@ -122,7 +122,7 @@ export const deleteChallenge = async (req, res) => {
     const { error } = await supabase.from("challenges").delete().eq("id", req.params.id);
     if (error) return res.status(500).json({ error: error.message });
     return res.json({ success: true });
-  } catch (err) { return res.status(500).json({ error: "Failed to delete" }); }
+  } catch { return res.status(500).json({ error: "Failed to delete" }); }
 };
 
 /* TOGGLE — PATCH /api/challenge/:id/toggle */
@@ -132,7 +132,7 @@ export const toggleChallenge = async (req, res) => {
     const { data, error } = await supabase.from("challenges").update({ is_active: !current?.is_active }).eq("id", req.params.id).select().single();
     if (error) return res.status(500).json({ error: error.message });
     return res.json({ success: true, is_active: data.is_active });
-  } catch (err) { return res.status(500).json({ error: "Failed to toggle" }); }
+  } catch { return res.status(500).json({ error: "Failed to toggle" }); }
 };
 
 

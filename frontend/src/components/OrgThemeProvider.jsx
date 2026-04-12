@@ -17,7 +17,7 @@ import { useAuthStore } from "@/store/auth-store";
 export default function OrgThemeProvider({ children }) {
   const user = useAuthStore((s) => s.user);
   const status = useAuthStore((s) => s.status);
-  const [branding, setBranding] = useState(null);
+  const [_branding, setBranding] = useState(null);
 
   // Apply org color from auth session (instant, no API call)
   useEffect(() => {

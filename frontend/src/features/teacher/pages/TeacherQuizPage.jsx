@@ -96,7 +96,7 @@ export default function TeacherQuizPage() {
       setLiveAnswered({ answered, total });
     });
 
-    sock.on("question_result", ({ podium, isLast }) => {
+    sock.on("question_result", ({ podium, isLast: _isLast }) => {
       setLivePodium(podium || []);
       setLiveStatus("results");
     });

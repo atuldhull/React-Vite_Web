@@ -63,7 +63,6 @@ export default function EventsPage() {
   const [typeFilter, setTypeFilter] = useState("all"); // category/type filter
 
   // Modal/action states
-  const [selectedEvent, setSelectedEvent] = useState(null);
   const [actionLoading, setActionLoading] = useState(null); // event id being acted on
   const [actionResult, setActionResult] = useState(null); // { eventId, type, message }
   const [checkinCode, setCheckinCode] = useState("");

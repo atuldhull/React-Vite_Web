@@ -73,7 +73,7 @@ app.use((req, res) => {
 });
 
 /* ── ERROR ── */
-app.use((err, req, res, next) => {
+app.use((err, req, res, _next) => {
   console.error("[ERROR]", err.stack);
   if (req.path.startsWith("/api/")) return res.status(500).json({ error: "Internal server error" });
   res.sendFile(path.join(__dirname, "public", "app", "index.html"));

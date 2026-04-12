@@ -31,15 +31,15 @@ export default function InputField({
         transition={{ duration: 0.18, ease: "easeOut" }}
         className={cn(
           "relative flex items-start gap-3 bg-panel/70 px-4 py-3 transition-all duration-200 ease-in-out",
-          error ? "shadow-[0_0_0_1px_rgba(248,113,113,0.12)]" : "",
+          error ? "shadow-[0_0_0_1px_rgba(var(--color-danger),0.12)]" : "",
         )}
         style={{
           border: "none",
           borderBottom: focused
             ? "1.5px solid var(--page-accent)"
             : error
-              ? "1.5px solid rgba(248,113,113,0.5)"
-              : "1.5px solid rgba(255,255,255,0.2)",
+              ? "1.5px solid rgba(var(--color-danger), 0.5)"
+              : "1.5px solid rgba(var(--color-text-primary), 0.2)",
           borderLeft: "3px solid var(--page-accent)",
           boxShadow: focused ? "0 2px 8px var(--page-glow)" : "none",
         }}

@@ -20,7 +20,7 @@ router.get("/challenges", requireTeacher, async (req, res) => {
       .order("created_at", { ascending: false });
     if (error) return res.status(500).json({ error: error.message });
     return res.json(data || []);
-  } catch (err) {
+  } catch {
     return res.status(500).json({ error: "Failed" });
   }
 });
@@ -184,7 +184,7 @@ router.post("/upload-csv", requireTeacher, upload.single("csv"), async (req, res
         return;
       }
 
-      let title, question, options, correct_index, difficulty, points, solution;
+      let title, question, rest, options, correct_index, difficulty, points, solution;
 
       // Detect format by column count
       if (cols.length >= 9) {
@@ -293,7 +293,7 @@ router.post("/scheduled", requireTeacher, async (req, res) => {
     }).select().single();
     if (error) return res.status(500).json({ error: error.message });
     return res.status(201).json({ success: true, test: data });
-  } catch (err) {
+  } catch {
     return res.status(500).json({ error: "Failed" });
   }
 });
@@ -305,7 +305,7 @@ router.get("/scheduled", requireAuth, async (req, res) => {
       .order("starts_at", { ascending: true });
     if (error) return res.status(500).json({ error: error.message });
     return res.json(data || []);
-  } catch (err) {
+  } catch {
     return res.status(500).json({ error: "Failed" });
   }
 });
@@ -318,7 +318,7 @@ router.get("/active", requireAuth, async (req, res) => {
       .lte("starts_at", now).gte("ends_at", now);
     if (error) return res.status(500).json({ error: error.message });
     return res.json(data || []);
-  } catch (err) {
+  } catch {
     return res.status(500).json({ error: "Failed" });
   }
 });
@@ -334,7 +334,7 @@ router.get("/scheduled/:id", requireAuth, async (req, res) => {
       .select("id, title, question, options, correct_index, difficulty, points, solution")
       .in("id", test.challenge_ids || []);
     return res.json({ ...test, challenges: challenges || [] });
-  } catch (err) {
+  } catch {
     return res.status(500).json({ error: "Failed" });
   }
 });
@@ -362,7 +362,7 @@ router.post("/scheduled/:id/submit", requireAuth, async (req, res) => {
         score += ch.points || 50;
       }
     }
-    const { data, error } = await supabase.from("test_attempts").insert({
+    const { error } = await supabase.from("test_attempts").insert({
       test_id: testId, user_id: userId, answers, score, max_score: maxScore,
       submitted: true, submitted_at: new Date().toISOString(),
     }).select().single();
@@ -373,7 +373,7 @@ router.post("/scheduled/:id/submit", requireAuth, async (req, res) => {
       weekly_xp: (student?.weekly_xp || 0) + score,
     }).eq("user_id", userId);
     return res.json({ success: true, score, maxScore, percentage: Math.round((score / maxScore) * 100) });
-  } catch (err) {
+  } catch {
     return res.status(500).json({ error: "Submission failed" });
   }
 });
@@ -383,7 +383,7 @@ router.delete("/scheduled/:id", requireTeacher, async (req, res) => {
     const { error } = await supabase.from("scheduled_tests").delete().eq("id", req.params.id);
     if (error) return res.status(500).json({ error: error.message });
     return res.json({ success: true });
-  } catch (err) {
+  } catch {
     return res.status(500).json({ error: "Failed" });
   }
 });

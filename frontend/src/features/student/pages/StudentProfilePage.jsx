@@ -7,7 +7,7 @@
  */
 
 import { motion, AnimatePresence } from "framer-motion";
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams } from "react-router-dom";
 import { io } from "socket.io-client";
 import MonumentBackground from "@/components/backgrounds/MonumentBackground";
@@ -17,7 +17,7 @@ import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import Loader from "@/components/ui/Loader";
 import { useAuthStore } from "@/store/auth-store";
-import { chat, user as userApi } from "@/lib/api";
+import { chat } from "@/lib/api";
 import { encryptMessage, decryptMessage, getPublicKey } from "@/lib/crypto";
 import http from "@/lib/http";
 

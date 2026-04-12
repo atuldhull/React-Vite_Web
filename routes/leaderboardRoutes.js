@@ -5,7 +5,6 @@ import {
   getWinners,
   getWeekInfo,
 } from "../controllers/leaderboardController.js";
-import { requireAdmin } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 

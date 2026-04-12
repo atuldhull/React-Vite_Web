@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
+import { Link, NavLink, Outlet } from "react-router-dom";
 import { mainNavigation } from "@/app/navigation";
 import BrandMark from "@/components/navigation/BrandMark";
 import { cn } from "@/lib/cn";
@@ -15,7 +15,6 @@ function navClass(isActive) {
 }
 
 export default function MainLayout() {
-  const location = useLocation();
   const theme = useUiStore((state) => state.theme);
   const toggleTheme = useUiStore((state) => state.toggleTheme);
   const user = useAuthStore((s) => s.user);

@@ -206,6 +206,7 @@ export default function LiveQuizPage() {
         }
       }
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [code, playerName]);
 
   /* ── submit answer ── */

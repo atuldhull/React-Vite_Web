@@ -55,7 +55,7 @@ export default function Loader({
           className,
         )}
         style={{
-          borderColor: "rgba(255,255,255,0.24)",
+          borderColor: "var(--color-ring-border)",
           borderTopColor: "currentColor",
         }}
       />

@@ -1,7 +1,7 @@
 /**
  * Event Status Tests — verify computeStatus logic.
  *
- * Extracted from eventcontrollers.js
+ * Extracted from controllers/event/eventHelpers.js
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 

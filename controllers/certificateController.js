@@ -35,7 +35,7 @@ async function extractPalette(logoPaths) {
       // skip near-white and near-black (not useful for design)
       const lum = 0.299 * dominant.r + 0.587 * dominant.g + 0.114 * dominant.b;
       if (lum > 20 && lum < 235) colors.push({ hex, lum, ...dominant });
-    } catch {}
+    } catch { /* sharp not available or image unreadable — skip */ }
   }
 
   // Sort by saturation (most colorful first)
@@ -212,7 +212,7 @@ Generate the complete .tex file now:`;
 ═══════════════════════════════════════════════════════════════ */
 function fallbackLatex({
   recipientName, eventName, certType, organiserLine,
-  bodyText, eventDate, issuedBy, palette, logoPaths, signatories,
+  bodyText, _eventDate, issuedBy, palette, logoPaths, signatories,
 }) {
   function le(s) {
     if (!s) return "";
@@ -304,9 +304,9 @@ async function compilePDF(latexSrc) {
     fs.writeFileSync(texFile, latexSrc, "utf-8");
     const cmd = `xelatex -interaction=nonstopmode -halt-on-error -output-directory="${tmpDir}" "${texFile}"`;
 
-    try { execSync(cmd, { timeout: 120000, stdio: "pipe" }); } catch {}
+    try { execSync(cmd, { timeout: 120000, stdio: "pipe" }); } catch { /* first pass may fail — second pass stabilizes */ }
     // Second pass for stable layout
-    try { execSync(cmd, { timeout: 120000, stdio: "pipe" }); } catch {}
+    try { execSync(cmd, { timeout: 120000, stdio: "pipe" }); } catch { /* checked via fs.existsSync below */ }
 
     if (!fs.existsSync(pdfFile)) {
       const log = fs.existsSync(path.join(tmpDir,"cert.log"))
@@ -318,7 +318,7 @@ async function compilePDF(latexSrc) {
 
     return fs.readFileSync(pdfFile);
   } finally {
-    try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {}
+    try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch { /* cleanup is best-effort */ }
   }
 }
 
@@ -383,7 +383,7 @@ export const uploadAsset = async (req, res) => {
       url:      `/uploads/cert-assets/${req.file.filename}`,
       filename: req.file.filename,
     });
-  } catch (err) {
+  } catch {
     return res.status(500).json({ error: "Upload failed" });
   }
 };

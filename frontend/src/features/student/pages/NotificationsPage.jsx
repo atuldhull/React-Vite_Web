@@ -108,7 +108,7 @@ export default function NotificationsPage() {
           (n.id === id || n._id === id) ? { ...n, is_read: true, read: true } : n
         )
       );
-    } catch (err) {
+    } catch {
       // Silently fail - the user can retry
     } finally {
       setMarkingId(null);
@@ -120,7 +120,7 @@ export default function NotificationsPage() {
       setMarkingAll(true);
       await notifications.markAllRead();
       setItems((prev) => prev.map((n) => ({ ...n, is_read: true, read: true })));
-    } catch (err) {
+    } catch {
       // Silently fail
     } finally {
       setMarkingAll(false);
@@ -132,7 +132,7 @@ export default function NotificationsPage() {
       setClearing(true);
       await notifications.clear();
       setItems([]);
-    } catch (err) {
+    } catch {
       // Silently fail
     } finally {
       setClearing(false);

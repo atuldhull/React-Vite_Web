@@ -11,7 +11,7 @@
 import { QRCodeSVG } from "qrcode.react";
 import { motion } from "framer-motion";
 
-export default function EventQrCode({ eventId, qrToken, eventTitle, className = "" }) {
+export default function EventQrCode({ eventId, qrToken, _eventTitle, className = "" }) {
   if (!qrToken) return null;
 
   const qrData = `mc-event:${eventId}:${qrToken}`;

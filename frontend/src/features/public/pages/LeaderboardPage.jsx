@@ -9,13 +9,6 @@ import Card from "@/components/ui/Card";
 import Loader from "@/components/ui/Loader";
 import { leaderboard, events as eventsApi } from "@/lib/api";
 
-const fadeUp = {
-  hidden: { opacity: 0, y: 30 },
-  visible: (i) => ({
-    opacity: 1, y: 0,
-    transition: { delay: i * 0.08, duration: 0.6, ease: [0.16, 1, 0.3, 1] },
-  }),
-};
 
 export default function LeaderboardPage() {
   useMonument("glacier");

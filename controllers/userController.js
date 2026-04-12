@@ -69,7 +69,7 @@ export const getProfile = async (req, res) => {
       nextTitle:     next,
       xpTitles:      XP_TITLES,
     });
-  } catch (err) {
+  } catch {
     return res.status(500).json({ error: "Failed to fetch profile" });
   }
 };
@@ -99,7 +99,7 @@ export const updateProfile = async (req, res) => {
     if (updates.name) req.session.user.name = updates.name;
 
     return res.json({ success: true, ...updates });
-  } catch (err) {
+  } catch {
     return res.status(500).json({ error: "Failed to update profile" });
   }
 };
@@ -135,7 +135,7 @@ export const getTestHistory = async (req, res) => {
         date:        a.scheduled_tests?.starts_at   || null,
       },
     })));
-  } catch (err) {
+  } catch {
     return res.status(500).json({ error: "Failed to fetch test history" });
   }
 };
@@ -217,7 +217,7 @@ export const changePassword = async (req, res) => {
     if (updateError) return res.status(500).json({ error: "Failed to update password" });
 
     return res.json({ success: true, message: "Password changed successfully" });
-  } catch (err) {
+  } catch {
     return res.status(500).json({ error: "Password change failed" });
   }
 };

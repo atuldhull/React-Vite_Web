@@ -23,7 +23,7 @@ export const getLeaderboard = async (req, res) => {
       total_xp: s.xp        || 0,
       title:    s.title      || "Axiom Scout",
     })));
-  } catch (err) {
+  } catch {
     return res.status(500).json({ error: "Failed to fetch leaderboard" });
   }
 };
@@ -45,7 +45,7 @@ export const getAllTimeLeaderboard = async (req, res) => {
       xp:      s.xp   || 0,
       title:   s.title || "Axiom Scout",
     })));
-  } catch (err) {
+  } catch {
     return res.status(500).json({ error: "Failed" });
   }
 };
@@ -61,7 +61,7 @@ export const getWinners = async (req, res) => {
 
     if (error) return res.status(500).json({ error: error.message });
     return res.json(data || []);
-  } catch (err) {
+  } catch {
     return res.status(500).json({ error: "Failed" });
   }
 };

@@ -21,7 +21,7 @@ export const getTeacherProfile = async (req, res) => {
 
     if (error) return res.status(500).json({ error: error.message });
     return res.json(data || req.session.user);
-  } catch (err) {
+  } catch {
     return res.status(500).json({ error: "Failed to fetch profile" });
   }
 };
@@ -48,7 +48,7 @@ export const getTeacherStats = async (req, res) => {
       ? Math.round((correctAttempts / totalAttempts) * 100) : 0;
 
     return res.json({ totalStudents, totalChallenges, totalAttempts, accuracy });
-  } catch (err) {
+  } catch {
     return res.status(500).json({ error: "Failed to fetch stats" });
   }
 };
@@ -67,7 +67,7 @@ export const getStudents = async (req, res) => {
 
     if (error) return res.status(500).json({ error: error.message });
     return res.json(data || []);
-  } catch (err) {
+  } catch {
     return res.status(500).json({ error: "Failed to fetch students" });
   }
 };
@@ -116,7 +116,7 @@ export const getChallengePerformance = async (req, res) => {
     }));
 
     return res.json(results.sort((a, b) => b.total - a.total));
-  } catch (err) {
+  } catch {
     return res.status(500).json({ error: "Failed to fetch performance" });
   }
 };
@@ -138,7 +138,7 @@ export const getRecentActivity = async (req, res) => {
 
     if (error) return res.status(500).json({ error: error.message });
     return res.json(data || []);
-  } catch (err) {
+  } catch {
     return res.status(500).json({ error: "Failed to fetch activity" });
   }
 };
@@ -224,7 +224,7 @@ export const teacherSaveQuestion = async (req, res) => {
 
     if (error) return res.status(500).json({ error: error.message });
     return res.status(201).json({ success: true, challenge: data });
-  } catch (err) {
+  } catch {
     return res.status(500).json({ error: "Failed to save question" });
   }
 };
@@ -245,7 +245,7 @@ export const getTeacherChallenges = async (req, res) => {
       ...c,
       difficulty: (c.difficulty || "medium").toUpperCase(),
     })));
-  } catch (err) {
+  } catch {
     return res.status(500).json({ error: "Failed" });
   }
 };
@@ -266,7 +266,7 @@ export const toggleTeacherChallenge = async (req, res) => {
 
     if (error) return res.status(500).json({ error: error.message });
     return res.json({ success: true, is_active: data.is_active });
-  } catch (err) {
+  } catch {
     return res.status(500).json({ error: "Failed" });
   }
 };
@@ -292,7 +292,7 @@ export const getTeacherLeaderboard = async (req, res) => {
       weekly_xp: s.weekly_xp || 0,
       title:     s.title || "Axiom Scout",
     })));
-  } catch (err) {
+  } catch {
     return res.status(500).json({ error: "Failed" });
   }
 };

@@ -19,8 +19,8 @@ const variantStyles = {
   primary: {
     clipPath: "var(--clip-hex)",
     background: "var(--page-accent)",
-    color: "#000",
-    padding: "0.6rem 2rem",
+    color: "rgb(var(--color-obsidian))",
+    padding: "var(--space-sm) var(--space-xl)",
   },
   secondary: {
     clipPath: "var(--clip-para)",
@@ -35,8 +35,8 @@ const variantStyles = {
     clipPath: "var(--clip-diamond)",
     minWidth: "120px",
     minHeight: "48px",
-    background: "rgba(248,113,113,0.15)",
-    color: "#f87171",
+    background: "rgba(var(--color-danger), 0.15)",
+    color: "rgb(var(--color-danger))",
   },
 };
 

@@ -87,7 +87,7 @@ export async function getOrCreateKeyPair() {
   if (existing && existing.privateKey && existing.publicKeyJwk) {
     return existing;
   }
-  const publicKeyJwk = await generateKeyPair();
+  const _publicKeyJwk = await generateKeyPair();
   const stored = await dbGet(KEY_ID);
   return stored;
 }

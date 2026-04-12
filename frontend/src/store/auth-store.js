@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import http from "@/lib/http";
 
-export const useAuthStore = create((set, get) => ({
+export const useAuthStore = create((set, _get) => ({
   status: "idle", // idle | loading | authenticated | guest | error
   user: null,
   error: null,

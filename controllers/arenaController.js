@@ -135,7 +135,7 @@ export const getHistory = async (req, res) => {
         difficulty: (a.challenges.difficulty || "medium").toUpperCase(),
       } : null,
     })));
-  } catch (err) {
+  } catch {
     return res.status(500).json({ error: "Failed to fetch history" });
   }
 };
@@ -160,7 +160,7 @@ export const getStats = async (req, res) => {
     const accuracy = total > 0 ? Math.round((correct / total) * 100) : 0;
 
     return res.json({ total, correct, incorrect: total - correct, accuracy, totalXP });
-  } catch (err) {
+  } catch {
     return res.status(500).json({ error: "Failed to fetch stats" });
   }
 };

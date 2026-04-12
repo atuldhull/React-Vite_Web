@@ -18,7 +18,7 @@ export const getNotifications = async (req, res) => {
 
     // Return flat array — frontend expects Array.isArray(data) to be true
     return res.json(data || []);
-  } catch (err) {
+  } catch {
     return res.status(500).json({ error: "Failed" });
   }
 };
@@ -36,7 +36,7 @@ export const markRead = async (req, res) => {
       .eq("user_id", userId);
 
     return res.json({ success: true });
-  } catch (err) {
+  } catch {
     return res.status(500).json({ error: "Failed" });
   }
 };
@@ -54,7 +54,7 @@ export const markAllRead = async (req, res) => {
       .eq("is_read", false);
 
     return res.json({ success: true });
-  } catch (err) {
+  } catch {
     return res.status(500).json({ error: "Failed" });
   }
 };
@@ -67,7 +67,7 @@ export const clearAll = async (req, res) => {
   try {
     await supabase.from("notifications").delete().eq("user_id", userId);
     return res.json({ success: true });
-  } catch (err) {
+  } catch {
     return res.status(500).json({ error: "Failed" });
   }
 };
@@ -127,7 +127,7 @@ export const broadcastNotification = async (req, res) => {
       });
     }
     return res.json({ success: true, sent: rows.length });
-  } catch (err) {
+  } catch {
     return res.status(500).json({ error: "Failed" });
   }
 };

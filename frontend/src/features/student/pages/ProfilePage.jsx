@@ -12,15 +12,6 @@ import AvatarCreator from "@/components/ui/AvatarCreator";
 import AchievementBadge from "@/components/ui/AchievementBadge";
 import { user, chat, achievements as achievementsApi, events as eventsApi } from "@/lib/api";
 
-/* ── animation variants ── */
-const fadeUp = {
-  hidden: { opacity: 0, y: 30 },
-  visible: (i) => ({
-    opacity: 1,
-    y: 0,
-    transition: { delay: i * 0.1, duration: 0.6, ease: [0.16, 1, 0.3, 1] },
-  }),
-};
 
 /* ── fallback XP titles (used if backend doesn't provide them) ── */
 const FALLBACK_XP_TITLES = [

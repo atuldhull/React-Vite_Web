@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useRef } from "react";
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import Button from "@/components/ui/Button";

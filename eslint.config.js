@@ -111,6 +111,16 @@ export default [
     },
   },
   {
-    ignores: ["node_modules/", "public/", "dist/", "*.cjs"],
+    ignores: [
+      "node_modules/",
+      "**/node_modules/**",
+      "dist/",
+      "**/dist/**",
+      "frontend/dist/**",
+      "public/",
+      "**/public/**",
+      "frontend/public/sw.js",
+      "*.cjs",
+    ],
   },
 ];

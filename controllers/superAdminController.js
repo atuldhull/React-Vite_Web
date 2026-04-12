@@ -144,7 +144,7 @@ export const listOrganisations = async (req, res) => {
 export const createOrganisation = async (req, res) => {
   const {
     name, slug, institution, contact_email, website,
-    plan_name = "free", admin_email, admin_name,
+    plan_name = "free", admin_email,
     primary_color, description,
   } = req.body;
 

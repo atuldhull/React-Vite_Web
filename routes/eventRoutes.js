@@ -21,7 +21,7 @@ import {
   getEventLeaderboard, updateEventScore, publishEventResults,
   // Site settings
   getSiteSettings, updateSiteSetting,
-} from "../controllers/eventcontrollers.js";
+} from "../controllers/event/index.js";
 import { requireAuth, requireAdmin, requireTeacher, checkFeatureFlag } from "../middleware/authMiddleware.js";
 
 const router = express.Router();

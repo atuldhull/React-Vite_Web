@@ -10,7 +10,7 @@ export const getProjects = async (req, res) => {
       .order("total_points", { ascending: false });
     if (error) return res.status(500).json({ error: error.message });
     return res.json(data || []);
-  } catch (err) {
+  } catch {
     return res.status(500).json({ error: "Failed" });
   }
 };
@@ -20,7 +20,7 @@ export const getCategories = async (req, res) => {
   try {
     const { data } = await supabase.from("project_categories").select("*").order("name");
     return res.json(data || []);
-  } catch (err) {
+  } catch {
     return res.status(500).json({ error: "Failed" });
   }
 };
@@ -40,7 +40,7 @@ export const getMyTeam = async (req, res) => {
       .from("projects").select("*").eq("team_id", myTeam.id).maybeSingle();
 
     return res.json({ team: myTeam, project: project || null });
-  } catch (err) {
+  } catch {
     return res.status(500).json({ error: "Failed" });
   }
 };
@@ -72,7 +72,7 @@ export const createTeam = async (req, res) => {
 
     if (error) return res.status(500).json({ error: error.message });
     return res.status(201).json({ success: true, team: data });
-  } catch (err) {
+  } catch {
     return res.status(500).json({ error: "Failed to create team" });
   }
 };
@@ -106,7 +106,7 @@ export const submitProject = async (req, res) => {
 
     if (error) return res.status(500).json({ error: error.message });
     return res.status(201).json({ success: true, project: data });
-  } catch (err) {
+  } catch {
     return res.status(500).json({ error: "Failed to submit project" });
   }
 };
@@ -143,7 +143,7 @@ export const voteProject = async (req, res) => {
     await supabase.from("projects").update({ [field]: (proj?.[field] || 0) + 1 }).eq("id", projectId);
 
     return res.json({ success: true, voteType });
-  } catch (err) {
+  } catch {
     return res.status(500).json({ error: "Vote failed" });
   }
 };
@@ -154,7 +154,7 @@ export const approveProject = async (req, res) => {
     const { error } = await supabase.from("projects").update({ is_approved: true }).eq("id", req.params.id);
     if (error) return res.status(500).json({ error: error.message });
     return res.json({ success: true });
-  } catch (err) {
+  } catch {
     return res.status(500).json({ error: "Failed" });
   }
 };
@@ -167,7 +167,7 @@ export const getPendingProjects = async (req, res) => {
       .eq("is_approved", false).order("created_at", { ascending: false });
     if (error) return res.status(500).json({ error: error.message });
     return res.json(data || []);
-  } catch (err) {
+  } catch {
     return res.status(500).json({ error: "Failed" });
   }
 };
@@ -181,7 +181,7 @@ export const addCategory = async (req, res) => {
       .insert({ name, icon: icon || '🏆' }).select().single();
     if (error) return res.status(500).json({ error: error.message });
     return res.status(201).json({ success: true, category: data });
-  } catch (err) {
+  } catch {
     return res.status(500).json({ error: "Failed" });
   }
 };
@@ -191,7 +191,7 @@ export const deleteCategory = async (req, res) => {
   try {
     await supabase.from("project_categories").delete().eq("id", req.params.id);
     return res.json({ success: true });
-  } catch (err) {
+  } catch {
     return res.status(500).json({ error: "Failed" });
   }
 };

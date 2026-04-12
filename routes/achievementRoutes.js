@@ -7,7 +7,7 @@
 import express from "express";
 import {
   getAchievements, getMyAchievements, getUserAchievements, grantAchievement,
-} from "../controllers/eventcontrollers.js";
+} from "../controllers/event/index.js";
 import { requireAuth, requireAdmin } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
