@@ -1,13 +1,23 @@
 import express from "express";
 import axios   from "axios";
+import { requireAuth } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
-router.post("/chat", async (req, res) => {
+router.post("/chat", requireAuth, async (req, res) => {
   const { messages, challengeContext } = req.body;
 
   if (!messages || !Array.isArray(messages)) {
     return res.status(400).json({ error: "messages array required" });
+  }
+
+  // Bound request size to prevent abuse of the upstream AI API
+  if (messages.length > 50) {
+    return res.status(400).json({ error: "Too many messages (max 50)" });
+  }
+  const totalLen = messages.reduce((sum, m) => sum + (m?.content?.length || 0), 0);
+  if (totalLen > 20000) {
+    return res.status(413).json({ error: "Message payload too large" });
   }
 
   const challengeSection = challengeContext

@@ -1,5 +1,5 @@
 import supabase from "../config/supabase.js";
-import { pushNotification } from "../server.js";
+import { pushNotification } from "../services/realtime.js";
 
 /* ── GET notifications for current user ── */
 export const getNotifications = async (req, res) => {

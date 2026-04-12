@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import MonumentBackground from "@/components/backgrounds/MonumentBackground";
 import { useMonument } from "@/hooks/useMonument";
 import Button from "@/components/ui/Button";
@@ -8,10 +8,14 @@ import InputField from "@/components/ui/InputField";
 import { useAuthStore } from "@/store/auth-store";
 import { auth } from "@/lib/api";
 import http from "@/lib/http";
+import { dashboardForRole } from "@/lib/roles";
 
 export default function LoginPage() {
   useMonument("city");
   const navigate = useNavigate();
+  const location = useLocation();
+  // If ProtectedRoute bounced a guest here, go back there after login.
+  const returnTo = location.state?.from || null;
 
   // ── Handle Supabase password recovery redirect ──
   // Supabase sends: /login#access_token=xxx&type=recovery
@@ -83,16 +87,13 @@ export default function LoginPage() {
     clearError();
     try {
       const data = await login(form.email, form.password);
-      // Use backend's redirectTo, fallback to role-based routing
-      if (data?.redirectTo) {
-        navigate(data.redirectTo);
-      } else {
-        const role = data?.user?.role || data?.role;
-        if (role === "super_admin") navigate("/super-admin");
-        else if (role === "admin") navigate("/admin");
-        else if (role === "teacher") navigate("/teacher");
-        else navigate("/dashboard");
-      }
+      // Priority: the path the user was trying to reach > backend hint > role default.
+      // `replace: true` so the back button does not bring the user back to /login.
+      const target =
+        returnTo
+          || data?.redirectTo
+          || dashboardForRole(data?.user?.role || data?.role);
+      navigate(target, { replace: true });
     } catch (err) {
       const msg = err.message || "Login failed";
       if (msg === "EMAIL_NOT_VERIFIED" || msg.includes("verify")) {

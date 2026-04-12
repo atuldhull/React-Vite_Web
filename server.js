@@ -15,6 +15,7 @@ import { sessionMiddleware } from "./middleware/sessionConfig.js";
 import registerApiRoutes from "./routes/registerRoutes.js";
 import pageRoutes         from "./routes/pageRoutes.js";
 import authController     from "./controllers/authController.js";
+import { registerRealtime } from "./services/realtime.js";
 
 const isProd = process.env.NODE_ENV === "production";
 const app    = express();
@@ -311,13 +312,19 @@ io.on("connection", (socket) => {
   });
 
   /* ── Presence tracking for admin live users panel ── */
-  socket.on("presence", ({ userId, name, page }) => {
-    if (!userId) return;
-    socket.userId = userId;
+  socket.on("presence", ({ name, page }) => {
+    // Only trust session-verified userId — never the client-supplied one
+    const verifiedId = socket.userId;
+    if (!verifiedId) return;
+
+    // Validate + bound the free-form fields
+    const safeName = typeof name === "string" ? name.slice(0, 80) : "Member";
+    const safePage = typeof page === "string" && page.startsWith("/") ? page.slice(0, 200) : "/";
+
     activeUsers[socket.id] = {
-      userId,
-      name:        name || "Member",
-      page:        page || "/",
+      userId:      verifiedId,
+      name:        safeName,
+      page:        safePage,
       connectedAt: activeUsers[socket.id]?.connectedAt || new Date().toISOString(),
       lastSeen:    new Date().toISOString(),
     };
@@ -418,6 +425,12 @@ export function getActiveUsers() { return buildActiveUsersList(); }
 export function pushNotification(userId, payload) {
   io.to(`user:${userId}`).emit("notification", payload);
 }
+
+// Register realtime service so controllers avoid importing from server.js
+registerRealtime({
+  pushNotification,
+  getActiveUsers,
+});
 
 /* ── START ── */
 const PORT = process.env.PORT || 3000;

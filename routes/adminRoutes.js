@@ -10,7 +10,7 @@ import {
   exportAllData,
 } from "../controllers/adminController.js";
 import { requireAdmin, checkFeatureFlag } from "../middleware/authMiddleware.js";
-import { getActiveUsers } from "../server.js";
+import { getActiveUsers } from "../services/realtime.js";
 
 const router = express.Router();
 router.use(requireAdmin);

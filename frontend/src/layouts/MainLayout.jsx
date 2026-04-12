@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Link, NavLink, Outlet } from "react-router-dom";
+import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
 import { mainNavigation } from "@/app/navigation";
 import BrandMark from "@/components/navigation/BrandMark";
 import { cn } from "@/lib/cn";
@@ -20,9 +20,17 @@ export default function MainLayout() {
   const user = useAuthStore((s) => s.user);
   const status = useAuthStore((s) => s.status);
   const logout = useAuthStore((s) => s.logout);
+  const navigate = useNavigate();
   const isAuth = status === "authenticated" && user;
   const role = user?.role;
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  // Logout: wait for backend to clear session, THEN navigate with replace
+  // so the back button cannot re-expose protected pages.
+  async function handleLogout() {
+    await logout();
+    navigate("/login", { replace: true });
+  }
 
   const navItems = mainNavigation;
 
@@ -147,7 +155,7 @@ export default function MainLayout() {
                           <Link key={link.to} to={link.to} className="block rounded-lg px-3 py-2 text-sm text-primary transition hover:bg-primary/5">{link.label}</Link>
                         ))}
                         <hr className="my-1 border-line/10" />
-                        <button onClick={logout} className="w-full rounded-lg px-3 py-2 text-left text-sm text-danger transition hover:bg-danger/5">Sign Out</button>
+                        <button onClick={handleLogout} className="w-full rounded-lg px-3 py-2 text-left text-sm text-danger transition hover:bg-danger/5">Sign Out</button>
                       </div>
                     </div>
                   </>
@@ -268,7 +276,7 @@ export default function MainLayout() {
                           Theme: {theme}
                         </button>
                         <button
-                          onClick={() => { logout(); closeMobile(); }}
+                          onClick={async () => { closeMobile(); await handleLogout(); }}
                           className="block w-full rounded-xl px-4 py-3 text-left font-mono text-[11px] uppercase tracking-[0.2em] text-danger transition active:bg-danger/5"
                         >
                           Sign Out

@@ -2,7 +2,6 @@ import { AnimatePresence } from "framer-motion";
 import { useEffect } from "react";
 import {
   BrowserRouter,
-  Navigate,
   Route,
   Routes,
   useLocation,
@@ -12,7 +11,10 @@ import PageTransition from "@/components/experience/PageTransition";
 import MonumentTransition from "@/components/experience/MonumentTransition";
 import MonumentRouter from "@/components/monument/MonumentRouter";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
+import GuestOnlyRoute from "@/components/auth/GuestOnlyRoute";
 import { useAuthStore } from "@/store/auth-store";
+import NotFoundPage from "@/features/errors/NotFoundPage";
+import ForbiddenPage from "@/features/errors/ForbiddenPage";
 
 // Layouts
 import MainLayout from "@/layouts/MainLayout";
@@ -113,10 +115,10 @@ function AnimatedRoutes() {
               <Route path="history" element={<ProtectedRoute><TestHistoryPage /></ProtectedRoute>} />
             </Route>
 
-            {/* ── Auth ── */}
+            {/* ── Auth (guest-only — authenticated users get redirected) ── */}
             <Route element={<AuthLayout />}>
-              <Route path="login" element={<LoginPage />} />
-              <Route path="register" element={<RegisterPage />} />
+              <Route path="login" element={<GuestOnlyRoute><LoginPage /></GuestOnlyRoute>} />
+              <Route path="register" element={<GuestOnlyRoute><RegisterPage /></GuestOnlyRoute>} />
             </Route>
 
             {/* ── Teacher ── */}
@@ -169,7 +171,11 @@ function AnimatedRoutes() {
               <Route path="access" element={<SAAccessPage />} />
             </Route>
 
-            <Route path="*" element={<Navigate to="/" replace />} />
+            {/* ── Explicit error routes ── */}
+            <Route element={<MainLayout />}>
+              <Route path="403" element={<ForbiddenPage />} />
+              <Route path="*" element={<NotFoundPage />} />
+            </Route>
           </Routes>
         </PageTransition>
       </AnimatePresence>

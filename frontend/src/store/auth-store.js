@@ -55,9 +55,18 @@ export const useAuthStore = create((set, _get) => ({
     try {
       await http.post("/auth/logout");
     } catch {
-      // ignore
+      // ignore — local state reset below runs regardless
     }
     set({ user: null, status: "guest", error: null });
+  },
+
+  /**
+   * Called by the HTTP 401 interceptor when an authenticated request is
+   * rejected — means the server session expired. Wipes local state so
+   * ProtectedRoute redirects to /login on the next render.
+   */
+  handleSessionExpired: () => {
+    set({ user: null, status: "guest", error: "Your session has expired. Please sign in again." });
   },
 
   clearError: () => set({ error: null }),
