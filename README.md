@@ -19,14 +19,19 @@ npm install
 cp .env.example .env.local
 # Edit .env.local with your keys (see below)
 
-# Run backend (port 3000)
-npm start                 # or: node backend/server.js
+# Run BOTH backend (:3000) and frontend (:5173) in one terminal
+npm run dev
 
-# Run frontend (port 5173)
-npm run dev:frontend      # or: npx vite --host
+# Or run them separately if you need to (e.g. two IDE panes)
+npm run dev:server     # nodemon backend/server.js
+npm run dev:frontend   # vite on :5173 with /api + /socket.io proxied
+
+# Production build
+npm run build          # builds frontend -> public/app/
+npm start              # node backend/server.js serves API + built SPA
 ```
 
-Open [http://localhost:5173/app/](http://localhost:5173/app/)
+Open [http://localhost:5173/app/](http://localhost:5173/app/) for dev or [http://localhost:3000/](http://localhost:3000/) for the prod-style build.
 
 ---
 

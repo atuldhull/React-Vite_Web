@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "start": "node backend/server.js",
-    "dev": "nodemon backend/server.js",
+    "dev": "concurrently -n backend,frontend -c blue,magenta \"npm:dev:server\" \"npm:dev:frontend\"",
     "dev:server": "nodemon backend/server.js",
     "dev:frontend": "vite --config vite.config.js",
     "build": "vite build --config vite.config.js",
@@ -92,6 +92,7 @@
     "@testing-library/react": "16.3.2",
     "@vitejs/plugin-react": "6.0.1",
     "autoprefixer": "10.4.27",
+    "concurrently": "9.2.1",
     "eslint": "10.2.0",
     "eslint-config-prettier": "10.1.8",
     "eslint-plugin-react": "7.37.5",
