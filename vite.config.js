@@ -14,10 +14,14 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "frontend/src"),
-      // Force single React instance (prevents duplicate React from --legacy-peer-deps)
-      "react": path.resolve(__dirname, "node_modules/react"),
-      "react-dom": path.resolve(__dirname, "node_modules/react-dom"),
     },
+    // dedupe ensures every import of these specifiers — including from
+    // deeply nested deps (leva ships zustand@3, @react-three pulls in
+    // tunnel-rat which ships zustand@4) — resolves to the project's
+    // top-level copy. Without this, multiple React/zustand pairs end up
+    // in the bundle and the React dispatcher null-error crashes every
+    // form on first interaction.
+    dedupe: ["react", "react-dom", "react/jsx-runtime", "scheduler", "zustand"],
   },
   server: {
     host: "0.0.0.0",

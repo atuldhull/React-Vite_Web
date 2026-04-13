@@ -85,12 +85,18 @@
   "engines": {
     "node": ">=18.0.0"
   },
+  "//overrides_note": "Force a single React + zustand across the whole tree. leva ships zustand@3, tunnel-rat (via @react-three) ships zustand@4, top-level uses 5 — three zustands meant three React references and Vite ended up wiring component code to one and zustand to another, throwing 'Cannot read properties of null (reading useCallback)' the first time any store rendered.",
+  "overrides": {
+    "zustand": "5.0.12",
+    "react": "19.2.4",
+    "react-dom": "19.2.4"
+  },
   "devDependencies": {
     "@eslint/js": "10.0.1",
     "@testing-library/dom": "10.4.1",
     "@testing-library/jest-dom": "6.9.1",
     "@testing-library/react": "16.3.2",
-    "@vitejs/plugin-react": "6.0.1",
+    "@vitejs/plugin-react": "5.0.4",
     "autoprefixer": "10.4.27",
     "concurrently": "9.2.1",
     "eslint": "10.2.0",
@@ -102,7 +108,7 @@
     "prettier": "3.8.1",
     "supertest": "7.2.2",
     "tailwindcss": "3.4.17",
-    "vite": "8.0.3",
+    "vite": "7.1.9",
     "vitest": "4.1.2"
   }
 }
