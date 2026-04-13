@@ -58,6 +58,19 @@ export default function LeaderboardPage() {
   const current = tab === "weekly" ? weekly : tab === "alltime" ? allTime : tab === "events" ? eventLb : winners;
   const rankColors = ["text-warning", "text-text-muted", "text-warning/70"];
 
+  // Pick the correct XP field for the current tab. Uses ?? (nullish
+  // coalescing), NOT || — an entry with `xp: 0` has a *real* zero and
+  // we must not silently fall through to another field (that's what
+  // made the weekly list look mis-ordered: rows with weekly_xp=0 but
+  // lifetime xp>0 were showing lifetime XP instead of the 0 they'd
+  // been sorted by).
+  function xpFor(player) {
+    if (tab === "weekly")  return player.xp      ?? 0; // backend sets xp = weekly_xp here
+    if (tab === "alltime") return player.xp      ?? 0; // backend sets xp = lifetime xp here
+    if (tab === "events")  return player.score   ?? 0; // event leaderboard shape
+    return player.xp ?? player.total_xp ?? player.score ?? 0;
+  }
+
   return (
     <div style={{ position: "relative" }}>
       <MonumentBackground monument="glacier" intensity={0.15} />
@@ -138,7 +151,7 @@ export default function LeaderboardPage() {
                         <p className="mt-2 text-sm font-medium text-white">{p.name || p.student_name}</p>
                         {p.title && <p className="font-mono text-[9px] uppercase tracking-wider text-secondary/70">{p.title}</p>}
                         <p className="math-text mt-1 text-2xl font-bold text-primary">
-                          {p.xp || p.weekly_xp || p.total_xp || p.score || 0}
+                          {xpFor(p)}
                         </p>
                         <p className="font-mono text-[10px] text-text-dim">XP</p>
                       </Card>
@@ -176,7 +189,7 @@ export default function LeaderboardPage() {
                       </p>
                     </Link>
                     <span className="math-text text-lg font-bold text-primary">
-                      {player.xp || player.weekly_xp || player.total_xp || player.score || 0}
+                      {xpFor(player)}
                     </span>
                   </motion.div>
                 ))}
