@@ -101,9 +101,17 @@ function AnimatedRoutes() {
   );
 }
 
+// Vite is configured with base: "/app/" — so the app ships at that path
+// both in dev (http://localhost:5173/app/) and in prod (served from the
+// backend under /app/*). React Router needs to know this, otherwise it
+// tries to match the literal "/app/" path against its route table and
+// falls straight through to the 404. Strip the trailing slash because
+// basename expects "/app" not "/app/".
+const ROUTER_BASENAME = (import.meta.env.BASE_URL || "/").replace(/\/$/, "");
+
 export default function AppRouter() {
   return (
-    <BrowserRouter>
+    <BrowserRouter basename={ROUTER_BASENAME}>
       <SessionLoader>
         <ExperienceShell>
           <AnimatedRoutes />

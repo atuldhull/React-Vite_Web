@@ -17,7 +17,6 @@ import { injectTenant }   from "./middleware/tenantMiddleware.js";
 import { sessionMiddleware } from "./middleware/sessionConfig.js";
 
 import registerApiRoutes from "./routes/registerRoutes.js";
-import pageRoutes        from "./routes/pageRoutes.js";
 import authController    from "./controllers/authController.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -83,10 +82,16 @@ export function createApp() {
     });
   }
 
-  /* ── PAGE ROUTES ── */
-  app.use("/", pageRoutes);
+  /* The SPA lives at /app/ (Vite base + React Router basename). If a user
+     hits the bare root, redirect to /app/ so the router's basename matches.
+     302 (not a rewrite) so the URL in the address bar is honest about
+     where the SPA is mounted. */
+  app.get("/", (_req, res) => res.redirect(302, "/app/"));
 
-  /* ── 404 — serve SPA for unmatched client-side routes ── */
+  /* ── SPA fallback — any non-API path renders the React SPA.
+     express.static handles /app/assets/* etc. above; this catches everything
+     else (e.g. direct-link entry to /app/dashboard) and lets client-side
+     routing take over. */
   app.use((req, res) => {
     if (req.path.startsWith("/api/")) return res.status(404).json({ error: "Not found" });
     res.sendFile(SPA_INDEX);
