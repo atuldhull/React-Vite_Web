@@ -65,10 +65,36 @@ export default function LeaderboardPage() {
   // lifetime xp>0 were showing lifetime XP instead of the 0 they'd
   // been sorted by).
   function xpFor(player) {
-    if (tab === "weekly")  return player.xp      ?? 0; // backend sets xp = weekly_xp here
-    if (tab === "alltime") return player.xp      ?? 0; // backend sets xp = lifetime xp here
-    if (tab === "events")  return player.score   ?? 0; // event leaderboard shape
+    if (tab === "weekly")  return player.xp         ?? 0; // backend sets xp = weekly_xp here
+    if (tab === "alltime") return player.xp         ?? 0; // backend sets xp = lifetime xp here
+    if (tab === "events")  return player.score      ?? 0; // event leaderboard shape
+    if (tab === "winners") return player.winner_xp  ?? 0; // weekly_winners table
     return player.xp ?? player.total_xp ?? player.score ?? 0;
+  }
+
+  // The Hall of Fame uses the weekly_winners table which has a different
+  // schema (winner_name, winner_email, winner_xp, week_start, week_end)
+  // — not a live student row. Pull display fields tab-aware.
+  function nameFor(player) {
+    if (tab === "winners") return player.winner_name || "Anonymous";
+    return player.name || player.student_name || "Member";
+  }
+  function subtitleFor(player) {
+    if (tab === "winners") {
+      const start = player.week_start ? new Date(player.week_start) : null;
+      if (start && !Number.isNaN(start.getTime())) {
+        return `Week of ${start.toLocaleDateString(undefined, { day: "2-digit", month: "short", year: "numeric" })}`;
+      }
+      return "Weekly winner";
+    }
+    return player.title || player.email || "";
+  }
+
+  // Profile-link target. Winners rows don't carry a user_id, so render a
+  // non-clickable wrapper for those.
+  function linkFor(player) {
+    if (tab !== "winners" && player.user_id) return `/student/${player.user_id}`;
+    return null;
   }
 
   return (
@@ -79,7 +105,20 @@ export default function LeaderboardPage() {
           monument="glacier"
           title="Leaderboard"
           subtitle="Rankings"
-          description={weekInfo ? `Week resets: ${new Date(weekInfo.ends_at || weekInfo.end).toLocaleDateString()}` : undefined}
+          description={
+            // Backend /api/leaderboard/week-info returns `weekEnd` + `timeLeftStr`.
+            // Prefer the pre-formatted human string; otherwise parse weekEnd.
+            // Guard against bad/missing dates so we never render "Invalid Date".
+            (() => {
+              if (!weekInfo) return undefined;
+              if (weekInfo.timeLeftStr) return `Week resets in ${weekInfo.timeLeftStr}`;
+              const end = weekInfo.weekEnd ? new Date(weekInfo.weekEnd) : null;
+              if (end && !Number.isNaN(end.getTime())) {
+                return `Week resets: ${end.toLocaleDateString()}`;
+              }
+              return undefined;
+            })()
+          }
         />
 
         <div className="flex flex-wrap justify-center gap-3">
@@ -148,8 +187,8 @@ export default function LeaderboardPage() {
                         <p className={`math-text text-3xl font-bold ${rankColors[rank - 1] || "text-text-dim"}`}>
                           #{rank}
                         </p>
-                        <p className="mt-2 text-sm font-medium text-white">{p.name || p.student_name}</p>
-                        {p.title && <p className="font-mono text-[9px] uppercase tracking-wider text-secondary/70">{p.title}</p>}
+                        <p className="mt-2 text-sm font-medium text-white">{nameFor(p)}</p>
+                        {subtitleFor(p) && <p className="font-mono text-[9px] uppercase tracking-wider text-secondary/70">{subtitleFor(p)}</p>}
                         <p className="math-text mt-1 text-2xl font-bold text-primary">
                           {xpFor(p)}
                         </p>
@@ -165,34 +204,52 @@ export default function LeaderboardPage() {
             <Card variant="solid">
               <div className="space-y-2">
                 {current.length === 0 && (
-                  <p className="py-8 text-center text-text-dim">No rankings available yet.</p>
+                  <p className="py-8 text-center text-text-dim">
+                    {tab === "winners"
+                      ? "No past winners yet. Weekly winners appear here after each week closes."
+                      : tab === "events"
+                        ? "Pick a competition above to see its final leaderboard."
+                        : "No rankings available yet."}
+                  </p>
                 )}
-                {current.map((player, i) => (
-                  <motion.div
-                    key={i}
-                    initial={{ opacity: 0, x: -10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: 0.3 + i * 0.04 }}
-                    className="flex items-center gap-4 rounded-xl border border-line/10 bg-black/10 px-4 py-3"
-                  >
-                    <span className={`math-text flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold ${
-                      i < 3 ? `${rankColors[i]} bg-warning/10` : "bg-white/5 text-text-dim"
-                    }`}>
-                      {i + 1}
-                    </span>
-                    <Link to={player.user_id ? `/student/${player.user_id}` : "#"} className="flex-1 min-w-0 transition hover:opacity-80">
-                      <p className="text-sm font-medium text-white truncate hover:text-primary">
-                        {player.name || player.student_name}
+                {current.map((player, i) => {
+                  const href = linkFor(player);
+                  const body = (
+                    <>
+                      <p className={`truncate text-sm font-medium text-white ${href ? "hover:text-primary" : ""}`}>
+                        {nameFor(player)}
                       </p>
-                      <p className="font-mono text-[10px] text-text-dim truncate">
-                        {player.title || player.email || ""}
+                      <p className="truncate font-mono text-[10px] text-text-dim">
+                        {subtitleFor(player)}
                       </p>
-                    </Link>
-                    <span className="math-text text-lg font-bold text-primary">
-                      {xpFor(player)}
-                    </span>
-                  </motion.div>
-                ))}
+                    </>
+                  );
+                  return (
+                    <motion.div
+                      key={i}
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.3 + i * 0.04 }}
+                      className="flex items-center gap-4 rounded-xl border border-line/10 bg-black/10 px-4 py-3"
+                    >
+                      <span className={`math-text flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold ${
+                        i < 3 ? `${rankColors[i]} bg-warning/10` : "bg-white/5 text-text-dim"
+                      }`}>
+                        {i + 1}
+                      </span>
+                      {href ? (
+                        <Link to={href} className="flex-1 min-w-0 transition hover:opacity-80">
+                          {body}
+                        </Link>
+                      ) : (
+                        <div className="flex-1 min-w-0">{body}</div>
+                      )}
+                      <span className="math-text text-lg font-bold text-primary">
+                        {xpFor(player)}
+                      </span>
+                    </motion.div>
+                  );
+                })}
               </div>
             </Card>
           </motion.div>
