@@ -7,6 +7,7 @@ import '@fontsource/space-grotesk/700.css';
 import '@fontsource/jetbrains-mono/400.css';
 import "@/styles/tailwind.css";
 import "@/styles/theme.css";
+import { registerPwaInstallListeners } from "@/lib/pwaInstall";
 
 createRoot(document.getElementById("root")).render(
   <StrictMode>
@@ -14,7 +15,11 @@ createRoot(document.getElementById("root")).render(
   </StrictMode>,
 );
 
-// Register PWA service worker
+// ── PWA: service worker + install-prompt capture ──
+// The SW is registered once here; push subscription is set up later
+// (after login) in the auth store. The install-prompt listener captures
+// the `beforeinstallprompt` event so a user-initiated click can call
+// prompt() later — see components/ui/InstallPwaButton.jsx.
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
     navigator.serviceWorker
@@ -23,3 +28,4 @@ if ("serviceWorker" in navigator) {
       .catch((err) => console.warn("[PWA] SW failed:", err));
   });
 }
+registerPwaInstallListeners();

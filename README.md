@@ -220,7 +220,18 @@ Atul_Web/
 | `FRONTEND_URL` | Prod | CORS allow-list when `NODE_ENV=production` |
 | `PORT` | No | Server port (default: 3000) |
 
-See [docs/PAYMENT_SETUP.md](docs/PAYMENT_SETUP.md) for the full Razorpay setup walkthrough.
+See [docs/PAYMENT_SETUP.md](docs/PAYMENT_SETUP.md) for the full Razorpay setup walkthrough and [docs/PWA_AND_PUSH.md](docs/PWA_AND_PUSH.md) for installable-PWA + web-push configuration.
+
+### Web Push (VAPID)
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `VAPID_PUBLIC_KEY` | For push | VAPID public key (server-side reference) |
+| `VAPID_PRIVATE_KEY` | For push | VAPID private key — **server only, never expose** |
+| `VAPID_CONTACT` | For push | `mailto:admin@your-domain.com` — used by push services |
+| `VITE_VAPID_PUBLIC_KEY` | For push | Same as `VAPID_PUBLIC_KEY` — baked into frontend bundle |
+
+Generate with: `node backend/scripts/generateVapidKeys.js`. The app works without these set — push is simply no-op'd, and Socket.IO in-app notifications still fire.
 
 ---
 

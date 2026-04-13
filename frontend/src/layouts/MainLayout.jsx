@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
 import { mainNavigation } from "@/app/navigation";
 import BrandMark from "@/components/navigation/BrandMark";
+import InstallPwaButton from "@/components/ui/InstallPwaButton";
 import { cn } from "@/lib/cn";
 import { useAuthStore } from "@/store/auth-store";
 import { useUiStore } from "@/store/ui-store";
@@ -113,6 +114,9 @@ export default function MainLayout() {
 
               {/* Right: Actions + Hamburger */}
               <div className="flex items-center gap-2">
+                {/* Install as PWA (Chrome/Edge show native prompt; iOS Safari shows a hint) */}
+                <InstallPwaButton className="hidden sm:block" />
+
                 {/* Theme toggle — hidden on very small screens */}
                 <button
                   onClick={toggleTheme}

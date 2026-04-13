@@ -599,3 +599,100 @@ An external code review came back at 7.2/10 (FE 7.8, BE 6.6). Three criticisms w
    `router.jsx` is now pure composition: SessionLoader, ScrollManager, Suspense fallback, AnimatePresence + PageTransition shell, and `<Routes>{publicRoutes}{authRoutes}...</Routes>`.
 
 All 136 tests updated for the new file layout and still pass. Lint clean. Production build: 3.5s. Every endpoint returns the expected status code live (including the new `/api/debug` 403 behaviour).
+
+### Phase 8.2: PWA, Web Push, and Copilot review follow-through (April 13, 2026)
+
+Full-stack pass to answer "can I install this?", "will notifications
+work when the app is closed?", and the external review's last two points
+(strict CORS, realtime state behind an interface).
+
+**Copilot review follow-through**
+
+1. **Socket.IO CORS in production**. Was `isProd ? false : "*"` — which
+   rejected every origin in production, breaking the Socket.IO client.
+   Now matches the Express `cors()` policy: in prod we use
+   `FRONTEND_URL`, in dev we allow everything.
+2. **Realtime state behind an interface**. Pulled the three in-memory
+   Maps out of the socket handlers into a new `backend/socket/store/`:
+   - `notificationStore.js` — userId <-> sockets binding
+   - `presenceStore.js` — active users keyed by socketId
+   - `quizStore.js` — quiz sessions by room code
+
+   Each store exposes a small API (`add/remove/list` etc.). Swapping in
+   a Redis-backed implementation is now a single-file change per store.
+
+**PWA install prompt UX**
+
+- `frontend/src/lib/pwaInstall.js` captures the `beforeinstallprompt`
+  event and stores it in a Zustand store so a user-initiated click
+  can call `prompt()`. Handles `appinstalled`, detects running-standalone,
+  detects iOS Safari.
+- `components/ui/InstallPwaButton.jsx` renders an **Install** button in
+  the header when the native prompt is available. On iOS Safari it
+  shows an inline hint because iOS never fires `beforeinstallprompt`.
+
+**Safe-area insets**
+
+- `frontend/index.html`: added `viewport-fit=cover` so `env(safe-area-inset-*)`
+  returns non-zero on notched iPhones. Also added the spec `mobile-web-app-capable`
+  meta alongside the existing Apple prefix.
+- `theme.css`: `body` now has `padding: env(safe-area-inset-*)` so
+  sticky headers + fixed footers never clip under the notch / home indicator.
+- Added utility classes `.sai-top`, `.sai-bottom`, `.sai-left`, `.sai-right`
+  for per-element application.
+
+**Web Push end-to-end**
+
+Was previously 100% stubbed — VAPID key hardcoded as empty string, no
+backend endpoints, `web-push` package not installed, setup function never
+called. Now fully wired:
+
+- `npm install web-push` (3.6.7).
+- `backend/scripts/generateVapidKeys.js` — one-shot VAPID key generator.
+- `backend/migrations/13_push_subscriptions.sql` — `push_subscriptions`
+  table with unique endpoint, keys.auth, keys.p256dh, user_agent, timestamps.
+- `backend/services/webPush.js` — wraps `web-push` library; no-ops when
+  keys missing (so dev still works); auto-deletes dead subscriptions on
+  404/410 responses; TTL = 24h.
+- `backend/controllers/notificationController.js` — added
+  `subscribePush` + `unsubscribePush`, and every existing notification
+  path (`sendNotification`, `broadcastNotification`) now fires web push
+  in parallel with Socket.IO + DB.
+- `backend/routes/notificationRoutes.js` — `POST /push-subscribe`
+  and `POST /push-unsubscribe`, both `requireAuth`-guarded.
+- `frontend/src/lib/pushNotifications.js` — reads
+  `import.meta.env.VITE_VAPID_PUBLIC_KEY`, reuses existing PushSubscriptions,
+  POSTs subscription JSON to the backend, exposes `setupPushNotifications`
+  and `teardownPushNotifications`.
+- `frontend/src/store/auth-store.js` — calls `setupPushNotifications`
+  on successful login (prompts for permission once) and on session
+  restore (silently refresh existing subscription). Calls
+  `teardownPushNotifications` during logout before the session cookie
+  is destroyed.
+
+Three channels now fire for every notification:
+
+1. DB row (persisted, for the notifications page + bell)
+2. Socket.IO event (live in-app toast while browsing)
+3. Web Push (system notification — works when app is closed or the
+   PWA is installed and its window is minimised)
+
+Operator setup: see `docs/PWA_AND_PUSH.md`. The app works fine without
+VAPID keys configured — push is the only channel that no-ops.
+
+**What the external review scored 7.2/10 addressed**
+
+- `register_user` socket handler bypass (P0) — fixed (Phase 8.1)
+- `/api/debug` leak (P0) — fixed (Phase 8.1)
+- ScrollManager comment/code mismatch (P1) — fixed (Phase 8.1)
+- `server.js` monolithic (P1) — fixed (Phase 8.1)
+- `router.jsx` growing (P1) — fixed (Phase 8.1)
+- Socket.IO CORS strict in prod (P1) — fixed (Phase 8.2)
+- Realtime state behind an interface (P2) — fixed (Phase 8.2)
+- PWA install UX (not in review, was missing) — added (Phase 8.2)
+- Web Push (not in review, was 100% stubbed) — added (Phase 8.2)
+- Safe-area insets (not in review, was missing) — added (Phase 8.2)
+
+Verification after Phase 8.2: 136/136 tests passing, 0 ESLint issues,
+production build 3.6s, backend boots cleanly, `POST /api/notifications/push-subscribe`
+returns 401 without auth.

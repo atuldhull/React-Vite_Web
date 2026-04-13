@@ -28,8 +28,21 @@ import { attachSocket } from "./socket/index.js";
 const isProd = process.env.NODE_ENV === "production";
 const app    = createApp();
 const server = http.createServer(app);
-const io     = new Server(server, {
-  cors: { origin: isProd ? false : "*", credentials: true },
+
+// Socket.IO CORS: in dev allow any origin (wildcard) so we can hit the
+// server from the Vite dev server on a different port. In production,
+// lock down to the explicit FRONTEND_URL — same policy as the Express
+// cors() middleware in app.js. `false` would block all cross-origin,
+// which breaks the Socket.IO client even from the same host.
+const socketCorsOrigin = isProd
+  ? (process.env.FRONTEND_URL || false)
+  : true;
+
+const io = new Server(server, {
+  cors: {
+    origin:      socketCorsOrigin,
+    credentials: true,
+  },
 });
 
 attachSocket(io);

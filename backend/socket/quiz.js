@@ -1,11 +1,10 @@
 /**
- * Live Quiz engine. State is in-memory (`quizSessions`) keyed by room code.
- * All session mutations happen in this module; the orchestrator passes an
- * `io` + `pushNotification` into the attach function so we can reach across
- * to the notification module for student invites without importing it here.
+ * Live Quiz engine. Session state lives in `quizStore` (see ./store/quizStore.js)
+ * keyed by room code. Reveal timers stay as in-process setTimeout handles —
+ * moving to Redis requires replacing them with a delayed-job queue.
  */
 
-const quizSessions = {};
+import { quizStore } from "./store/quizStore.js";
 
 function generateCode() {
   // 6-char uppercase alphanumeric room code
@@ -13,7 +12,7 @@ function generateCode() {
 }
 
 function revealAnswer(io, code) {
-  const session = quizSessions[code];
+  const session = quizStore.get(code);
   if (!session) return;
   session.status = "results";
 
@@ -81,7 +80,7 @@ export function attachQuiz(io, socket, { pushNotification }) {
   /* Teacher creates a quiz session. */
   socket.on("create_session", async ({ teacherName, questions }) => {
     const code = generateCode();
-    quizSessions[code] = {
+    quizStore.create(code, {
       code,
       teacherName,
       teacherSocket: socket.id,
@@ -90,7 +89,7 @@ export function attachQuiz(io, socket, { pushNotification }) {
       currentQ: -1,       // -1 = lobby
       status: "lobby",    // lobby | question | results | finished
       timer: null,
-    };
+    });
     socket.join(code);
     socket.emit("session_created", { code });
     console.log(`[Quiz] Session ${code} created by ${teacherName}`);
@@ -100,7 +99,7 @@ export function attachQuiz(io, socket, { pushNotification }) {
 
   /* Student joins the lobby. */
   socket.on("join_session", ({ code, playerName }) => {
-    const session = quizSessions[code];
+    const session = quizStore.get(code);
     if (!session) { socket.emit("join_error", "Session not found"); return; }
     if (session.status !== "lobby") { socket.emit("join_error", "Quiz already started"); return; }
 
@@ -123,7 +122,7 @@ export function attachQuiz(io, socket, { pushNotification }) {
 
   /* Teacher advances to the next question. */
   socket.on("next_question", ({ code }) => {
-    const session = quizSessions[code];
+    const session = quizStore.get(code);
     if (!session || session.teacherSocket !== socket.id) return;
 
     session.currentQ++;
@@ -157,7 +156,7 @@ export function attachQuiz(io, socket, { pushNotification }) {
 
   /* Student submits an answer. */
   socket.on("submit_answer", ({ code, answerIndex, timeTaken }) => {
-    const session = quizSessions[code];
+    const session = quizStore.get(code);
     if (!session || session.status !== "question") return;
 
     const player = session.players[socket.id];
@@ -193,7 +192,7 @@ export function attachQuiz(io, socket, { pushNotification }) {
 
   /* Teacher force-reveals the current answer. */
   socket.on("reveal_answer", ({ code }) => {
-    const session = quizSessions[code];
+    const session = quizStore.get(code);
     if (!session || session.teacherSocket !== socket.id) return;
     if (session.timer) clearTimeout(session.timer);
     revealAnswer(io, code);
@@ -201,11 +200,11 @@ export function attachQuiz(io, socket, { pushNotification }) {
 
   /* Teacher ends the session entirely. */
   socket.on("end_session", ({ code }) => {
-    const session = quizSessions[code];
+    const session = quizStore.get(code);
     if (!session || session.teacherSocket !== socket.id) return;
     if (session.timer) clearTimeout(session.timer);
     io.to(code).emit("session_ended");
-    delete quizSessions[code];
+    quizStore.delete(code);
   });
 }
 
@@ -214,7 +213,7 @@ export function attachQuiz(io, socket, { pushNotification }) {
  * teacher of updated player counts.
  */
 export function cleanupQuiz(io, socket) {
-  for (const [code, session] of Object.entries(quizSessions)) {
+  for (const [code, session] of quizStore.entries()) {
     if (session.players[socket.id]) {
       delete session.players[socket.id];
       io.to(code).emit("lobby_update", {

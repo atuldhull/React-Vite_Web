@@ -1,11 +1,12 @@
 /**
  * Notification subscription + push helper.
  *
- * `userSockets` is an in-memory map of userId -> Set<socketId>. OK for a
- * single-instance deployment; would need Redis pub/sub to scale horizontally.
+ * Socket bindings live in `notificationStore` (see ./store/notificationStore.js)
+ * so the handler stays concerned only with wire protocol. Swap that module for
+ * a Redis implementation to scale horizontally.
  */
 
-const userSockets = {};
+import { notificationStore } from "./store/notificationStore.js";
 
 export function attachNotifications(io, socket) {
   /*
@@ -17,22 +18,20 @@ export function attachNotifications(io, socket) {
   socket.on("register_user", () => {
     const verifiedId = socket.userId;
     if (!verifiedId) return; // unauthenticated socket — refuse silently
-    if (!userSockets[verifiedId]) userSockets[verifiedId] = new Set();
-    userSockets[verifiedId].add(socket.id);
+    notificationStore.add(verifiedId, socket.id);
     socket.join(`user:${verifiedId}`);
   });
 }
 
 export function cleanupNotifications(socket) {
-  if (socket.userId && userSockets[socket.userId]) {
-    userSockets[socket.userId].delete(socket.id);
-    if (!userSockets[socket.userId].size) delete userSockets[socket.userId];
-  }
+  notificationStore.removeSocket(socket.id);
 }
 
 /**
  * Emit a notification payload to every socket currently associated with
- * the given userId.
+ * the given userId. This is the real-time / in-page channel. Web-push
+ * (service-worker-delivered) notifications are fired separately from the
+ * controller that triggers the notification — see controllers/notificationController.js.
  */
 export function pushNotification(io, userId, payload) {
   io.to(`user:${userId}`).emit("notification", payload);

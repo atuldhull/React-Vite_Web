@@ -1,5 +1,6 @@
 import supabase from "../config/supabase.js";
 import { pushNotification } from "../services/realtime.js";
+import { sendWebPush } from "../services/webPush.js";
 
 /* ── GET notifications for current user ── */
 export const getNotifications = async (req, res) => {
@@ -72,16 +73,21 @@ export const clearAll = async (req, res) => {
   }
 };
 
-/* ── SEND notification to specific users (internal helper + admin endpoint) ── */
+/* ── SEND notification to specific users (internal helper + admin endpoint) ──
+   Three delivery channels all fire together:
+     1. DB row (persisted for the notifications page / bell)
+     2. Socket.IO event (real-time in-page toast while the user is browsing)
+     3. Web Push (service-worker notification, including when the app is closed) */
 export const sendNotification = async ({ userIds, title, body, type = "info", link = null }) => {
   if (!userIds?.length) return;
   try {
     const rows = userIds.map(uid => ({ user_id: uid, title, body, type, link, is_read: false }));
     const { data: inserted } = await supabase.from("notifications").insert(rows).select();
 
-    // Push real-time socket event to each connected user
+    // 2. Real-time socket fan-out (for live in-app toasts)
     (inserted || rows).forEach((row, i) => {
-      pushNotification(userIds[i], {
+      const targetUserId = userIds[i];
+      const payload = {
         id:         row.id || null,
         title:      row.title,
         body:       row.body,
@@ -89,10 +95,66 @@ export const sendNotification = async ({ userIds, title, body, type = "info", li
         link:       row.link,
         is_read:    false,
         created_at: row.created_at || new Date().toISOString(),
-      });
+      };
+      pushNotification(targetUserId, payload);
+
+      // 3. Web Push (service-worker notification — works when app is closed)
+      //    Non-blocking: fire-and-forget so a slow Push Service can't stall
+      //    the Socket emit or the HTTP response.
+      sendWebPush(targetUserId, { title, body, link });
     });
   } catch (err) {
     console.error("[Notif] send error:", err.message);
+  }
+};
+
+/* ── SUBSCRIBE to web push — client sends its PushSubscription JSON ──
+   Idempotent on endpoint: re-subscribing just updates the auth/p256dh keys. */
+export const subscribePush = async (req, res) => {
+  const userId = req.session?.user?.id;
+  if (!userId) return res.status(401).json({ error: "Login required" });
+
+  const { endpoint, keys } = req.body || {};
+  if (!endpoint || !keys?.auth || !keys?.p256dh) {
+    return res.status(400).json({ error: "Invalid subscription payload" });
+  }
+
+  try {
+    const userAgent = (req.headers["user-agent"] || "").slice(0, 255);
+    const { error } = await supabase.from("push_subscriptions").upsert({
+      user_id:    userId,
+      endpoint,
+      auth:       keys.auth,
+      p256dh:     keys.p256dh,
+      user_agent: userAgent,
+      last_used_at: new Date().toISOString(),
+    }, { onConflict: "endpoint" });
+
+    if (error) {
+      console.error("[Push] subscribe error:", error.message);
+      return res.status(500).json({ error: "Failed to save subscription" });
+    }
+    return res.json({ success: true });
+  } catch (err) {
+    console.error("[Push] subscribe exception:", err.message);
+    return res.status(500).json({ error: "Failed" });
+  }
+};
+
+/* ── UNSUBSCRIBE a specific endpoint (called when browser unsubscribes) ── */
+export const unsubscribePush = async (req, res) => {
+  const userId = req.session?.user?.id;
+  if (!userId) return res.status(401).json({ error: "Login required" });
+
+  const { endpoint } = req.body || {};
+  if (!endpoint) return res.status(400).json({ error: "endpoint required" });
+
+  try {
+    await supabase.from("push_subscriptions")
+      .delete().eq("user_id", userId).eq("endpoint", endpoint);
+    return res.json({ success: true });
+  } catch {
+    return res.status(500).json({ error: "Failed" });
   }
 };
 
@@ -113,9 +175,9 @@ export const broadcastNotification = async (req, res) => {
 
     if (rows.length) {
       const { data: inserted } = await supabase.from("notifications").insert(rows).select();
-      // Push real-time socket events
+      // Push real-time socket events + web push (same three channels as sendNotification)
       (inserted || rows).forEach(row => {
-        pushNotification(row.user_id, {
+        const payload = {
           id:         row.id || null,
           title:      row.title,
           body:       row.body,
@@ -123,7 +185,9 @@ export const broadcastNotification = async (req, res) => {
           link:       row.link,
           is_read:    false,
           created_at: row.created_at || new Date().toISOString(),
-        });
+        };
+        pushNotification(row.user_id, payload);
+        sendWebPush(row.user_id, { title: row.title, body: row.body, link: row.link });
       });
     }
     return res.json({ success: true, sent: rows.length });

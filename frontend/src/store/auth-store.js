@@ -1,5 +1,11 @@
 import { create } from "zustand";
 import http from "@/lib/http";
+import { setupPushNotifications, teardownPushNotifications } from "@/lib/pushNotifications";
+
+// Best-effort, fire-and-forget. Never throw back to the auth flow.
+function tryPushSetup(opts) {
+  setupPushNotifications(opts).catch(() => {});
+}
 
 export const useAuthStore = create((set, _get) => ({
   status: "idle", // idle | loading | authenticated | guest | error
@@ -13,6 +19,9 @@ export const useAuthStore = create((set, _get) => ({
       const { data } = await http.get("/auth/me");
       if (data.loggedIn && data.user) {
         set({ user: data.user, status: "authenticated", error: null });
+        // If permission was granted on a previous visit, silently refresh
+        // the push subscription so it stays bound to this session user.
+        tryPushSetup({ promptIfDefault: false });
       } else {
         set({ user: null, status: "guest", error: null });
       }
@@ -29,6 +38,10 @@ export const useAuthStore = create((set, _get) => ({
       // Backend returns { message, user, redirectTo }
       if (data.user) {
         set({ user: data.user, status: "authenticated", error: null });
+        // Prompt for notification permission once, on first successful login.
+        // If the user dismisses, we won't re-prompt on subsequent logins —
+        // setupPushNotifications inspects Notification.permission first.
+        tryPushSetup({ promptIfDefault: true });
       }
       return data;
     } catch (err) {
@@ -52,6 +65,9 @@ export const useAuthStore = create((set, _get) => ({
   },
 
   logout: async () => {
+    // Tear down the push subscription BEFORE destroying the server session —
+    // otherwise the unsubscribe POST would 401.
+    try { await teardownPushNotifications(); } catch { /* non-fatal */ }
     try {
       await http.post("/auth/logout");
     } catch {
