@@ -1,6 +1,8 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import { bot } from "@/lib/api";
+import { useAuthStore } from "@/store/auth-store";
 
 function renderMd(text) {
   return text
@@ -10,6 +12,12 @@ function renderMd(text) {
 }
 
 export default function PandaChatPanel({ open }) {
+  // The /api/bot/chat endpoint requires auth (added during the Phase 8
+  // security pass — bot was a public abuse vector against our OpenRouter
+  // credits). So we need to know who's logged in to give a useful UX.
+  const status  = useAuthStore((s) => s.status);
+  const isGuest = status === "guest" || status === "error";
+
   const [messages, setMessages] = useState([
     { role: "assistant", content: "Hey! I'm **PANDA** 🐼 your math AI.\n\nAsk me about Calculus, Algebra, Probability — anything!" },
   ]);
@@ -23,8 +31,8 @@ export default function PandaChatPanel({ open }) {
   }, [messages, loading]);
 
   useEffect(() => {
-    if (open) setTimeout(() => inputRef.current?.focus(), 400);
-  }, [open]);
+    if (open && !isGuest) setTimeout(() => inputRef.current?.focus(), 400);
+  }, [open, isGuest]);
 
   const send = async () => {
     const text = input.trim();
@@ -36,8 +44,20 @@ export default function PandaChatPanel({ open }) {
     try {
       const { data } = await bot.chat(updated.map((m) => ({ role: m.role, content: m.content })));
       setMessages([...updated, { role: "assistant", content: data.reply }]);
-    } catch {
-      setMessages([...updated, { role: "assistant", content: "PANDA is napping 😴 Try again in a moment!" }]);
+    } catch (err) {
+      // Distinguish 401 (session expired / not logged in) from a real outage.
+      const code = err?.response?.status;
+      let reply;
+      if (code === 401) {
+        reply = "You need to **sign in** to chat with me — head to the login page and come back. \uD83D\uDC3C";
+      } else if (code === 413 || code === 400) {
+        reply = "That message is too long for me to chew on \uD83D\uDC3C\u2014 try a shorter question?";
+      } else if (code === 429) {
+        reply = "I'm getting too many questions right now \uD83D\uDC3C\u2014 give me a minute and try again.";
+      } else {
+        reply = "PANDA is napping \uD83D\uDE34 Try again in a moment!";
+      }
+      setMessages([...updated, { role: "assistant", content: reply }]);
     }
     setLoading(false);
   };
@@ -163,8 +183,10 @@ export default function PandaChatPanel({ open }) {
             )}
           </div>
 
-          {/* Quick suggestion chips */}
-          {messages.length <= 1 && (
+          {/* Quick suggestion chips — only useful when the user can actually
+              send a message. Hide for guests since the input below is replaced
+              with a sign-in CTA. */}
+          {!isGuest && messages.length <= 1 && (
             <div
               className="flex flex-wrap gap-1.5 px-4 py-2.5"
               style={{ borderTop: "1px solid rgba(0,255,200,0.1)" }}
@@ -188,44 +210,63 @@ export default function PandaChatPanel({ open }) {
             </div>
           )}
 
-          {/* Input */}
+          {/* Input — replaced with a sign-in CTA when the user is a guest. */}
           <div style={{ borderTop: "1px solid rgba(0,255,200,0.15)" }} className="px-4 py-3">
-            <div className="flex items-end gap-2">
-              <textarea
-                ref={inputRef}
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={onKey}
-                placeholder="Ask PANDA anything..."
-                rows={1}
-                className="max-h-24 min-h-[42px] flex-1 resize-none px-3.5 py-2.5 text-[13px] text-white outline-none placeholder:text-white/20"
-                style={{
-                  background: "rgba(0,20,40,0.6)",
-                  border: "1px solid rgba(0,255,200,0.15)",
-                  borderBottom: "1.5px solid rgba(0,255,200,0.3)",
-                  borderLeft: "3px solid var(--monument-abyss)",
-                }}
-              />
-              {/* Send button — hex shaped */}
-              <motion.button
-                onClick={send}
-                disabled={!input.trim() || loading}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.92 }}
-                className="flex shrink-0 items-center justify-center transition disabled:opacity-20"
-                style={{
-                  width: 40,
-                  height: 40,
-                  clipPath: "var(--clip-hex)",
-                  background: input.trim() && !loading ? "var(--monument-abyss)" : "rgba(0,255,200,0.1)",
-                  color: input.trim() && !loading ? "#000" : "rgba(255,255,255,0.3)",
-                }}
-              >
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
-                </svg>
-              </motion.button>
-            </div>
+            {isGuest ? (
+              <div className="flex flex-col items-center gap-2 py-2 text-center">
+                <p className="text-[12px] text-white/60">
+                  Sign in to chat with PANDA <span aria-hidden>{"\u{1F43C}"}</span>
+                </p>
+                <Link
+                  to="/login"
+                  className="inline-flex items-center gap-2 rounded-md px-3.5 py-1.5 font-mono text-[10px] uppercase tracking-[0.2em] transition hover:brightness-110"
+                  style={{
+                    background: "var(--monument-abyss)",
+                    color: "#000",
+                    clipPath: "var(--clip-para)",
+                  }}
+                >
+                  Sign in
+                </Link>
+              </div>
+            ) : (
+              <div className="flex items-end gap-2">
+                <textarea
+                  ref={inputRef}
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={onKey}
+                  placeholder="Ask PANDA anything..."
+                  rows={1}
+                  className="max-h-24 min-h-[42px] flex-1 resize-none px-3.5 py-2.5 text-[13px] text-white outline-none placeholder:text-white/20"
+                  style={{
+                    background: "rgba(0,20,40,0.6)",
+                    border: "1px solid rgba(0,255,200,0.15)",
+                    borderBottom: "1.5px solid rgba(0,255,200,0.3)",
+                    borderLeft: "3px solid var(--monument-abyss)",
+                  }}
+                />
+                {/* Send button — hex shaped */}
+                <motion.button
+                  onClick={send}
+                  disabled={!input.trim() || loading}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.92 }}
+                  className="flex shrink-0 items-center justify-center transition disabled:opacity-20"
+                  style={{
+                    width: 40,
+                    height: 40,
+                    clipPath: "var(--clip-hex)",
+                    background: input.trim() && !loading ? "var(--monument-abyss)" : "rgba(0,255,200,0.1)",
+                    color: input.trim() && !loading ? "#000" : "rgba(255,255,255,0.3)",
+                  }}
+                >
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
+                  </svg>
+                </motion.button>
+              </div>
+            )}
           </div>
         </motion.div>
       )}
