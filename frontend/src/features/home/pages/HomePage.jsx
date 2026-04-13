@@ -2,7 +2,6 @@ import { useEffect, useState, useRef } from "react";
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import Button from "@/components/ui/Button";
-import Card from "@/components/ui/Card";
 import MonumentBackground from "@/components/backgrounds/MonumentBackground";
 import { useMonument } from "@/hooks/useMonument";
 import http from "@/lib/http";
@@ -17,10 +16,47 @@ const fadeUp = {
 };
 
 const features = [
-  { icon: "🧮", title: "Challenge Arena", description: "Battle through weekly math challenges ranked by difficulty. Solve problems, earn points, climb the leaderboard.", to: "/arena", color: "from-primary/20 to-secondary/10" },
-  { icon: "📊", title: "Live Dashboard", description: "Track your progress, view streaks, monitor your ranking, and see how you compare to the collective.", to: "/dashboard", color: "from-warning/15 to-danger/10" },
-  { icon: "🎯", title: "Events & Competitions", description: "Join live quizzes, treasure hunts, and math competitions. Compete in real-time with students across universities.", to: "/events", color: "from-success/15 to-glow/10" },
-  { icon: "🏆", title: "Leaderboards", description: "Weekly and all-time rankings. See top performers, your personal best, and earn recognition for your skills.", to: "/arena", color: "from-secondary/15 to-primary/10" },
+  {
+    icon: "\u{1F9EE}",
+    title: "Challenge Arena",
+    description: "Battle through weekly math challenges ranked by difficulty. Solve problems, earn points, climb the leaderboard.",
+    to: "/arena",
+    // Tailwind needs full class strings at build time (no interpolation).
+    accent: "text-primary",
+    bg:     "bg-primary/10",
+    ring:   "ring-primary/20",
+    glow:   "group-hover:shadow-[0_0_40px_rgba(131,82,255,0.25)]",
+  },
+  {
+    icon: "\u{1F4CA}",
+    title: "Live Dashboard",
+    description: "Track your progress, view streaks, monitor your ranking, and see how you compare to the collective.",
+    to: "/dashboard",
+    accent: "text-warning",
+    bg:     "bg-warning/10",
+    ring:   "ring-warning/20",
+    glow:   "group-hover:shadow-[0_0_40px_rgba(251,191,36,0.25)]",
+  },
+  {
+    icon: "\u{1F3AF}",
+    title: "Events & Competitions",
+    description: "Join live quizzes, treasure hunts, and math competitions. Compete in real-time with students across universities.",
+    to: "/events",
+    accent: "text-success",
+    bg:     "bg-success/10",
+    ring:   "ring-success/20",
+    glow:   "group-hover:shadow-[0_0_40px_rgba(45,212,191,0.25)]",
+  },
+  {
+    icon: "\u{1F3C6}",
+    title: "Leaderboards",
+    description: "Weekly and all-time rankings. See top performers, your personal best, and earn recognition for your skills.",
+    to: "/leaderboard",
+    accent: "text-secondary",
+    bg:     "bg-secondary/10",
+    ring:   "ring-secondary/20",
+    glow:   "group-hover:shadow-[0_0_40px_rgba(35,193,255,0.25)]",
+  },
 ];
 
 /**
@@ -217,20 +253,50 @@ export default function HomePage() {
         <section className="relative z-[1] mx-auto max-w-6xl">
           <motion.div initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: "-100px" }} transition={{ duration: 0.7 }} className="text-center">
             <p className="font-mono text-xs uppercase tracking-[0.3em] text-primary">Platform Features</p>
-            <h2 className="mt-4 text-4xl font-bold tracking-[-0.04em] text-white sm:text-5xl">Everything you need to compete</h2>
+            <h2 className="mt-4 text-4xl font-bold tracking-[-0.04em] text-white sm:text-5xl">
+              Everything you need to compete
+            </h2>
+            <p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-text-muted">
+              Four surfaces, one collective. Pick where you want to sharpen your edge.
+            </p>
           </motion.div>
-          <div className="mt-14 grid gap-6 sm:grid-cols-2">
+          <div className="mt-14 grid gap-5 md:grid-cols-2">
             {features.map((feature, i) => (
-              <motion.div key={feature.title} initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: "-50px" }} transition={{ delay: i * 0.1, duration: 0.6 }}>
-                <Link to={feature.to}>
-                  <Card variant="glass" interactive className="h-full">
-                    <div className={`absolute inset-x-0 top-0 h-32 bg-gradient-to-br ${feature.color}`} />
-                    <div className="relative z-[1]">
-                      <span className="text-3xl">{feature.icon}</span>
-                      <h3 className="mt-4 text-2xl font-bold tracking-[-0.03em] text-white">{feature.title}</h3>
-                      <p className="mt-3 text-sm leading-7 text-text-muted">{feature.description}</p>
+              <motion.div
+                key={feature.title}
+                initial={{ opacity: 0, y: 30 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: "-50px" }}
+                transition={{ delay: i * 0.1, duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+              >
+                <Link to={feature.to} className="block h-full">
+                  <article
+                    className={`group relative flex h-full flex-col overflow-hidden rounded-2xl border border-line/15 bg-surface/60 p-6 backdrop-blur-xl transition-all duration-300 hover:-translate-y-1 hover:border-line/30 hover:bg-surface/80 ${feature.glow}`}
+                  >
+                    {/* Icon badge — a proper pill instead of a bare emoji */}
+                    <div
+                      className={`flex h-14 w-14 items-center justify-center rounded-xl ring-1 ${feature.bg} ${feature.ring}`}
+                    >
+                      <span className="text-3xl leading-none" aria-hidden>
+                        {feature.icon}
+                      </span>
                     </div>
-                  </Card>
+
+                    <h3 className="mt-6 font-display text-2xl font-bold tracking-[-0.02em] text-white">
+                      {feature.title}
+                    </h3>
+                    <p className="mt-2 flex-1 text-sm leading-7 text-text-muted">
+                      {feature.description}
+                    </p>
+
+                    {/* Learn-more cue — fades in on hover */}
+                    <span className={`mt-6 inline-flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.24em] opacity-70 transition group-hover:opacity-100 ${feature.accent}`}>
+                      Explore
+                      <span aria-hidden className="transition-transform duration-300 group-hover:translate-x-1">
+                        {"\u2192"}
+                      </span>
+                    </span>
+                  </article>
                 </Link>
               </motion.div>
             ))}

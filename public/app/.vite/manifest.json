@@ -563,7 +563,6 @@
       "index.html",
       "_http.js",
       "_Button.js",
-      "_Card.js",
       "_useMonument.js",
       "_proxy.js",
       "_react.js"
