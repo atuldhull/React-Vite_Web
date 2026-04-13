@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 import Button from "@/components/ui/Button";
 import MonumentBackground from "@/components/backgrounds/MonumentBackground";
 import { useMonument } from "@/hooks/useMonument";
-import http from "@/lib/http";
+import { usePublicStats, formatStat } from "@/hooks/usePublicStats";
 import MonumentVideo from "@/features/home/components/MonumentGround";
 
 const fadeUp = {
@@ -106,30 +106,19 @@ export default function HomePage() {
   const showScroll = p < 0.05;
   const titleOpacity = p < 0.08 ? 1 : p < 0.18 ? 1 - (p - 0.08) / 0.1 : 0;
 
-  const [stats, setStats] = useState([
-    { value: "—", label: "Active Members" },
-    { value: "—", label: "Challenges" },
-    { value: "—", label: "Events" },
-    { value: "—", label: "Submissions" },
-  ]);
-
-  useEffect(() => {
-    Promise.all([
-      http.get("/leaderboard").catch(() => ({ data: [] })),
-      http.get("/challenge/all").catch(() => ({ data: [] })),
-      http.get("/events").catch(() => ({ data: [] })),
-    ]).then(([lb, ch, ev]) => {
-      const lbArr = Array.isArray(lb.data) ? lb.data : [];
-      const chArr = Array.isArray(ch.data) ? ch.data : [];
-      const evArr = Array.isArray(ev.data) ? ev.data : [];
-      setStats([
-        { value: lbArr.length > 0 ? `${lbArr.length}+` : "—", label: "Active Members" },
-        { value: chArr.length > 0 ? String(chArr.length) : "—", label: "Challenges" },
-        { value: evArr.length > 0 ? String(evArr.length) : "—", label: "Events" },
-        { value: lbArr.reduce((s, u) => s + (Number(u.xp) || 0), 0) > 0 ? String(lbArr.reduce((s, u) => s + (Number(u.xp) || 0), 0)) : "—", label: "Total XP Earned" },
-      ]);
-    });
-  }, []);
+  // Real platform totals from /api/stats/public — true counts (head:true,
+  // count:exact) for each underlying table. Em-dashes until loaded so we
+  // never render a placeholder/fake number. The previous implementation
+  // counted /leaderboard rows for "Active Members" but that endpoint has
+  // .limit(20), so the count was capped at 20 — masked with a misleading
+  // "+". Now it's the real students.is_active count.
+  const platformStats = usePublicStats();
+  const stats = [
+    { value: formatStat(platformStats.members),     label: "Active Members" },
+    { value: formatStat(platformStats.challenges),  label: "Challenges" },
+    { value: formatStat(platformStats.events),      label: "Events" },
+    { value: formatStat(platformStats.submissions), label: "Submissions" },
+  ];
 
   return (
     <div style={{ width: "100vw", marginLeft: "calc(-50vw + 50%)" }}>

@@ -3,6 +3,7 @@ import { Link, Outlet } from "react-router-dom";
 import { useState } from "react";
 import CosmicPortalBackground from "@/components/backgrounds/CosmicPortalBackground";
 import BrandMark from "@/components/navigation/BrandMark";
+import { usePublicStats, formatStat } from "@/hooks/usePublicStats";
 
 const faqs = [
   { q: "What is Math Collective?", a: "A competitive mathematics platform where university students solve challenges, compete in live quizzes, and climb leaderboards." },
@@ -35,6 +36,10 @@ function FaqItem({ q, a }) {
 }
 
 export default function AuthLayout() {
+  // Real platform totals from /api/stats/public. Renders em-dashes
+  // until the request resolves so we never flash a fake number.
+  const stats = usePublicStats();
+
   return (
     <div className="relative min-h-screen overflow-hidden bg-obsidian text-text-primary">
       <CosmicPortalBackground />
@@ -81,12 +86,23 @@ export default function AuthLayout() {
               </motion.div>
             </div>
 
-            {/* Stats */}
+            {/* Stats — real platform totals from /api/stats/public.
+                Each value renders as an em-dash until the request
+                resolves so we never show a fake number. */}
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6 }} className="mt-8 hidden pb-4 lg:block">
               <div className="flex gap-8 font-mono text-[11px] uppercase tracking-wider text-text-dim">
-                <div><p className="text-2xl font-bold text-white">500+</p><p className="mt-1">Members</p></div>
-                <div><p className="text-2xl font-bold text-white">200+</p><p className="mt-1">Challenges</p></div>
-                <div><p className="text-2xl font-bold text-white">50+</p><p className="mt-1">Events</p></div>
+                <div>
+                  <p className="text-2xl font-bold text-white">{formatStat(stats.members)}</p>
+                  <p className="mt-1">Members</p>
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-white">{formatStat(stats.challenges)}</p>
+                  <p className="mt-1">Challenges</p>
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-white">{formatStat(stats.events)}</p>
+                  <p className="mt-1">Events</p>
+                </div>
               </div>
             </motion.div>
           </section>

@@ -27,6 +27,7 @@ import messagingRoutes    from "./messagingRoutes.js";
 import referralRoutes     from "./referralRoutes.js";
 import achievementRoutes  from "./achievementRoutes.js";
 import insightsRoutes     from "./insightsRoutes.js";
+import statsRoutes        from "./statsRoutes.js";
 import { authLimiter, contactLimiter } from "../middleware/rateLimiter.js";
 
 export default function registerApiRoutes(app) {
@@ -55,4 +56,5 @@ export default function registerApiRoutes(app) {
   app.use("/api/referral",      referralRoutes);
   app.use("/api/achievements",  achievementRoutes);
   app.use("/api/insights",      insightsRoutes);
+  app.use("/api/stats",         statsRoutes);
 }
