@@ -22,3 +22,17 @@ import "@testing-library/jest-dom/vitest";
 // those modules in test runs is silent and safe.
 process.env.SESSION_SECRET = process.env.SESSION_SECRET || "test-secret-test-secret-test";
 
+// backend/config/supabase.js throws at MODULE LOAD if these aren't
+// set. Locally `.env.local` fills them in via dotenv; CI has no such
+// file, so any test that transitively imports a controller / route
+// that imports supabase.js would explode with "Supabase environment
+// variables missing" before the test body even runs.
+//
+// Individual test files historically set these at the top themselves
+// (see tests/integration/api-docs.test.js) — centralising here means
+// new test files don't have to remember. Mocked supabase clients
+// (vi.mock("@supabase/supabase-js")) don't read these values; they
+// only satisfy the env-presence guard in supabase.js.
+process.env.SUPABASE_URL              = process.env.SUPABASE_URL              || "https://dummy.supabase.co";
+process.env.SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || "dummy-service-role-key";
+
