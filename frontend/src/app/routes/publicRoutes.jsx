@@ -4,7 +4,7 @@
  */
 
 import { lazy } from "react";
-import { Route } from "react-router-dom";
+import { Route, Navigate, useParams } from "react-router-dom";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import MainLayout from "@/layouts/MainLayout";
 
@@ -24,9 +24,24 @@ const ProjectsPage       = lazy(() => import("@/features/student/pages/ProjectsP
 const NotificationsPage  = lazy(() => import("@/features/student/pages/NotificationsPage"));
 const ReferralPage       = lazy(() => import("@/features/student/pages/ReferralPage"));
 const StudentProfilePage = lazy(() => import("@/features/student/pages/StudentProfilePage"));
+// Phase 15 — rich public profile for /profile/:userId
+const RichProfilePage    = lazy(() => import("@/features/profile/pages/RichProfilePage"));
 const BillingPage        = lazy(() => import("@/features/student/pages/BillingPage"));
 const LiveQuizPage       = lazy(() => import("@/features/student/pages/LiveQuizPage"));
 const TestHistoryPage    = lazy(() => import("@/features/student/pages/TestHistoryPage"));
+
+/**
+ * Phase 15 — redirect the legacy /student/:userId route onto
+ * /profile/:userId. Every inbound link (old notifications, old
+ * bookmarks, hard-coded nav entries) now lands on the rich page
+ * without us having to grep every reference. Old StudentProfilePage
+ * stays in the repo for now; we can delete it in a follow-up once
+ * we're confident nothing else references it.
+ */
+function StudentUserIdRedirect() {
+  const { userId } = useParams();
+  return <Navigate to={`/profile/${userId}`} replace />;
+}
 
 export const publicRoutes = (
   <Route element={<MainLayout />}>
@@ -40,12 +55,15 @@ export const publicRoutes = (
     <Route path="arena"         element={<ProtectedRoute><ArenaPage /></ProtectedRoute>} />
     <Route path="dashboard"     element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
     <Route path="profile"       element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
+    {/* Phase 15 — rich profile for any user (self included) */}
+    <Route path="profile/:userId" element={<ProtectedRoute><RichProfilePage /></ProtectedRoute>} />
     <Route path="certificates"  element={<ProtectedRoute><CertificatesPage /></ProtectedRoute>} />
     <Route path="projects"      element={<ProtectedRoute><ProjectsPage /></ProtectedRoute>} />
     <Route path="notifications" element={<ProtectedRoute><NotificationsPage /></ProtectedRoute>} />
     <Route path="billing"       element={<ProtectedRoute><BillingPage /></ProtectedRoute>} />
     <Route path="referrals"     element={<ProtectedRoute><ReferralPage /></ProtectedRoute>} />
-    <Route path="student/:userId" element={<ProtectedRoute><StudentProfilePage /></ProtectedRoute>} />
+    {/* Legacy alias — redirects to /profile/:userId for Phase 15. */}
+    <Route path="student/:userId" element={<ProtectedRoute><StudentUserIdRedirect /></ProtectedRoute>} />
     <Route path="live-quiz"     element={<ProtectedRoute><LiveQuizPage /></ProtectedRoute>} />
     <Route path="history"       element={<ProtectedRoute><TestHistoryPage /></ProtectedRoute>} />
   </Route>
