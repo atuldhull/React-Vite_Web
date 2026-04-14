@@ -22,6 +22,7 @@ import CapacityBar from "@/components/ui/CapacityBar";
 import { events as eventsApi, insights } from "@/lib/api";
 import MonumentBackground from "@/components/backgrounds/MonumentBackground";
 import { useMonument } from "@/hooks/useMonument";
+import UserHoverCard from "@/components/social/UserHoverCard";
 
 const EMPTY_FORM = {
   title: "", description: "", location: "", date: "",
@@ -515,7 +516,11 @@ export default function AdminEventsPage() {
                           <tbody>
                             {regsData.map(r => (
                               <tr key={r.id} className="border-b border-line/5 hover:bg-white/[0.02]">
-                                <td className="px-2 py-2 text-white">{r.students?.name || "—"}</td>
+                                <td className="px-2 py-2 text-white">
+                                  {r.user_id
+                                    ? <UserHoverCard userId={r.user_id}>{r.students?.name || "—"}</UserHoverCard>
+                                    : (r.students?.name || "—")}
+                                </td>
                                 <td className="px-2 py-2 text-text-dim">{r.students?.email || "—"}</td>
                                 <td className="px-2 py-2"><span className={`rounded-full px-2 py-0.5 font-mono text-[8px] uppercase ${
                                   r.status === "attended" ? "bg-success/10 text-success" : r.status === "registered" ? "bg-secondary/10 text-secondary" :
@@ -554,7 +559,11 @@ export default function AdminEventsPage() {
                           <tbody>
                             {attData.map(a => (
                               <tr key={a.id} className="border-b border-line/5 hover:bg-white/[0.02]">
-                                <td className="px-2 py-2 text-white">{a.students?.name || "—"}</td>
+                                <td className="px-2 py-2 text-white">
+                                  {a.user_id
+                                    ? <UserHoverCard userId={a.user_id}>{a.students?.name || "—"}</UserHoverCard>
+                                    : (a.students?.name || "—")}
+                                </td>
                                 <td className="px-2 py-2"><span className={`rounded px-1.5 py-0.5 font-mono text-[8px] uppercase ${
                                   a.checkin_method === "qr" ? "bg-primary/10 text-primary" : a.checkin_method === "code" ? "bg-secondary/10 text-secondary" : "bg-white/5 text-text-dim"
                                 }`}>{a.checkin_method}</span></td>
@@ -606,7 +615,11 @@ export default function AdminEventsPage() {
                               const busy = reconcilingId === r.id;
                               return (
                                 <tr key={r.id} className="border-b border-line/5 hover:bg-white/[0.02]">
-                                  <td className="px-2 py-2 text-white">{r.students?.name || "—"}</td>
+                                  <td className="px-2 py-2 text-white">
+                                    {r.user_id
+                                      ? <UserHoverCard userId={r.user_id}>{r.students?.name || "—"}</UserHoverCard>
+                                      : (r.students?.name || "—")}
+                                  </td>
                                   <td className="px-2 py-2 text-text-dim">{r.students?.email || "—"}</td>
                                   <td className="px-2 py-2 font-mono text-text-muted">{r.payment_ref || "—"}</td>
                                   <td className="px-2 py-2"><span className={`rounded-full px-2 py-0.5 font-mono text-[8px] uppercase ${

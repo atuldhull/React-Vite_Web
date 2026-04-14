@@ -18,6 +18,7 @@ import { chat } from "@/lib/api";
 import { encryptMessage, decryptMessage, getPublicKey } from "@/lib/crypto";
 import { useAuthStore } from "@/store/auth-store";
 import Button from "@/components/ui/Button";
+import UserHoverCard from "@/components/social/UserHoverCard";
 
 // ═══════════════════════════════════════════════════════════
 // VIEWS
@@ -329,7 +330,11 @@ export default function ChatPanel({ open, onClose, initialPeerUserId = null, onT
                     {conv.otherUser?.avatar_emoji || conv.otherUser?.name?.charAt(0) || "?"}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-white">{conv.otherUser?.name || "User"}</p>
+                    <p className="truncate text-sm font-medium text-white">
+                      {conv.otherUser?.user_id
+                        ? <UserHoverCard userId={conv.otherUser.user_id}>{conv.otherUser?.name || "User"}</UserHoverCard>
+                        : (conv.otherUser?.name || "User")}
+                    </p>
                     <p className="truncate text-xs text-text-dim">{conv.otherUser?.title || "Student"}</p>
                   </div>
                   {conv.unreadCount > 0 && (
@@ -412,7 +417,9 @@ export default function ChatPanel({ open, onClose, initialPeerUserId = null, onT
                     {u.avatar_emoji || u.name?.charAt(0) || "?"}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-white">{u.name}</p>
+                    <p className="truncate text-sm font-medium text-white">
+                      <UserHoverCard userId={u.user_id}>{u.name}</UserHoverCard>
+                    </p>
                     <p className="text-[10px] text-text-dim">{u.title || "Student"} · {u.xp || 0} XP</p>
                   </div>
                   <div className="flex shrink-0 gap-1.5">
@@ -462,7 +469,11 @@ export default function ChatPanel({ open, onClose, initialPeerUserId = null, onT
                 {pendingRequests.map((req) => (
                   <div key={req.id} className="flex items-center gap-3 rounded-lg border border-line/10 bg-black/10 px-3 py-2">
                     <div className="flex-1">
-                      <p className="text-sm text-white">{req.requester?.name || "User"}</p>
+                      <p className="text-sm text-white">
+                        {req.requester?.user_id
+                          ? <UserHoverCard userId={req.requester.user_id}>{req.requester?.name || "User"}</UserHoverCard>
+                          : (req.requester?.name || "User")}
+                      </p>
                       <p className="text-[10px] text-text-dim">{req.requester?.email}</p>
                     </div>
                     <Button size="sm" onClick={async () => {

@@ -8,6 +8,11 @@ import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import Loader from "@/components/ui/Loader";
 import { leaderboard, events as eventsApi } from "@/lib/api";
+// Phase 15 — wrap name mentions with UserHoverCard so any leaderboard
+// row reveals Add Friend / Message on hover. Pre-warm the relationship
+// store on page load so hovers are instant rather than firing N requests.
+import UserHoverCard from "@/components/social/UserHoverCard";
+import { useRelationshipStore } from "@/store/relationship-store";
 
 
 export default function LeaderboardPage() {
@@ -56,6 +61,18 @@ export default function LeaderboardPage() {
   }, [selectedEventId]);
 
   const current = tab === "weekly" ? weekly : tab === "alltime" ? allTime : tab === "events" ? eventLb : winners;
+
+  // Phase 15 — pre-warm the relationship store with every user_id
+  // visible in the current tab, in a single batched request. Without
+  // this, hovering each row would fire its own GET and the first hover
+  // on a freshly-rendered list feels slow. With this, the cache is
+  // already populated by the time the user moves their cursor.
+  useEffect(() => {
+    const ids = current.map((p) => p.user_id).filter(Boolean);
+    if (ids.length === 0) return;
+    useRelationshipStore.getState().fetchBatch(ids).catch(() => {});
+  }, [current]);
+
   const rankColors = ["text-warning", "text-text-muted", "text-warning/70"];
 
   // Pick the correct XP field for the current tab. Uses ?? (nullish
@@ -93,7 +110,9 @@ export default function LeaderboardPage() {
   // Profile-link target. Winners rows don't carry a user_id, so render a
   // non-clickable wrapper for those.
   function linkFor(player) {
-    if (tab !== "winners" && player.user_id) return `/student/${player.user_id}`;
+    // Phase 15: point at the rich /profile/:userId route directly. The
+    // /student/:userId redirect still works for any external/old links.
+    if (tab !== "winners" && player.user_id) return `/profile/${player.user_id}`;
     return null;
   }
 
@@ -187,7 +206,11 @@ export default function LeaderboardPage() {
                         <p className={`math-text text-3xl font-bold ${rankColors[rank - 1] || "text-text-dim"}`}>
                           #{rank}
                         </p>
-                        <p className="mt-2 text-sm font-medium text-white">{nameFor(p)}</p>
+                        <p className="mt-2 text-sm font-medium text-white">
+                          {p.user_id ? (
+                            <UserHoverCard userId={p.user_id}>{nameFor(p)}</UserHoverCard>
+                          ) : nameFor(p)}
+                        </p>
                         {subtitleFor(p) && <p className="font-mono text-[9px] uppercase tracking-wider text-secondary/70">{subtitleFor(p)}</p>}
                         <p className="math-text mt-1 text-2xl font-bold text-primary">
                           {xpFor(p)}
@@ -217,7 +240,9 @@ export default function LeaderboardPage() {
                   const body = (
                     <>
                       <p className={`truncate text-sm font-medium text-white ${href ? "hover:text-primary" : ""}`}>
-                        {nameFor(player)}
+                        {player.user_id ? (
+                          <UserHoverCard userId={player.user_id}>{nameFor(player)}</UserHoverCard>
+                        ) : nameFor(player)}
                       </p>
                       <p className="truncate font-mono text-[10px] text-text-dim">
                         {subtitleFor(player)}

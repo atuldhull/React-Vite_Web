@@ -9,6 +9,7 @@ import Card from "@/components/ui/Card";
 import Loader from "@/components/ui/Loader";
 import { user, arena, announcements as announcementsApi, notifications as notifApi, chat, achievements as achievementsApi } from "@/lib/api";
 import AchievementBadge from "@/components/ui/AchievementBadge";
+import UserHoverCard from "@/components/social/UserHoverCard";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 30 },
@@ -71,14 +72,16 @@ function FriendsCard() {
             <p className="py-4 text-center text-xs text-text-dim">No friends yet. Search to add!</p>
           ) : (
             friends.map((f) => (
-              <Link key={f.user_id} to={`/student/${f.user_id}`}
+              <Link key={f.user_id} to={`/profile/${f.user_id}`}
                 className="flex items-center gap-2.5 rounded-lg border border-line/5 bg-black/10 px-3 py-2 transition hover:border-primary/20">
                 <div className="flex h-7 w-7 items-center justify-center rounded-full text-xs"
                   style={{ background: f.avatar_color || "linear-gradient(135deg,#7c3aed,#3b82f6)" }}>
                   {f.avatar_emoji || f.name?.charAt(0) || "?"}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-xs text-white">{f.name}</p>
+                  <p className="truncate text-xs text-white">
+                    <UserHoverCard userId={f.user_id}>{f.name}</UserHoverCard>
+                  </p>
                   <p className="text-[9px] text-text-dim">{f.title || "Student"}</p>
                 </div>
               </Link>
@@ -94,7 +97,11 @@ function FriendsCard() {
             pending.map((req) => (
               <div key={req.id} className="flex items-center gap-2 rounded-lg border border-line/5 bg-black/10 px-3 py-2">
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-xs text-white">{req.requester?.name || "User"}</p>
+                  <p className="truncate text-xs text-white">
+                    {req.requester?.user_id
+                      ? <UserHoverCard userId={req.requester.user_id}>{req.requester?.name || "User"}</UserHoverCard>
+                      : (req.requester?.name || "User")}
+                  </p>
                 </div>
                 <button onClick={async () => {
                   await chat.respondRequest(req.id, true);
@@ -123,10 +130,12 @@ function FriendsCard() {
                   {u.avatar_emoji || u.name?.charAt(0) || "?"}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-xs text-white">{u.name}</p>
+                  <p className="truncate text-xs text-white">
+                    <UserHoverCard userId={u.user_id}>{u.name}</UserHoverCard>
+                  </p>
                   <p className="text-[9px] text-text-dim">{u.xp || 0} XP</p>
                 </div>
-                <Link to={`/student/${u.user_id}`} className="rounded bg-primary/15 px-2 py-1 text-[9px] text-primary hover:bg-primary/25">
+                <Link to={`/profile/${u.user_id}`} className="rounded bg-primary/15 px-2 py-1 text-[9px] text-primary hover:bg-primary/25">
                   View
                 </Link>
               </div>

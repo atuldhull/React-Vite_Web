@@ -6,6 +6,7 @@ import Loader from "@/components/ui/Loader";
 import { admin, leaderboard } from "@/lib/api";
 import MonumentBackground from "@/components/backgrounds/MonumentBackground";
 import { useMonument } from "@/hooks/useMonument";
+import UserHoverCard from "@/components/social/UserHoverCard";
 
 const fadeUp = { hidden: { opacity: 0, y: 20 }, visible: (i) => ({ opacity: 1, y: 0, transition: { delay: i * 0.08, duration: 0.5 } }) };
 
@@ -108,7 +109,11 @@ export default function AdminOverviewPage() {
                   <div className="flex items-center gap-2">
                     <span className={`flex h-6 w-6 items-center justify-center rounded-full font-mono text-[9px] font-bold ${i < 3 ? "bg-warning/15 text-warning" : "bg-white/5 text-text-dim"}`}>{i + 1}</span>
                     <div>
-                      <p className="text-xs text-white">{s.name || s.email}</p>
+                      <p className="text-xs text-white">
+                        {s.id
+                          ? <UserHoverCard userId={s.id}>{s.name || s.email}</UserHoverCard>
+                          : (s.name || s.email)}
+                      </p>
                       <p className="font-mono text-[9px] text-text-dim">{s.title || "Student"}</p>
                     </div>
                   </div>
