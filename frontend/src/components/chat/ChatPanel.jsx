@@ -29,7 +29,22 @@ const VIEW = { LIST: "list", CHAT: "chat", SEARCH: "search", REQUESTS: "requests
 // MAIN PANEL
 // ═══════════════════════════════════════════════════════════
 
-export default function ChatPanel({ open, onClose }) {
+/**
+ * @param {{
+ *   open: boolean,
+ *   onClose: () => void,
+ *   initialPeerUserId?: string | null,
+ *   onTargetConsumed?: () => void,
+ * }} props
+ *
+ * `initialPeerUserId` — when set and the panel opens, auto-navigate
+ * to that user's 1-to-1 conversation (creating it if needed). Used
+ * by Phase-15 MessageButton on profiles and hovercards. After the
+ * navigation fires we call `onTargetConsumed` so the caller can
+ * reset the ui-store target and subsequent re-renders don't re-
+ * trigger the navigation.
+ */
+export default function ChatPanel({ open, onClose, initialPeerUserId = null, onTargetConsumed }) {
   const user = useAuthStore((s) => s.user);
   const [view, setView] = useState(VIEW.LIST);
   const [conversations, setConversations] = useState([]);
@@ -101,6 +116,34 @@ export default function ChatPanel({ open, onClose }) {
   }, []);
 
   useEffect(() => { if (open) loadConversations(); }, [open, loadConversations]);
+
+  // Phase 15 — auto-navigate to a target user's conversation when
+  // the panel was opened with an initialPeerUserId (via MessageButton).
+  // We gate on `open` so a stale prop doesn't trigger navigation
+  // while the panel is closed, and call onTargetConsumed() after so
+  // re-renders don't loop.
+  useEffect(() => {
+    if (!open || !initialPeerUserId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data: conv } = await chat.getOrCreateConversation(initialPeerUserId);
+        if (cancelled) return;
+        await loadConversations();
+        if (cancelled) return;
+        openConversation(conv);
+      } catch {
+        // Silent — the panel still opens to the list view, which is a
+        // reasonable fallback when the user can't be messaged (blocked,
+        // settings=nobody). MessageButton itself is disabled in those
+        // cases, so hitting this path is rare.
+      } finally {
+        if (!cancelled) onTargetConsumed?.();
+      }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, initialPeerUserId]);
 
   // ── Load messages for active conversation ──
   const loadMessages = useCallback(async (conv) => {

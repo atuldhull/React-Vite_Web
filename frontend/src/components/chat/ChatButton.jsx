@@ -3,13 +3,22 @@
  * Only visible when user is logged in.
  */
 
-import { useState } from "react";
 import { motion } from "framer-motion";
 import { useAuthStore } from "@/store/auth-store";
+import { useUiStore } from "@/store/ui-store";
 import ChatPanel from "@/components/chat/ChatPanel";
 
 export default function ChatButton() {
-  const [open, setOpen] = useState(false);
+  // Phase 15: panel state lives in ui-store so MessageButton (on
+  // profiles + hovercards) can open it pre-targeted without
+  // prop-drilling. The floating button just toggles; targeted-open
+  // goes through useUiStore.openChatWith(userId).
+  const open = useUiStore((s) => s.chatPanel.open);
+  const targetUserId = useUiStore((s) => s.chatPanel.targetUserId);
+  const toggleChat = useUiStore((s) => s.toggleChat);
+  const closeChat = useUiStore((s) => s.closeChat);
+  const clearChatTarget = useUiStore((s) => s.clearChatTarget);
+
   const user = useAuthStore((s) => s.user);
   const status = useAuthStore((s) => s.status);
 
@@ -20,7 +29,7 @@ export default function ChatButton() {
     <>
       {/* Floating button — positioned above PANDA bot */}
       <motion.button
-        onClick={() => setOpen(!open)}
+        onClick={toggleChat}
         whileHover={{ scale: 1.1 }}
         whileTap={{ scale: 0.9 }}
         className="fixed bottom-20 right-5 z-50 flex h-12 w-12 items-center justify-center rounded-full border border-primary/30 bg-surface/80 shadow-lg backdrop-blur-xl transition hover:border-primary/50"
@@ -32,8 +41,14 @@ export default function ChatButton() {
         </svg>
       </motion.button>
 
-      {/* Chat panel */}
-      <ChatPanel open={open} onClose={() => setOpen(false)} />
+      {/* Chat panel — targetUserId triggers auto-navigation to that
+          user's 1-to-1 conversation when the panel opens. */}
+      <ChatPanel
+        open={open}
+        onClose={closeChat}
+        initialPeerUserId={targetUserId}
+        onTargetConsumed={clearChatTarget}
+      />
     </>
   );
 }
