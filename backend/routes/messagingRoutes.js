@@ -1,6 +1,8 @@
 import { Router } from "express";
 import { requireAuth } from "../middleware/authMiddleware.js";
 import * as mc from "../controllers/messagingController.js";
+import { validateBody } from "../validators/common.js";
+import { updateChatSettingsSchema } from "../validators/messaging.js";
 
 const router = Router();
 
@@ -35,6 +37,6 @@ router.post("/report", mc.reportMessage);
 
 // Settings
 router.get("/settings", mc.getChatSettings);
-router.patch("/settings", mc.updateChatSettings);
+router.patch("/settings", validateBody(updateChatSettingsSchema), mc.updateChatSettings);
 
 export default router;

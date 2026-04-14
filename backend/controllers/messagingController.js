@@ -499,7 +499,7 @@ export async function reportMessage(req, res) {
   }
 }
 
-/** Get/update chat settings */
+/** Get chat + profile privacy settings for the current user */
 export async function getChatSettings(req, res) {
   try {
     const userId = req.session.user.id;
@@ -509,21 +509,59 @@ export async function getChatSettings(req, res) {
       .eq("user_id", userId)
       .single();
 
+    // Defaults MUST match the DEFAULT values in the two migrations
+    // that created these columns (08_messaging_friendships.sql for
+    // the chat-era fields, 20_profile_visibility.sql for the
+    // profile-era fields). When a user has never opened the
+    // settings dialog there's no row yet, so we return the same
+    // shape the UI would get from a real row.
     res.json(data || {
+      // from migration 08
       allow_messages_from: "friends",
       show_online_status: true,
       show_read_receipts: true,
-      show_last_seen: true,
+      show_last_seen:     true,
+      // from migration 20 (Phase 15 — profile privacy)
+      profile_visibility: "public",
+      show_activity_feed: true,
+      show_friend_list:   true,
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 }
 
+/**
+ * Update chat + profile privacy settings for the current user.
+ *
+ * Allowlist — anything NOT in this set is silently dropped. Previously
+ * this controller spread `req.body` last in the upsert payload, which
+ * let a client override the `user_id` field and upsert into another
+ * user's row (an IDOR). The allowlist eliminates that class of bug
+ * by shape, not by order.
+ *
+ * Value validation (enum membership, boolean shape) lives in the Zod
+ * schema on the route. This controller trusts its parsed body.
+ */
 export async function updateChatSettings(req, res) {
   try {
     const userId = req.session.user.id;
-    const updates = req.body;
+
+    const allowed = [
+      // chat-era fields (migration 08)
+      "allow_messages_from",
+      "show_online_status",
+      "show_read_receipts",
+      "show_last_seen",
+      // profile-era fields (migration 20 — Phase 15)
+      "profile_visibility",
+      "show_activity_feed",
+      "show_friend_list",
+    ];
+    const updates = {};
+    for (const key of allowed) {
+      if (req.body[key] !== undefined) updates[key] = req.body[key];
+    }
 
     await supabase.from("chat_settings").upsert({
       user_id: userId,
