@@ -9,6 +9,10 @@
 
 import { createClient } from "@supabase/supabase-js";
 import { sendNotification } from "./notificationController.js";
+import {
+  computeRelationshipState,
+  computeRelationshipStateBatch,
+} from "../lib/relationshipState.js";
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -568,6 +572,127 @@ export async function updateChatSettings(req, res) {
       ...updates,
     });
 
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// RELATIONSHIP STATE (Phase 15 — rich profile integration)
+// ═══════════════════════════════════════════════════════════
+//
+// These endpoints power the action buttons (Add Friend / Message /
+// Friends ✓) that appear on profile pages and hovercards. They're
+// READ helpers for UX decisions — the actual write paths (send,
+// accept, block) re-verify their own invariants, so a client
+// rendering a button it shouldn't have doesn't mean it can trigger
+// the underlying action.
+
+/** GET /api/chat/relationship/:userId — single lookup */
+export async function getRelationship(req, res) {
+  try {
+    const viewerId = req.session.user.id;
+    const targetId = req.params.userId;
+    const state = await computeRelationshipState(supabase, viewerId, targetId);
+    res.json(state);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+}
+
+/**
+ * POST /api/chat/relationships/batch — bulk lookup for list pages.
+ *
+ * Body: { userIds: string[] } — capped at 100 by the Zod schema.
+ * Response: { "uuid1": {...state...}, "uuid2": {...}, ... }
+ *
+ * Used by the leaderboard to pre-warm the relationship store so
+ * hovering any row renders buttons with zero latency.
+ */
+export async function getRelationshipsBatch(req, res) {
+  try {
+    const viewerId = req.session.user.id;
+    // Zod has already shaped this into { userIds: string[] } — see
+    // batchRelationshipsSchema in validators/messaging.js.
+    const { userIds } = req.body;
+    const map = await computeRelationshipStateBatch(supabase, viewerId, userIds);
+    res.json(map);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+}
+
+/**
+ * POST /api/chat/friends/request/cancel — withdraw a pending
+ * friend request I (the viewer) sent.
+ *
+ * Body: { recipientId: string }
+ *
+ * No-op with 404 if no matching pending row exists — keeps the UI
+ * simple (the button just disappears either way) and avoids leaking
+ * whether the user_id exists.
+ */
+export async function cancelFriendRequest(req, res) {
+  try {
+    const requesterId = req.session.user.id;
+    const { recipientId } = req.body;
+
+    // Delete ONLY rows where I'm the requester AND it's still pending.
+    // The .select() suffix makes the delete return the deleted row(s)
+    // so we can 404 cleanly if nothing matched.
+    const { data } = await supabase
+      .from("friendships")
+      .delete()
+      .eq("requester_id", requesterId)
+      .eq("recipient_id", recipientId)
+      .eq("status", "pending")
+      .select();
+
+    if (!data || data.length === 0) {
+      return res.status(404).json({ error: "No pending request to cancel" });
+    }
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+}
+
+/**
+ * DELETE /api/chat/friends/:friendshipId — unfriend.
+ *
+ * Removes the friendship row where I'm EITHER the requester or the
+ * recipient. We don't scope by who-initiated because post-accept
+ * the distinction is meaningless — either party can unfriend.
+ *
+ * Deliberately does NOT delete the conversation or messages — they
+ * stay in case the pair re-friends later, and deleting messages
+ * would be a silent data-loss surprise. The UI can still offer
+ * "clear chat" as a separate action.
+ */
+export async function unfriend(req, res) {
+  try {
+    const userId = req.session.user.id;
+    const { friendshipId } = req.params;
+
+    // Fetch to confirm the row is ours (either side) + accepted.
+    // A direct delete by id would also work, but fetching first
+    // gives us a clean 404 path vs. silent delete-miss.
+    const { data: row } = await supabase
+      .from("friendships")
+      .select("id, requester_id, recipient_id, status")
+      .eq("id", friendshipId)
+      .maybeSingle();
+
+    if (!row) return res.status(404).json({ error: "Friendship not found" });
+    if (row.status !== "accepted") {
+      return res.status(400).json({ error: "Not an active friendship — use cancel for pending" });
+    }
+    if (row.requester_id !== userId && row.recipient_id !== userId) {
+      return res.status(403).json({ error: "Not your friendship" });
+    }
+
+    await supabase.from("friendships").delete().eq("id", friendshipId);
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });

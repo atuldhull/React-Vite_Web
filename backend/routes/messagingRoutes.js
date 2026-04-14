@@ -2,7 +2,11 @@ import { Router } from "express";
 import { requireAuth } from "../middleware/authMiddleware.js";
 import * as mc from "../controllers/messagingController.js";
 import { validateBody } from "../validators/common.js";
-import { updateChatSettingsSchema } from "../validators/messaging.js";
+import {
+  updateChatSettingsSchema,
+  batchRelationshipsSchema,
+  cancelFriendRequestSchema,
+} from "../validators/messaging.js";
 
 const router = Router();
 
@@ -16,8 +20,14 @@ router.get("/keys/:userId", mc.getPublicKey);
 // Friends
 router.post("/friends/request", mc.sendFriendRequest);
 router.post("/friends/respond", mc.respondFriendRequest);
+router.post("/friends/request/cancel", validateBody(cancelFriendRequestSchema), mc.cancelFriendRequest);
+router.delete("/friends/:friendshipId", mc.unfriend);
 router.get("/friends", mc.getFriends);
 router.get("/friends/pending", mc.getPendingRequests);
+
+// Relationship state (Phase 15 — rich profile integration)
+router.get("/relationship/:userId", mc.getRelationship);
+router.post("/relationships/batch", validateBody(batchRelationshipsSchema), mc.getRelationshipsBatch);
 
 // Conversations
 router.post("/conversations", mc.getOrCreateConversation);

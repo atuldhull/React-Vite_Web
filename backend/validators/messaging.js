@@ -17,6 +17,35 @@
 import { z } from "zod";
 
 /* ─────────────────────────────────────────────────────────────
+   Relationship endpoints (Phase 15 — rich profile integration)
+   ───────────────────────────────────────────────────────────── */
+
+// UUID shape — Supabase user_ids are standard RFC-4122 uuids.
+// We accept lowercase hex only; deliberately not z.uuid() because
+// that's stricter than practical (it rejects some lowercase variants
+// that Supabase happily round-trips).
+const uuidStr = z.string().trim().regex(
+  /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/,
+  "must be a UUID",
+);
+
+/**
+ * POST /api/chat/relationships/batch — bulk relationship lookup.
+ *
+ * The cap is 100 ids per call for DoS protection: three queries
+ * each with an IN-list of 100 is ~300 id comparisons per request,
+ * cheap. Callers with >100 ids should paginate client-side.
+ */
+export const batchRelationshipsSchema = z.object({
+  userIds: z.array(uuidStr).min(1, "userIds must not be empty").max(100, "cap is 100 per call"),
+}).strict();
+
+/** POST /api/chat/friends/request/cancel */
+export const cancelFriendRequestSchema = z.object({
+  recipientId: uuidStr,
+}).strict();
+
+/* ─────────────────────────────────────────────────────────────
    Chat + profile privacy settings (PATCH /api/chat/settings)
    ───────────────────────────────────────────────────────────── */
 
