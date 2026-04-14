@@ -39,6 +39,10 @@ import Button from "@/components/ui/Button";
 import { users } from "@/lib/api";
 import ProfileHeader from "@/features/profile/components/ProfileHeader";
 import ProfileTabs from "@/features/profile/components/ProfileTabs";
+import OverviewTab from "@/features/profile/components/OverviewTab";
+import AchievementsTab from "@/features/profile/components/AchievementsTab";
+import FriendsTab from "@/features/profile/components/FriendsTab";
+import ActivityTab from "@/features/profile/components/ActivityTab";
 
 export default function RichProfilePage() {
   useMonument("jungle");
@@ -129,28 +133,11 @@ export default function RichProfilePage() {
         <>
           <ProfileTabs active={activeTab} onChange={setActiveTab} access={access} />
 
-          {/* Tab CONTENT placeholders — filled in Phase 8 */}
           <div role="tabpanel" aria-labelledby={`tab-${activeTab}`}>
-            {activeTab === "overview" && (
-              <Card variant="glass" className="py-10 text-center text-sm text-text-dim">
-                Overview tab — coming next phase
-              </Card>
-            )}
-            {activeTab === "achievements" && (
-              <Card variant="glass" className="py-10 text-center text-sm text-text-dim">
-                Achievements — coming next phase
-              </Card>
-            )}
-            {activeTab === "friends" && (
-              <Card variant="glass" className="py-10 text-center text-sm text-text-dim">
-                Friends — coming next phase
-              </Card>
-            )}
-            {activeTab === "activity" && (
-              <Card variant="glass" className="py-10 text-center text-sm text-text-dim">
-                Activity — coming next phase
-              </Card>
-            )}
+            {activeTab === "overview"     && <OverviewTab     userId={userId} access={access} />}
+            {activeTab === "achievements" && <AchievementsTab userId={userId} />}
+            {activeTab === "friends"      && <FriendsTab      userId={userId} access={access} />}
+            {activeTab === "activity"     && <ActivityTab     userId={userId} />}
           </div>
         </>
       )}
