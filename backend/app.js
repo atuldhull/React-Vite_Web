@@ -7,16 +7,30 @@
  */
 
 import path from "path";
+import fs from "node:fs";
 import { fileURLToPath } from "url";
 import express from "express";
-import helmet  from "helmet";
-import cors    from "cors";
+import cookieParser from "cookie-parser";
+import yaml from "yaml";
+import swaggerUi from "swagger-ui-express";
 
-import { generalLimiter } from "./middleware/rateLimiter.js";
-import { injectTenant }   from "./middleware/tenantMiddleware.js";
-import { sessionMiddleware } from "./middleware/sessionConfig.js";
+import { generalLimiter }     from "./middleware/rateLimiter.js";
+import { injectTenant }       from "./middleware/tenantMiddleware.js";
+import { sessionMiddleware }  from "./middleware/sessionConfig.js";
+import { requestIdMiddleware } from "./middleware/requestId.js";
+import { responseShapeMiddleware } from "./middleware/errorShape.js";
+import { csrfProtection, invalidCsrfTokenError } from "./middleware/csrfProtection.js";
+import { requestLoggerMiddleware } from "./middleware/requestLogger.js";
+import { logger }              from "./config/logger.js";
+import {
+  applyHelmet,
+  applyCors,
+  applyHPP,
+  applyRequestLogger,
+} from "./middleware/security.js";
 
 import registerApiRoutes from "./routes/registerRoutes.js";
+import csrfRoutes        from "./routes/csrfRoutes.js";
 import authController    from "./controllers/authController.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -26,18 +40,67 @@ const PUBLIC_DIR   = path.join(PROJECT_ROOT, "public");
 const SPA_INDEX    = path.join(PUBLIC_DIR, "app", "index.html");
 
 export function createApp() {
+  // isProd is read from env via the validateEnv() return value at boot;
+  // app.js is also created from tests where NODE_ENV may not be set, so
+  // we keep this lookup local rather than threading the env object in.
+  // (Used by the dev-only debug route below.)
   const isProd = process.env.NODE_ENV === "production";
   const app = express();
 
-  /* ── SECURITY ── */
-  app.use(helmet({
-    contentSecurityPolicy: false,      // CSP would break inline scripts in SPA
-    crossOriginEmbedderPolicy: false,
-  }));
-  app.use(cors({
-    origin:      isProd ? process.env.FRONTEND_URL || false : true,
-    credentials: true,
-  }));
+  /* ── TRUST PROXY ──
+     Production runs behind a reverse proxy (Render / Fly / nginx /
+     Cloudflare). Without this, req.ip resolves to the proxy's loopback
+     address — every per-IP rate limit (auth, contact, AI, payment,
+     general) ends up keyed on the same IP for every user, so they all
+     share one bucket. Setting trust proxy = 1 tells Express to read
+     the FIRST entry in the X-Forwarded-For chain.
+
+     The "1" is deliberate — DON'T trust the entire chain. A spoofed
+     X-Forwarded-For header from an attacker becomes the perceived
+     client IP otherwise; trusting only the immediate proxy means the
+     attacker would need to be that proxy. (Set higher only if you
+     genuinely run multiple stacked proxies you control end to end.)
+
+     Also makes the session cookie's `secure: isProd` actually fire —
+     express-session checks req.secure (which derives from req.protocol,
+     which derives from X-Forwarded-Proto, which trust proxy enables).
+     Without this, the cookie is silently dropped on HTTPS deploys
+     because express-session sees req.secure === false. */
+  app.set("trust proxy", 1);
+
+  /* ── REQUEST ID ──
+     First in the chain so every other middleware (including helmet,
+     cors, body parsers, and the final error handler) has access to
+     req.id and the AsyncLocalStorage context. */
+  app.use(requestIdMiddleware);
+
+  /* ── RESPONSE SHAPE ──
+     Patches res.json so error responses automatically carry a
+     requestId without every controller having to remember. Mounted
+     here because it needs req.id (set above) and must be active
+     before any controller's res.json call runs. */
+  app.use(responseShapeMiddleware);
+
+  /* ── SECURITY ──
+     Wire up the hardening that lives in middleware/security.js. This
+     replaces the previous inline helmet()/cors() calls which had CSP
+     disabled with a stale "would break inline scripts" comment — the
+     SPA's index.html actually has zero inline scripts (Vite emits
+     external module bundles), so a strict CSP is fine. The same file
+     also gives us tighter CORS (localhost regex + FRONTEND_URL only)
+     and HTTP Parameter Pollution defence.
+
+     Deliberately NOT wired: applyInputSanitizer. It strips substrings
+     like "DROP TABLE" / "<script>" from request bodies, which mangles
+     legitimate content (a forum post about SQL would lose words) and
+     gives a false sense of security. Supabase's parameterised queries
+     make string-level SQL-injection scrubbing unnecessary, and React
+     handles XSS at OUTPUT — not at input. The right defence is
+     schema-validation (Zod), not regex laundering of user data. */
+  applyHelmet(app);          // Strict CSP + frame deny + HSTS + nosniff
+  applyCors(app);            // Allowlist: localhost + FRONTEND_URL only
+  applyHPP(app);             // Collapse duplicated query keys to last value
+  applyRequestLogger(app);   // 400 on path-traversal / SQL-injection / scanner patterns
 
   /* ── PARSERS + SESSION ── */
   app.use(express.static(PUBLIC_DIR));
@@ -55,6 +118,27 @@ export function createApp() {
   }));
   app.use(sessionMiddleware);
 
+  /* ── REQUEST LOGGER ──
+     Mounted AFTER session so userId / orgId are populated when the
+     `finish` event fires. Emits ONE structured log line per request
+     end-of-cycle: { method, url, status, latencyMs, userId, orgId,
+     requestId }. Skips /api/health and /api/ready (uptime monitor
+     traffic would drown real signal otherwise). */
+  app.use(requestLoggerMiddleware);
+
+  /* ── COOKIES + CSRF ──
+     cookie-parser must run before csrfProtection — the CSRF lib reads
+     the paired-hash cookie via req.cookies. csrfProtection itself
+     skips GET/HEAD/OPTIONS and a small allow-list (webhook, the
+     token endpoint, health probes) — see middleware/csrfProtection.js
+     for the full skip list and the rationale.
+
+     The token endpoint is mounted BEFORE csrfProtection so it can be
+     called without already having a token. */
+  app.use(cookieParser());
+  app.use("/api/csrf-token", csrfRoutes);
+  app.use("/api", csrfProtection);
+
   /* ── TENANT + RATE LIMIT ── */
   app.use("/api", injectTenant);
   app.use("/api/", generalLimiter);
@@ -64,6 +148,13 @@ export function createApp() {
 
   /* ── Global logout (works from any page) ── */
   app.get("/logout", authController.logoutRedirect);
+
+  /* ── API DOCS (dev only) ──
+     Serves the hand-maintained OpenAPI spec at /api/docs via
+     swagger-ui-express. In production this is OFF — we don't want
+     to advertise the API surface to the internet. (If you ever
+     want it on in prod, gate it behind requireSuperAdmin.) */
+  if (!isProd) mountSwaggerDocs(app);
 
   /* ── DEBUG ──
      Disabled entirely in production — leaks session info + row counts.
@@ -97,14 +188,74 @@ export function createApp() {
     res.sendFile(SPA_INDEX);
   });
 
-  /* ── ERROR HANDLER ── */
+  /* ── ERROR HANDLER ──
+     Logs the error with structured fields (requestId is attached
+     automatically by the logger's ALS mixin) and includes req.id in
+     the JSON 500 so a user reporting a problem can paste the id and
+     we can grep it directly out of the logs.
+
+     CSRF rejections are recognised and downgraded to 403 — they're
+     not "server errors" but client/policy errors, and lumping them
+     into the 500 stream would muddy the alerting. */
   app.use((err, req, res, _next) => {
-    console.error("[ERROR]", err.stack);
-    if (req.path.startsWith("/api/")) return res.status(500).json({ error: "Internal server error" });
+    if (err === invalidCsrfTokenError || err?.code === "EBADCSRFTOKEN") {
+      logger.warn({
+        method: req.method,
+        url:    req.originalUrl,
+        ip:     req.ip,
+      }, "csrf token rejected");
+      return res.status(403).json({
+        error:     "Invalid or missing CSRF token",
+        code:      "CSRF_INVALID",
+        requestId: req.id,
+      });
+    }
+
+    logger.error({
+      err,
+      method: req.method,
+      url:    req.originalUrl,
+    }, "unhandled error in request");
+    if (req.path.startsWith("/api/")) {
+      return res.status(500).json({ error: "Internal server error", requestId: req.id });
+    }
     res.sendFile(SPA_INDEX);
   });
 
   return app;
+}
+
+/**
+ * Mount Swagger UI for the hand-maintained OpenAPI spec.
+ *
+ * Synchronous (imports hoisted to module top) so the route is in
+ * place before createApp() returns — the previous lazy version
+ * raced against tests that hit /api/docs immediately after boot.
+ *
+ * Spec source: docs/openapi.yaml — checked into git, hand-edited.
+ * Adding a new endpoint? Update the YAML in the same PR (same
+ * policy as the coverage-include list in vitest.config.js).
+ *
+ * Also exposes the parsed spec at /api/docs/openapi.json for tools
+ * (e.g. `openapi-typescript` for generating typed clients).
+ */
+function mountSwaggerDocs(app) {
+  const specPath = path.join(PROJECT_ROOT, "docs", "openapi.yaml");
+  if (!fs.existsSync(specPath)) {
+    logger.warn({ specPath }, "openapi.yaml not found — /api/docs disabled");
+    return;
+  }
+  const spec = yaml.parse(fs.readFileSync(specPath, "utf8"));
+
+  // Order matters: register the JSON endpoint BEFORE the swagger UI
+  // mount. swaggerUi.serve is `app.use("/api/docs", ...)` which
+  // catches every path starting with /api/docs — including
+  // /api/docs/openapi.json — and returns its own (non-JSON) response.
+  app.get("/api/docs/openapi.json", (_req, res) => res.json(spec));
+  app.use("/api/docs", swaggerUi.serve, swaggerUi.setup(spec, {
+    customSiteTitle: "Math Collective API — docs",
+    swaggerOptions: { docExpansion: "list" },
+  }));
 }
 
 export { PUBLIC_DIR, SPA_INDEX, PROJECT_ROOT };

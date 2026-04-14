@@ -7,6 +7,7 @@
 import express from "express";
 import { requireSuperAdmin } from "../middleware/authMiddleware.js";
 import { injectTenant }      from "../middleware/tenantMiddleware.js";
+import { logger }            from "../config/logger.js";
 import {
   getPlatformAnalytics,
   listOrganisations,
@@ -31,11 +32,15 @@ const router = express.Router();
 // All super-admin routes require super_admin role + tenant context
 router.use(requireSuperAdmin, injectTenant);
 
-// Inject audit logger — logs to console (audit_logs table can be added later)
+// Inject audit logger — structured log for every platform-admin
+// action (audit_logs table can be added later for persistent trail).
 router.use((req, res, next) => {
   req.db = {
     audit: async (action, entity, entityId, meta) => {
-      console.log(`[Audit] ${action} on ${entity}:${entityId} by ${req.userId || "unknown"}`, meta || "");
+      logger.info(
+        { action, entity, entityId, actor: req.userId || null, meta: meta || null },
+        "audit super-admin action"
+      );
     },
   };
   next();

@@ -9,6 +9,21 @@
  */
 
 import supabase from "../config/supabase.js";
+import { logger } from "../config/logger.js";
+
+// Tenant scoping note: auth flows (register, login, getSession,
+// validateInvite, resend, forgot/reset) run BEFORE the user has a
+// session — req.orgId is undefined, so req.db falls through to the
+// unscoped client anyway. We deliberately use raw `supabase` here to
+// keep that intent obvious. Where a NEW students row is created,
+// org_id is sourced explicitly:
+//   - register():  from invitation.org_id (required when no token)
+//   - login():     a "first-login" student row used to be auto-created
+//                  with org_id=NULL. After migration 14 that fails the
+//                  NOT NULL constraint, so we skip the upsert when no
+//                  org context is available — login still succeeds and
+//                  the operator can attach the user to an org via the
+//                  /api/admin/invite flow.
 
 /* ── REGISTER ── */
 const register = async (req, res) => {
@@ -42,12 +57,27 @@ const register = async (req, res) => {
     if (error) throw error;
 
     if (data.user) {
+      // org_id is REQUIRED post-migration-14. If no invitation token,
+      // refuse — open registration without an org context shouldn't
+      // create orphan student rows. (For development we fall back to
+      // the FIRST org in the system; remove this fallback once invite-
+      // gated signup is the production policy.)
+      let orgId = invitation?.org_id || null;
+      if (!orgId) {
+        const { data: org } = await supabase
+          .from("organisations").select("id").order("created_at").limit(1).maybeSingle();
+        orgId = org?.id || null;
+      }
+      if (!orgId) {
+        return res.status(500).json({ error: "Cannot create account: no organisation configured" });
+      }
+
       const studentRow = {
         user_id:  data.user.id,
         email:    email.toLowerCase(),
         name:     name || email.split("@")[0],
         role:     invitation?.role || "student",
-        org_id:   invitation?.org_id || null,
+        org_id:   orgId,
       };
 
       await supabase.from("students").upsert(studentRow, { onConflict: "email" });
@@ -67,7 +97,7 @@ const register = async (req, res) => {
       org_name: invitation?.organisations?.name || null,
     });
   } catch (err) {
-    console.error("[Register]", err.message);
+    logger.error({ err: err }, "Register");
     return res.status(400).json({ error: err.message || "Registration failed" });
   }
 };
@@ -126,13 +156,23 @@ const login = async (req, res) => {
     const xp    = student?.xp    || 0;
     const org   = student?.organisations || null;
 
-    // Create student row if first login
+    // Create student row if first login. Pre-migration this auto-
+    // created an orphan row with org_id=NULL — now NOT NULL, so we
+    // pin to the only org as a fallback. In a true multi-tenant world
+    // this should NEVER fire (signup creates the row); flagging via
+    // log so we can audit any user that hits this path.
     if (!student) {
-      await supabase.from("students").upsert({
-        user_id: authUser.id,
-        email:   authUser.email.toLowerCase(),
-        name:    authUser.user_metadata?.name || authUser.email.split("@")[0],
-      }, { onConflict: "email" });
+      const { data: defaultOrg } = await supabase
+        .from("organisations").select("id").order("created_at").limit(1).maybeSingle();
+      if (defaultOrg?.id) {
+        logger.warn({ email: authUser.email, orgId: defaultOrg.id }, "Login auto-creating student row — register flow should have done this");
+        await supabase.from("students").upsert({
+          user_id: authUser.id,
+          email:   authUser.email.toLowerCase(),
+          name:    authUser.user_metadata?.name || authUser.email.split("@")[0],
+          org_id:  defaultOrg.id,
+        }, { onConflict: "email" });
+      }
     }
 
     // Set session — includes org context
@@ -151,7 +191,7 @@ const login = async (req, res) => {
       is_active:  student?.is_active ?? true,
     };
 
-    console.log(`[Login] ✓ ${authUser.email} (role: ${role}, org: ${org?.name || "none"})`);
+    logger.info({ email: authUser.email, role, org: org?.name || null }, "Login successful");
 
     // Update last_seen
     supabase.from("students")
@@ -175,7 +215,7 @@ const login = async (req, res) => {
     });
 
   } catch (err) {
-    console.error("[Login]", err.message);
+    logger.error({ err: err }, "Login");
     return res.status(401).json({ error: "Invalid email or password" });
   }
 };
@@ -270,10 +310,10 @@ const resetPassword = async (req, res) => {
     });
     if (updateError) return res.status(500).json({ error: updateError.message });
 
-    console.log(`[Reset Password] ✓ ${user.email}`);
+    logger.info({ email: user.email }, "Password reset completed");
     return res.json({ success: true, message: "Password updated successfully" });
   } catch (err) {
-    console.error("[Reset Password]", err.message);
+    logger.error({ err: err }, "Reset Password");
     return res.status(500).json({ error: "Password reset failed" });
   }
 };

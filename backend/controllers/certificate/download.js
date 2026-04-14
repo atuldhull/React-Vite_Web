@@ -1,6 +1,13 @@
-import supabase            from "../../config/supabase.js";
 import { buildCertificate } from "./latex.js";
 import { ASSET_DIR }        from "./helpers.js";
+
+// Tenant scoping: every DB call below uses req.db.from(...) which is
+// installed by injectTenant on /api routes. The Proxy auto-adds
+// eq("org_id", req.orgId) on every SELECT/UPDATE/DELETE for tenant
+// tables, so a request from org A can never read or download org B's
+// certificates by guessing an ID. Super_admin without impersonation
+// gets the unfiltered Supabase client back, preserving cross-org
+// admin tooling. Direct `supabase` import is intentionally absent.
 
 /* ═══════════════════════════════════════════════════════════════
    PREVIEW
@@ -8,6 +15,7 @@ import { ASSET_DIR }        from "./helpers.js";
 ═══════════════════════════════════════════════════════════════ */
 import path from "path";
 import fs   from "fs";
+import { logger } from "../../config/logger.js";
 
 export const previewCertificate = async (req, res) => {
   try {
@@ -36,7 +44,7 @@ export const previewCertificate = async (req, res) => {
     res.setHeader("Content-Disposition", "inline; filename=\"preview.pdf\"");
     return res.send(pdfBuf);
   } catch (err) {
-    console.error("[Preview]", err.message);
+    logger.error({ err: err }, "Preview");
     return res.status(500).json({ error: err.message.slice(0, 300) });
   }
 };
@@ -46,7 +54,7 @@ export const previewCertificate = async (req, res) => {
 ═══════════════════════════════════════════════════════════════ */
 export const downloadCertificate = async (req, res) => {
   try {
-    const { data: cert, error } = await supabase.from("certificates")
+    const { data: cert, error } = await req.db.from("certificates")
       .select("*,certificate_batches(*)").eq("id",req.params.id).maybeSingle();
     if (error||!cert) return res.status(404).json({ error: "Not found" });
     const b = cert.certificate_batches;
@@ -69,10 +77,10 @@ export const downloadCertificate = async (req, res) => {
 ═══════════════════════════════════════════════════════════════ */
 export const downloadBatchZip = async (req, res) => {
   try {
-    const { data: batch } = await supabase.from("certificate_batches")
+    const { data: batch } = await req.db.from("certificate_batches")
       .select("*").eq("id",req.params.batchId).maybeSingle();
     if (!batch) return res.status(404).json({ error: "Batch not found" });
-    const { data: certs } = await supabase.from("certificates").select("*").eq("batch_id",batch.id);
+    const { data: certs } = await req.db.from("certificates").select("*").eq("batch_id",batch.id);
     const archiver = (await import("archiver")).default;
     res.setHeader("Content-Type","application/zip");
     res.setHeader("Content-Disposition",`attachment; filename="Certificates_${batch.event_name.replace(/\s+/g,"_")}.zip"`);
@@ -88,5 +96,5 @@ export const downloadBatchZip = async (req, res) => {
       archive.append(pdfBuf,{ name:`${cert.recipient_name.replace(/\s+/g,"_")}.pdf` });
     }
     await archive.finalize();
-  } catch (err) { console.error("[zip]",err.message); res.status(500).end(); }
+  } catch (err) { logger.error({ err: err }, "zip"); res.status(500).end(); }
 };

@@ -20,6 +20,7 @@ import PageTransition    from "@/components/experience/PageTransition";
 import MonumentTransition from "@/components/experience/MonumentTransition";
 import MonumentRouter    from "@/components/monument/MonumentRouter";
 import Loader            from "@/components/ui/Loader";
+import RouteErrorBoundary from "@/components/RouteErrorBoundary";
 import { useAuthStore }  from "@/store/auth-store";
 
 import { publicRoutes }     from "./routes/publicRoutes";
@@ -86,14 +87,21 @@ function AnimatedRoutes() {
       <AnimatePresence mode="wait" initial={false}>
         <PageTransition key={location.pathname}>
           <Suspense fallback={<RouteFallback />}>
-            <Routes location={location}>
-              {publicRoutes}
-              {authRoutes}
-              {teacherRoutes}
-              {adminRoutes}
-              {superAdminRoutes}
-              {errorRoutes}
-            </Routes>
+            {/* Key the RouteErrorBoundary to the pathname so it resets
+                automatically when the user navigates away — otherwise a
+                crashed /arena page stays "crashed" in state forever,
+                and clicking a nav link to /dashboard shows the error
+                boundary's fallback instead of /dashboard's content. */}
+            <RouteErrorBoundary key={location.pathname}>
+              <Routes location={location}>
+                {publicRoutes}
+                {authRoutes}
+                {teacherRoutes}
+                {adminRoutes}
+                {superAdminRoutes}
+                {errorRoutes}
+              </Routes>
+            </RouteErrorBoundary>
           </Suspense>
         </PageTransition>
       </AnimatePresence>

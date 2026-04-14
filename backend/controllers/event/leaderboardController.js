@@ -5,6 +5,7 @@
 import supabase from "../../config/supabase.js";
 import { sendNotification } from "../notificationController.js";
 import { checkWinAchievements } from "./achievementController.js";
+import { logger } from "../../config/logger.js";
 
 const WINNER_XP_MULTIPLIERS = { 1: 1, 2: 0.6, 3: 0.3 };
 const TOP_PLACES = 3;
@@ -70,7 +71,7 @@ export const publishEventResults = async (req, res) => {
       return res.status(400).json({ error: "No entries to publish" });
 
     // Get event for winner XP bonus
-    const { data: event } = await supabase
+    const { data: event } = await req.db
       .from("events").select("xp_bonus_winner, title").eq("id", req.params.id).maybeSingle();
     const winnerXP = event?.xp_bonus_winner || 0;
 
@@ -85,10 +86,10 @@ export const publishEventResults = async (req, res) => {
       // Award winner XP to top places
       if (rank <= TOP_PLACES && winnerXP > 0) {
         const xp = Math.round(winnerXP * (WINNER_XP_MULTIPLIERS[rank] || 0));
-        const { data: student } = await supabase
+        const { data: student } = await req.db
           .from("students").select("xp, weekly_xp").eq("user_id", entries[i].user_id).maybeSingle();
         if (student) {
-          await supabase.from("students").update({
+          await req.db.from("students").update({
             xp: (student.xp || 0) + xp,
             weekly_xp: (student.weekly_xp || 0) + xp,
           }).eq("user_id", entries[i].user_id);
@@ -110,7 +111,7 @@ export const publishEventResults = async (req, res) => {
 
     return res.json({ success: true, count: entries.length });
   } catch (err) {
-    console.error("[Publish Results]", err.message);
+    logger.error({ err: err }, "Publish Results");
     return res.status(500).json({ error: "Failed to publish" });
   }
 };

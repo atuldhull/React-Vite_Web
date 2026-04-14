@@ -10,6 +10,8 @@ import {
   toggleChallenge,
 } from "../controllers/challengeController.js";
 import { requireAdmin } from "../middleware/authMiddleware.js";
+import { validateBody } from "../validators/common.js";
+import { createChallengeSchema, updateChallengeSchema } from "../validators/challenges.js";
 
 const router = express.Router();
 
@@ -19,8 +21,8 @@ router.get("/all",      getAllChallenges);
 router.get("/:id",      getChallengeById);
 
 // Admin-only
-router.post("/",              requireAdmin, createChallenge);
-router.patch("/:id",          requireAdmin, updateChallenge);
+router.post("/",              requireAdmin, validateBody(createChallengeSchema), createChallenge);
+router.patch("/:id",          requireAdmin, validateBody(updateChallengeSchema), updateChallenge);
 router.delete("/:id",         requireAdmin, deleteChallenge);
 router.patch("/:id/toggle",   requireAdmin, toggleChallenge);
 

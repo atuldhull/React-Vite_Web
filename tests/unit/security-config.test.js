@@ -12,23 +12,16 @@ function readFile(filePath) {
 }
 
 describe("Security Hardening", () => {
-  // Express app setup now lives in app.js; server.js only boots.
-  describe("Helmet", () => {
-    it("app.js imports and uses helmet", () => {
-      const code = readFile("backend/app.js");
-      expect(code).toContain('import helmet');
-      expect(code).toContain("app.use(helmet(");
-    });
-  });
-
-  describe("CORS", () => {
-    it("app.js imports and configures cors", () => {
-      const code = readFile("backend/app.js");
-      expect(code).toContain('import cors');
-      expect(code).toContain("app.use(cors(");
-      expect(code).toContain("credentials: true");
-    });
-  });
+  // The Helmet + CORS sections used to grep for `import helmet` /
+  // `app.use(cors(...)` substrings in app.js. That's exactly the kind
+  // of brittle static-grep test we replaced for auth-flow in Phase
+  // 1.6 — it tells you about the literal characters in the file but
+  // nothing about whether the headers actually reach the response.
+  // The wiring also moved to middleware/security.js (applyHelmet /
+  // applyCors), which would have broken the greps even with the
+  // headers correctly set. So we now assert on the real headers from
+  // a booted app instead. See tests/integration/security-headers.test.js
+  // for the live contract.
 
   describe("Session Cookie Security", () => {
     it("sets httpOnly on session cookies", () => {

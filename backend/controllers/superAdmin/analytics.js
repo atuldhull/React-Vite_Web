@@ -5,6 +5,7 @@
  */
 
 import supabase from "../../config/supabase.js";
+import { logger } from "../../config/logger.js";
 
 /* ═══════════════════════════════════════════════════════
    PLATFORM ANALYTICS
@@ -75,7 +76,7 @@ export const getPlatformAnalytics = async (req, res) => {
       recentOrgs: orgsWithStats || [],
     });
   } catch (err) {
-    console.error("[SuperAdmin Analytics]", err.message);
+    logger.error({ err: err }, "SuperAdmin Analytics");
     return res.status(500).json({ error: "Failed to fetch analytics" });
   }
 };

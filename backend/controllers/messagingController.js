@@ -101,7 +101,7 @@ export async function sendFriendRequest(req, res) {
     if (error) throw error;
 
     // Get requester name for notification
-    const { data: requester } = await supabase
+    const { data: requester } = await req.db
       .from("students").select("name").eq("user_id", requesterId).maybeSingle();
     const requesterName = requester?.name || "Someone";
 
@@ -140,7 +140,7 @@ export async function respondFriendRequest(req, res) {
       await supabase.from("friendships").update({ status: "accepted", updated_at: new Date().toISOString() }).eq("id", requestId);
 
       // Get acceptor name for notification
-      const { data: acceptor } = await supabase
+      const { data: acceptor } = await req.db
         .from("students").select("name").eq("user_id", userId).maybeSingle();
       const acceptorName = acceptor?.name || "Someone";
 
@@ -182,7 +182,7 @@ export async function getFriends(req, res) {
     if (friendIds.length === 0) return res.json([]);
 
     // Get friend profiles
-    const { data: profiles } = await supabase
+    const { data: profiles } = await req.db
       .from("students")
       .select("user_id, name, email, xp, title, avatar_emoji, avatar_color")
       .in("user_id", friendIds);
@@ -207,7 +207,7 @@ export async function getPendingRequests(req, res) {
     if (!data || data.length === 0) return res.json([]);
 
     const requesterIds = data.map((r) => r.requester_id);
-    const { data: profiles } = await supabase
+    const { data: profiles } = await req.db
       .from("students")
       .select("user_id, name, email, avatar_emoji, avatar_color")
       .in("user_id", requesterIds);
@@ -302,7 +302,7 @@ export async function getConversations(req, res) {
       c.participant_a === userId ? c.participant_b : c.participant_a,
     );
 
-    const { data: profiles } = await supabase
+    const { data: profiles } = await req.db
       .from("students")
       .select("user_id, name, email, avatar_emoji, avatar_color, title")
       .in("user_id", otherIds);
@@ -446,7 +446,7 @@ export async function searchUsers(req, res) {
     const { q } = req.query;
     if (!q || q.length < 2) return res.json([]);
 
-    const { data } = await supabase
+    const { data } = await req.db
       .from("students")
       .select("user_id, name, email, xp, title, avatar_emoji, avatar_color")
       .neq("user_id", userId)

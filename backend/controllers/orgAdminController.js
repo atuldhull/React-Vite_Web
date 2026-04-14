@@ -7,6 +7,7 @@
  */
 
 import supabase from "../config/supabase.js";
+import { logger } from "../config/logger.js";
 
 /* ═══════════════════════════════════════════════════════
    ORG DASHBOARD STATS
@@ -46,7 +47,7 @@ export const getOrgStats = async (req, res) => {
       topStudents: topStudents || [],
     });
   } catch (err) {
-    console.error("[OrgAdmin Stats]", err.message);
+    logger.error({ err: err }, "OrgAdmin Stats");
     return res.status(500).json({ error: "Failed to fetch stats" });
   }
 };
@@ -109,11 +110,14 @@ export const updateUserRole = async (req, res) => {
 
     if (!user) return res.status(404).json({ error: "User not found in your organisation" });
 
-    await supabase
+    // Was previously raw supabase + an explicit eq("org_id") double-lock.
+    // req.db.from("students") chains that filter automatically via the
+    // Proxy, so the explicit eq is redundant — and using req.db is more
+    // consistent with the rest of the file.
+    await req.db
       .from("students")
       .update({ role })
-      .eq("user_id", userId)
-      .eq("org_id", req.orgId);  // double-lock: ensure org match
+      .eq("user_id", userId);
 
     await req.db.audit("update_user_role", "student", userId, { new_role: role, name: user.name });
     return res.json({ success: true, role });
@@ -135,10 +139,11 @@ export const setUserStatus = (isActive) => async (req, res) => {
       .from("students").select("name").eq("user_id", userId).maybeSingle();
     if (!user) return res.status(404).json({ error: "User not found in your organisation" });
 
-    await supabase.from("students")
+    // Same conversion as updateUserRole — Proxy applies the org_id
+    // filter, no need for the explicit double-lock.
+    await req.db.from("students")
       .update({ is_active: isActive })
-      .eq("user_id", userId)
-      .eq("org_id", req.orgId);
+      .eq("user_id", userId);
 
     await req.db.audit(isActive ? "activate_user" : "suspend_user", "student", userId, { name: user.name });
     return res.json({ success: true, is_active: isActive });
@@ -174,10 +179,12 @@ export const inviteUser = async (req, res) => {
       }
     }
 
-    const { data: inv, error } = await supabase
+    // org_invitations is a tenant table — Proxy stomps org_id onto
+    // the insert payload automatically. The explicit org_id below is
+    // redundant but harmless (the values match).
+    const { data: inv, error } = await req.db
       .from("org_invitations")
       .insert({
-        org_id:     req.orgId,
         email:      email.toLowerCase(),
         role,
         invited_by: req.userId,
@@ -339,7 +346,7 @@ export const getOrgFeatures = async (req, res) => {
       status: org.status,
     });
   } catch (err) {
-    console.error("[OrgAdmin Features]", err.message);
+    logger.error({ err: err }, "OrgAdmin Features");
     return res.status(500).json({ error: "Failed" });
   }
 };
@@ -401,7 +408,7 @@ export const toggleOrgFeature = async (req, res) => {
 
     return res.json({ success: true, feature, enabled, flags });
   } catch (err) {
-    console.error("[OrgAdmin Toggle Feature]", err.message);
+    logger.error({ err: err }, "OrgAdmin Toggle Feature");
     return res.status(500).json({ error: "Failed" });
   }
 };

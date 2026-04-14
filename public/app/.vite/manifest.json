@@ -248,6 +248,15 @@
       "assets/jetbrains-mono-latin-400-normal.woff"
     ]
   },
+  "src/components/ui/AvatarCreator.jsx": {
+    "file": "assets/AvatarCreator.js",
+    "name": "AvatarCreator",
+    "src": "src/components/ui/AvatarCreator.jsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "index.html"
+    ]
+  },
   "src/features/admin/pages/AdminChallengesPage.jsx": {
     "file": "assets/AdminChallengesPage.js",
     "name": "AdminChallengesPage",
@@ -527,11 +536,7 @@
       "_use-scroll.js"
     ],
     "dynamicImports": [
-      "index.html",
-      "index.html",
-      "index.html",
-      "index.html",
-      "index.html"
+      "src/components/ui/AvatarCreator.jsx"
     ]
   },
   "src/features/student/pages/ProjectsPage.jsx": {

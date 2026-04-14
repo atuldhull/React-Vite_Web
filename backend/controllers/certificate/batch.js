@@ -1,10 +1,21 @@
-import supabase             from "../../config/supabase.js";
 import nodemailer            from "nodemailer";
 import path                  from "path";
 import fs                    from "fs";
 import { sendNotification }  from "../notificationController.js";
 import { buildCertificate }  from "./latex.js";
 import { ASSET_DIR }         from "./helpers.js";
+import { logger } from "../../config/logger.js";
+
+// Tenant scoping: every DB call below uses req.db.from(...) which is
+// installed by injectTenant on /api routes. The Proxy auto-injects
+// org_id on inserts and chains eq("org_id", req.orgId) on
+// SELECT/UPDATE/DELETE for tenant tables, so:
+//  - matchStudents only finds students inside the caller's org
+//  - createCertificateBatch's INSERTs into certificate_batches and
+//    certificates pick up org_id automatically (the caller can't
+//    create rows tagged to another org)
+//  - getBatches / deleteBatch never see or touch other orgs' rows
+// Direct `supabase` import is intentionally absent.
 
 function getTransporter() {
   return nodemailer.createTransport({
@@ -21,7 +32,7 @@ export const matchStudents = async (req, res) => {
   try {
     const { emails } = req.body;
     if (!emails?.length) return res.json({ matches: {} });
-    const { data } = await supabase.from("students").select("user_id,email,name")
+    const { data } = await req.db.from("students").select("user_id,email,name")
       .in("email", emails.map(e => e.toLowerCase()));
     const matches = {};
     (data||[]).forEach(s => { matches[s.email.toLowerCase()] = { userId: s.user_id, name: s.name }; });
@@ -53,7 +64,7 @@ export const createCertificateBatch = async (req, res) => {
     }));
 
     // Save batch record
-    const { data: batch, error: batchErr } = await supabase
+    const { data: batch, error: batchErr } = await req.db
       .from("certificate_batches").insert({
         title, event_name: eventName, event_date: eventDate,
         issued_by: issuedBy, template_type: "ai-latex",
@@ -65,7 +76,7 @@ export const createCertificateBatch = async (req, res) => {
 
     if (batchErr) return res.status(500).json({ error: batchErr.message });
 
-    await supabase.from("certificates").insert(
+    await req.db.from("certificates").insert(
       recipients.map(r => ({
         batch_id: batch.id, user_id: r.userId||null,
         recipient_name: r.name, recipient_email: r.email||null, event_name: eventName,
@@ -102,7 +113,8 @@ export const createCertificateBatch = async (req, res) => {
           });
           emailsSent++;
           if (r.userId) await sendNotification({
-            userIds: [r.userId], title: "🎓 Your Certificate is Ready!",
+            userIds: [r.userId], orgId: req.orgId,
+            title: "🎓 Your Certificate is Ready!",
             body:    `Your certificate for "${eventName}" has been issued.`,
             type:    "certificate", link: "/dashboard",
           });
@@ -111,7 +123,8 @@ export const createCertificateBatch = async (req, res) => {
     } else {
       const uids = recipients.filter(r=>r.userId).map(r=>r.userId);
       if (uids.length) await sendNotification({
-        userIds: uids, title: "🎓 Your Certificate is Ready!",
+        userIds: uids, orgId: req.orgId,
+        title: "🎓 Your Certificate is Ready!",
         body:    `Your certificate for "${eventName}" has been issued. Download from your dashboard.`,
         type:    "certificate", link: "/dashboard",
       });
@@ -123,7 +136,7 @@ export const createCertificateBatch = async (req, res) => {
       linked: recipients.filter(r=>r.userId).length,
     });
   } catch (err) {
-    console.error("[cert create]", err.message);
+    logger.error({ err: err }, "cert create");
     return res.status(500).json({ error: "Generation failed: " + err.message.slice(0,200) });
   }
 };
@@ -133,7 +146,7 @@ export const createCertificateBatch = async (req, res) => {
 ═══════════════════════════════════════════════════════════════ */
 export const getBatches = async (req, res) => {
   try {
-    const { data, error } = await supabase.from("certificate_batches")
+    const { data, error } = await req.db.from("certificate_batches")
       .select("id,title,event_name,event_date,template_type,template_image,created_at,recipients")
       .order("created_at",{ ascending:false });
     if (error) return res.status(500).json({ error: error.message });
@@ -145,7 +158,7 @@ export const getMyCertificates = async (req, res) => {
   const userId = req.session?.user?.id;
   if (!userId) return res.status(401).json({ error:"Login required" });
   try {
-    const { data, error } = await supabase.from("certificates")
+    const { data, error } = await req.db.from("certificates")
       .select("id,recipient_name,event_name,issued_at")
       .eq("user_id",userId).order("issued_at",{ ascending:false });
     if (error) return res.status(500).json({ error: error.message });
@@ -155,8 +168,8 @@ export const getMyCertificates = async (req, res) => {
 
 export const deleteBatch = async (req, res) => {
   try {
-    await supabase.from("certificates").delete().eq("batch_id",req.params.id);
-    await supabase.from("certificate_batches").delete().eq("id",req.params.id);
+    await req.db.from("certificates").delete().eq("batch_id",req.params.id);
+    await req.db.from("certificate_batches").delete().eq("id",req.params.id);
     return res.json({ success:true });
   } catch { return res.status(500).json({ error:"Failed" }); }
 };

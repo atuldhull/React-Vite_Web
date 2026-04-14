@@ -3,6 +3,7 @@ import supabase from "../config/supabase.js";
 import { requireAuth } from "../middleware/authMiddleware.js";
 import { sendNotification } from "../controllers/notificationController.js";
 import axios from "axios";
+import { logger } from "../config/logger.js";
 
 const router = express.Router();
 
@@ -23,7 +24,7 @@ router.get("/:challengeId", async (req, res) => {
     }
     return res.json(data || []);
   } catch (err) {
-    console.error("[Comments]", err.message);
+    logger.error({ err: err }, "Comments");
     return res.json([]); // graceful fallback
   }
 });
@@ -87,7 +88,7 @@ router.post("/:challengeId", requireAuth, async (req, res) => {
 
     return res.json({ success: true, comment: data });
   } catch (err) {
-    console.error("[Comments]", err.message);
+    logger.error({ err: err }, "Comments");
     return res.status(500).json({ error: "Failed to post comment" });
   }
 });
@@ -134,7 +135,7 @@ router.post("/:challengeId/ask-ai", requireAuth, async (req, res) => {
 
     return res.json({ reply });
   } catch (err) {
-    console.error("[AI Comment]", err.message);
+    logger.error({ err: err }, "AI Comment");
     return res.status(500).json({ error: "AI is unavailable right now" });
   }
 });

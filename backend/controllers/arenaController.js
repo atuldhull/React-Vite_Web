@@ -9,6 +9,7 @@
  */
 
 import supabase from "../config/supabase.js";
+import { logger } from "../config/logger.js";
 
 /* ─────────────────────────────────────
    SUBMIT ANSWER
@@ -25,7 +26,7 @@ export const submitSolve = async (req, res) => {
 
   try {
     // 1. Check if already attempted
-    const { data: existing } = await supabase
+    const { data: existing } = await req.db
       .from("arena_attempts")
       .select("*")
       .eq("user_id", userId)
@@ -33,7 +34,7 @@ export const submitSolve = async (req, res) => {
       .maybeSingle();
 
     if (existing) {
-      const { data: ch } = await supabase
+      const { data: ch } = await req.db
         .from("challenges")
         .select("correct_index, solution")   // ← uses `solution`
         .eq("id", challengeId).maybeSingle();
@@ -48,7 +49,7 @@ export const submitSolve = async (req, res) => {
     }
 
     // 2. Fetch challenge
-    const { data: challenge, error: challengeErr } = await supabase
+    const { data: challenge, error: challengeErr } = await req.db
       .from("challenges")
       .select("id, title, correct_index, points, solution")  // ← uses `solution`
       .eq("id", challengeId).maybeSingle();
@@ -67,7 +68,7 @@ export const submitSolve = async (req, res) => {
     const xpEarned = correct ? points : penalty;
 
     // 4. Save attempt
-    const { error: attemptErr } = await supabase
+    const { error: attemptErr } = await req.db
       .from("arena_attempts")
       .insert({
         user_id:        userId,
@@ -77,10 +78,10 @@ export const submitSolve = async (req, res) => {
         xp_earned:      xpEarned,
       });
 
-    if (attemptErr) console.error("[Arena] Save attempt error:", attemptErr.message);
+    if (attemptErr) logger.error({ err: attemptErr }, "Arena Save attempt error");
 
     // 5. Update student XP + weekly_xp (add for correct, subtract for wrong)
-    const { data: student } = await supabase
+    const { data: student } = await req.db
       .from("students")
       .select("xp, weekly_xp")
       .eq("user_id", userId)
@@ -89,7 +90,7 @@ export const submitSolve = async (req, res) => {
     const newXp = Math.max(0, (student?.xp || 0) + xpEarned);
     const newWeeklyXp = Math.max(0, (student?.weekly_xp || 0) + xpEarned);
 
-    await supabase
+    await req.db
       .from("students")
       .update({ xp: newXp, weekly_xp: newWeeklyXp })
       .eq("user_id", userId);
@@ -103,7 +104,7 @@ export const submitSolve = async (req, res) => {
     });
 
   } catch (err) {
-    console.error("[Arena] Error:", err.message);
+    logger.error({ err: err }, "Arena Error");
     return res.status(500).json({ error: "Submission failed" });
   }
 };
@@ -117,7 +118,7 @@ export const getHistory = async (req, res) => {
   if (!userId) return res.status(401).json({ error: "Login required" });
 
   try {
-    const { data, error } = await supabase
+    const { data, error } = await req.db
       .from("arena_attempts")
       .select(`
         selected_index, correct, xp_earned, created_at,
@@ -149,7 +150,7 @@ export const getStats = async (req, res) => {
   if (!userId) return res.status(401).json({ error: "Login required" });
 
   try {
-    const { data } = await supabase
+    const { data } = await req.db
       .from("arena_attempts")
       .select("correct, xp_earned")
       .eq("user_id", userId);

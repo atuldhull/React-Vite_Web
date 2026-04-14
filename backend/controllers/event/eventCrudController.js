@@ -9,7 +9,7 @@ import { computeStatus, validateUUID } from "./eventHelpers.js";
 /* GET /api/events — list all active events with registration counts */
 export const getEvents = async (req, res) => {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await req.db
       .from("events")
       .select("*")
       .eq("is_active", true)
@@ -63,7 +63,7 @@ export const getEvent = async (req, res) => {
     if (!validateUUID(req.params.id))
       return res.status(400).json({ error: "Invalid event ID" });
 
-    const { data, error } = await supabase
+    const { data, error } = await req.db
       .from("events").select("*")
       .eq("id", req.params.id).maybeSingle();
 
@@ -116,7 +116,7 @@ export const createEvent = async (req, res) => {
 
     if (!title) return res.status(400).json({ error: "title required" });
 
-    const { data, error } = await supabase.from("events").insert({
+    const { data, error } = await req.db.from("events").insert({
       title,
       description,
       date,
@@ -148,11 +148,14 @@ export const createEvent = async (req, res) => {
     if (error) return res.status(500).json({ error: error.message });
 
     // Notify all students about the new event
-    const { data: students } = await supabase
+    // Notify only students within the SAME org as the event creator —
+    // the Proxy adds eq("org_id", req.orgId) automatically.
+    const { data: students } = await req.db
       .from("students").select("user_id").eq("role", "student");
     if (students && students.length > 0) {
       await sendNotification({
         userIds: students.map(s => s.user_id),
+        orgId: req.orgId,
         title: "New Event",
         body: `${title} — ${event_type || "general"}`,
         type: "info",
@@ -184,7 +187,7 @@ export const updateEvent = async (req, res) => {
       if (req.body[key] !== undefined) updates[key] = req.body[key];
     }
 
-    const { data, error } = await supabase.from("events")
+    const { data, error } = await req.db.from("events")
       .update(updates).eq("id", req.params.id).select().single();
 
     if (error) return res.status(500).json({ error: error.message });
@@ -197,7 +200,7 @@ export const updateEvent = async (req, res) => {
 /* DELETE /api/events/:id — soft delete (teacher/admin) */
 export const deleteEvent = async (req, res) => {
   try {
-    await supabase.from("events").update({ is_active: false }).eq("id", req.params.id);
+    await req.db.from("events").update({ is_active: false }).eq("id", req.params.id);
     return res.json({ success: true });
   } catch {
     return res.status(500).json({ error: "Failed" });
@@ -207,11 +210,11 @@ export const deleteEvent = async (req, res) => {
 /* PATCH /api/events/:id/toggle-reg — toggle registration (teacher/admin) */
 export const toggleRegistration = async (req, res) => {
   try {
-    const { data: ev } = await supabase.from("events")
+    const { data: ev } = await req.db.from("events")
       .select("registration_open").eq("id", req.params.id).maybeSingle();
     if (!ev) return res.status(404).json({ error: "Not found" });
 
-    const { data, error } = await supabase.from("events")
+    const { data, error } = await req.db.from("events")
       .update({ registration_open: !ev.registration_open })
       .eq("id", req.params.id).select().single();
 

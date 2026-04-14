@@ -5,6 +5,7 @@
  */
 
 import supabase from "../../config/supabase.js";
+import { logger } from "../../config/logger.js";
 
 /* ═══════════════════════════════════════════════════════
    LIST ALL ORGANISATIONS
@@ -48,7 +49,7 @@ export const listOrganisations = async (req, res) => {
 
     return res.json({ data: enriched, total: count, page: Number(page), limit: Number(limit) });
   } catch (err) {
-    console.error("[SuperAdmin ListOrgs]", err.message);
+    logger.error({ err: err }, "SuperAdmin ListOrgs");
     return res.status(500).json({ error: "Failed to list organisations" });
   }
 };
@@ -97,7 +98,7 @@ export const createOrganisation = async (req, res) => {
 
     return res.status(201).json({ success: true, organisation: org });
   } catch (err) {
-    console.error("[SuperAdmin CreateOrg]", err.message);
+    logger.error({ err: err }, "SuperAdmin CreateOrg");
     if (err.code === "23505") return res.status(400).json({ error: "Slug already taken" });
     return res.status(500).json({ error: "Failed to create organisation" });
   }

@@ -5,6 +5,7 @@
  */
 
 import { quizStore } from "./store/quizStore.js";
+import { logger } from "../config/logger.js";
 
 function generateCode() {
   // 6-char uppercase alphanumeric room code
@@ -70,9 +71,9 @@ async function announceNewQuiz(code, teacherName, pushNotificationFn) {
         created_at: now,
       });
     }
-    console.log(`[Quiz] Notified ${students.length} students about session ${code}`);
+    logger.info({ studentCount: students.length, code }, "Quiz: session announce sent");
   } catch (err) {
-    console.error("[Quiz] Failed to notify students:", err.message);
+    logger.error({ err: err }, "Quiz Failed to notify students");
   }
 }
 
@@ -92,7 +93,7 @@ export function attachQuiz(io, socket, { pushNotification }) {
     });
     socket.join(code);
     socket.emit("session_created", { code });
-    console.log(`[Quiz] Session ${code} created by ${teacherName}`);
+    logger.info({ code, teacherName }, "Quiz: session created");
 
     await announceNewQuiz(code, teacherName, pushNotification);
   });
@@ -117,7 +118,7 @@ export function attachQuiz(io, socket, { pushNotification }) {
       count:   Object.keys(session.players).length,
     });
 
-    console.log(`[Quiz] ${playerName} joined ${code}`);
+    logger.info({ playerName, code }, "Quiz: player joined");
   });
 
   /* Teacher advances to the next question. */

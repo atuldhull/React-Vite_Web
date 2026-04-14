@@ -19,6 +19,7 @@ import supabase from "../../config/supabase.js";
 import { paymentSigningKey } from "./config.js";
 import { applyPlanUpgrade } from "./upgrade.js";
 import { sendInvoiceEmail } from "./invoiceEmail.js";
+import { logger } from "../../config/logger.js";
 
 export const verifyPayment = async (req, res) => {
   const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
@@ -86,7 +87,7 @@ export const verifyPayment = async (req, res) => {
     try {
       const { data: org }  = await supabase
         .from("organisations").select("name").eq("id", orgId).maybeSingle();
-      const { data: user } = await supabase
+      const { data: user } = await req.db
         .from("students").select("name, email").eq("user_id", req.userId).maybeSingle();
       const { data: plan } = await supabase
         .from("subscription_plans")
@@ -107,7 +108,7 @@ export const verifyPayment = async (req, res) => {
         });
       }
     } catch (err) {
-      console.error("[Payment] Invoice email failed:", err.message);
+      logger.error({ err: err }, "Payment Invoice email failed");
     }
 
     console.log(
@@ -121,7 +122,7 @@ export const verifyPayment = async (req, res) => {
       message:    `Successfully upgraded to ${payment.plan_name}!`,
     });
   } catch (err) {
-    console.error("[Payment] verifyPayment error:", err.message);
+    logger.error({ err: err }, "Payment verifyPayment error");
     return res.status(500).json({ error: err.message });
   }
 };

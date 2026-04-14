@@ -8,6 +8,7 @@
 
 import supabase from "../../config/supabase.js";
 import { getRazorpay, publicKeyId, isConfigured } from "./config.js";
+import { logger } from "../../config/logger.js";
 
 // Allow-list of plans that are actually purchasable through checkout.
 // Guards against a client passing arbitrary plan_name strings.
@@ -88,7 +89,7 @@ export const createOrder = async (req, res) => {
       key_id:       publicKeyId(),
     });
   } catch (err) {
-    console.error("[Payment] createOrder error:", err.message);
+    logger.error({ err: err }, "Payment createOrder error");
     return res.status(500).json({ error: err.message });
   }
 };

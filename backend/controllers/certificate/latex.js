@@ -4,6 +4,7 @@ import os          from "os";
 import { execSync } from "child_process";
 import axios        from "axios";
 import { extractPalette } from "./helpers.js";
+import { logger }  from "../../config/logger.js";
 
 /* ═══════════════════════════════════════════════════════════════
    AI LATEX GENERATOR
@@ -307,11 +308,11 @@ export async function buildCertificate(params) {
   let latex;
   if (useAI) {
     try {
-      console.log(`[Cert] AI generating LaTeX for "${recipientName}"...`);
+      logger.info({ recipientName }, "Cert AI generating LaTeX");
       latex = await generateLatexWithAI(certParams);
-      console.log(`[Cert] AI LaTeX generated (${latex.length} chars)`);
+      logger.info({ chars: latex.length }, "Cert AI LaTeX generated");
     } catch (aiErr) {
-      console.warn("[Cert] AI failed, using fallback:", aiErr.message);
+      logger.warn({ err: aiErr }, "Cert AI failed, using fallback");
       latex = fallbackLatex(certParams);
     }
   } else {

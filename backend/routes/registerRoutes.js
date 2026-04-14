@@ -28,9 +28,14 @@ import referralRoutes     from "./referralRoutes.js";
 import achievementRoutes  from "./achievementRoutes.js";
 import insightsRoutes     from "./insightsRoutes.js";
 import statsRoutes        from "./statsRoutes.js";
+import healthRoutes       from "./healthRoutes.js";
 import { authLimiter, contactLimiter } from "../middleware/rateLimiter.js";
 
 export default function registerApiRoutes(app) {
+  // Health + readiness probes — mounted FIRST so they always answer
+  // even if a later route mount throws. Public, no auth, no rate limit.
+  app.use("/api",               healthRoutes);
+
   app.use("/api/super-admin",   superAdminRoutes);
   app.use("/api/org-admin",     orgAdminRoutes);
   app.use("/api/ai",            aiRoutes);

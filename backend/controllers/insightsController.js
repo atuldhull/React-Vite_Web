@@ -19,6 +19,7 @@
  */
 
 import supabase from "../config/supabase.js";
+import { logger } from "../config/logger.js";
 
 // ═══════════════════════════════════════════════════════════
 // 1. PERSONALIZED EVENT RECOMMENDATIONS
@@ -43,7 +44,7 @@ export const getRecommendations = async (req, res) => {
     let userTypes = {};  // event_type → count
 
     if (registeredEventIds.size > 0) {
-      const { data: attendedEvents } = await supabase
+      const { data: attendedEvents } = await req.db
         .from("events")
         .select("event_type, tags")
         .in("id", [...registeredEventIds]);
@@ -60,7 +61,7 @@ export const getRecommendations = async (req, res) => {
     const topType = Object.entries(userTypes).sort((a, b) => b[1] - a[1])[0]?.[0];
 
     // 3. Get all upcoming/registering events
-    const { data: upcoming } = await supabase
+    const { data: upcoming } = await req.db
       .from("events")
       .select("*")
       .eq("is_active", true)
@@ -133,7 +134,7 @@ export const getRecommendations = async (req, res) => {
 
     return res.json({ recommendations: scored, preferences });
   } catch (err) {
-    console.error("[Recommendations]", err.message);
+    logger.error({ err: err }, "Recommendations");
     return res.status(500).json({ error: "Failed to get recommendations" });
   }
 };
@@ -147,7 +148,7 @@ export const getEventHealth = async (req, res) => {
   const eventId = req.params.id;
 
   try {
-    const { data: event } = await supabase
+    const { data: event } = await req.db
       .from("events").select("*").eq("id", eventId).maybeSingle();
 
     if (!event) return res.status(404).json({ error: "Event not found" });
@@ -200,7 +201,7 @@ export const getEventHealth = async (req, res) => {
       timeline: Object.entries(timeline).sort(([a], [b]) => a.localeCompare(b)).map(([date, count]) => ({ date, count })),
     });
   } catch (err) {
-    console.error("[Event Health]", err.message);
+    logger.error({ err: err }, "Event Health");
     return res.status(500).json({ error: "Failed" });
   }
 };
@@ -213,7 +214,7 @@ export const getEventHealth = async (req, res) => {
 export const getAdminInsights = async (req, res) => {
   try {
     // Event stats
-    const { data: events } = await supabase
+    const { data: events } = await req.db
       .from("events").select("id, title, event_type, date, starts_at, is_active, xp_reward");
 
     const activeEvents = (events || []).filter(e => e.is_active);
@@ -285,7 +286,7 @@ export const getAdminInsights = async (req, res) => {
       achievements: { total_unlocks: totalUnlocks || 0 },
     });
   } catch (err) {
-    console.error("[Admin Insights]", err.message);
+    logger.error({ err: err }, "Admin Insights");
     return res.status(500).json({ error: "Failed" });
   }
 };

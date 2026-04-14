@@ -14,6 +14,8 @@ import {
   deleteBatch,
 } from "../controllers/certificateController.js";
 import { requireAuth, requireTeacher, checkFeatureFlag } from "../middleware/authMiddleware.js";
+import { validateBody } from "../validators/common.js";
+import { matchStudentsSchema, createCertificateBatchSchema } from "../validators/certificates.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -49,10 +51,10 @@ router.post("/upload-asset",      requireTeacher, upload.single("asset"), upload
 router.post("/preview",           requireTeacher, previewCertificate);
 
 // Match recipients to registered students by email
-router.post("/match-students",    requireTeacher, matchStudents);
+router.post("/match-students",    requireTeacher, validateBody(matchStudentsSchema), matchStudents);
 
 // Create certificate batch
-router.post("/create",            requireTeacher, checkFeatureFlag("certificates"), createCertificateBatch);
+router.post("/create",            requireTeacher, checkFeatureFlag("certificates"), validateBody(createCertificateBatchSchema), createCertificateBatch);
 
 // Batch management
 router.get("/batches",            requireTeacher, getBatches);

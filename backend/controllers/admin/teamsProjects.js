@@ -4,8 +4,8 @@ import supabase from "../../config/supabase.js";
 export const deleteTeam = async (req, res) => {
   try {
     // Projects cascade delete via FK, but delete explicitly first
-    await supabase.from("projects").delete().eq("team_id", req.params.teamId);
-    const { error } = await supabase.from("teams").delete().eq("id", req.params.teamId);
+    await req.db.from("projects").delete().eq("team_id", req.params.teamId);
+    const { error } = await req.db.from("teams").delete().eq("id", req.params.teamId);
     if (error) return res.status(500).json({ error: error.message });
     return res.json({ success: true, message: "Team and project deleted" });
   } catch {
@@ -16,8 +16,8 @@ export const deleteTeam = async (req, res) => {
 /* Delete a project — DELETE /api/admin/data/projects/:projectId */
 export const deleteProject = async (req, res) => {
   try {
-    await supabase.from("project_votes").delete().eq("project_id", req.params.projectId);
-    const { error } = await supabase.from("projects").delete().eq("id", req.params.projectId);
+    await req.db.from("project_votes").delete().eq("project_id", req.params.projectId);
+    const { error } = await req.db.from("projects").delete().eq("id", req.params.projectId);
     if (error) return res.status(500).json({ error: error.message });
     return res.json({ success: true, message: "Project deleted" });
   } catch {
@@ -28,13 +28,13 @@ export const deleteProject = async (req, res) => {
 /* Get all teams with their projects — GET /api/admin/data/teams */
 export const getAllTeams = async (req, res) => {
   try {
-    const { data: teams, error } = await supabase
+    const { data: teams, error } = await req.db
       .from("teams")
       .select("*")
       .order("created_at", { ascending: false });
     if (error) return res.status(500).json({ error: error.message });
 
-    const { data: projects } = await supabase
+    const { data: projects } = await req.db
       .from("projects")
       .select("id, team_id, title, is_approved, total_points, category");
 
@@ -42,7 +42,7 @@ export const getAllTeams = async (req, res) => {
     (projects || []).forEach(p => { projectMap[p.team_id] = p; });
 
     // Enrich with member names
-    const { data: students } = await supabase
+    const { data: students } = await req.db
       .from("students")
       .select("user_id, name, email");
     const studentMap = {};

@@ -3,7 +3,12 @@
  * Handles all teacher dashboard operations
  */
 
-import supabase from "../config/supabase.js";
+// Tenant scoping: every DB call uses req.db.from(...). Teacher
+// dashboards (stats, students list, leaderboard, performance,
+// recent activity, challenge save/toggle) now reflect ONLY the
+// caller's org. Previously a teacher in org A saw aggregate stats
+// and student rosters across every org. Super_admin still sees
+// platform-wide via the Proxy's role-based escape hatch.
 import axios   from "axios";
 
 /* ─────────────────────────────────────
@@ -13,7 +18,7 @@ import axios   from "axios";
 export const getTeacherProfile = async (req, res) => {
   const userId = req.session?.user?.id;
   try {
-    const { data, error } = await supabase
+    const { data, error } = await req.db
       .from("students")
       .select("name, email, role, department, subject, xp")
       .eq("user_id", userId)
@@ -38,10 +43,10 @@ export const getTeacherStats = async (req, res) => {
       { count: totalAttempts },
       { count: correctAttempts },
     ] = await Promise.all([
-      supabase.from("students").select("*", { count: "exact", head: true }).eq("role", "student"),
-      supabase.from("challenges").select("*", { count: "exact", head: true }).eq("is_active", true),
-      supabase.from("arena_attempts").select("*", { count: "exact", head: true }),
-      supabase.from("arena_attempts").select("*", { count: "exact", head: true }).eq("correct", true),
+      req.db.from("students").select("*", { count: "exact", head: true }).eq("role", "student"),
+      req.db.from("challenges").select("*", { count: "exact", head: true }).eq("is_active", true),
+      req.db.from("arena_attempts").select("*", { count: "exact", head: true }),
+      req.db.from("arena_attempts").select("*", { count: "exact", head: true }).eq("correct", true),
     ]);
 
     const accuracy = totalAttempts > 0
@@ -59,7 +64,7 @@ export const getTeacherStats = async (req, res) => {
 ───────────────────────────────────── */
 export const getStudents = async (req, res) => {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await req.db
       .from("students")
       .select("id, user_id, name, email, xp, weekly_xp, title, created_at")
       .eq("role", "student")
@@ -80,7 +85,7 @@ export const getStudents = async (req, res) => {
 export const getChallengePerformance = async (req, res) => {
   try {
     // Get all challenges with their attempt stats
-    const { data: challenges } = await supabase
+    const { data: challenges } = await req.db
       .from("challenges")
       .select("id, title, difficulty, points")
       .eq("is_active", true)
@@ -91,12 +96,12 @@ export const getChallengePerformance = async (req, res) => {
 
     // For each challenge, count total and correct attempts
     const results = await Promise.all(challenges.map(async (ch) => {
-      const { count: total } = await supabase
+      const { count: total } = await req.db
         .from("arena_attempts")
         .select("*", { count: "exact", head: true })
         .eq("challenge_id", ch.id);
 
-      const { count: correct } = await supabase
+      const { count: correct } = await req.db
         .from("arena_attempts")
         .select("*", { count: "exact", head: true })
         .eq("challenge_id", ch.id)
@@ -127,7 +132,7 @@ export const getChallengePerformance = async (req, res) => {
 ───────────────────────────────────── */
 export const getRecentActivity = async (req, res) => {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await req.db
       .from("arena_attempts")
       .select(`
         correct, xp_earned, created_at,
@@ -207,7 +212,7 @@ export const teacherSaveQuestion = async (req, res) => {
       return res.status(400).json({ error: "Invalid question format" });
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await req.db
       .from("challenges")
       .insert({
         title:         q.title,
@@ -235,7 +240,7 @@ export const teacherSaveQuestion = async (req, res) => {
 ───────────────────────────────────── */
 export const getTeacherChallenges = async (req, res) => {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await req.db
       .from("challenges")
       .select("id, title, difficulty, points, is_active, created_at")
       .order("created_at", { ascending: false });
@@ -256,10 +261,10 @@ export const getTeacherChallenges = async (req, res) => {
 ───────────────────────────────────── */
 export const toggleTeacherChallenge = async (req, res) => {
   try {
-    const { data: current } = await supabase
+    const { data: current } = await req.db
       .from("challenges").select("is_active").eq("id", req.params.id).maybeSingle();
 
-    const { data, error } = await supabase
+    const { data, error } = await req.db
       .from("challenges")
       .update({ is_active: !current?.is_active })
       .eq("id", req.params.id).select().single();
@@ -277,7 +282,7 @@ export const toggleTeacherChallenge = async (req, res) => {
 ───────────────────────────────────── */
 export const getTeacherLeaderboard = async (req, res) => {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await req.db
       .from("students")
       .select("name, email, xp, weekly_xp, title")
       .eq("role", "student")

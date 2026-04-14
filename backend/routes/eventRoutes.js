@@ -23,6 +23,8 @@ import {
   getSiteSettings, updateSiteSetting,
 } from "../controllers/event/index.js";
 import { requireAuth, requireAdmin, requireTeacher, checkFeatureFlag } from "../middleware/authMiddleware.js";
+import { validateBody } from "../validators/common.js";
+import { createEventSchema, updateEventSchema } from "../validators/events.js";
 
 const router = express.Router();
 
@@ -33,8 +35,8 @@ router.get("/settings",               getSiteSettings);
 router.get("/:id",                    getEvent);
 
 // Teacher / Admin
-router.post("/",                      requireTeacher, createEvent);
-router.patch("/:id",                  requireTeacher, updateEvent);
+router.post("/",                      requireTeacher, validateBody(createEventSchema), createEvent);
+router.patch("/:id",                  requireTeacher, validateBody(updateEventSchema), updateEvent);
 router.delete("/:id",                 requireTeacher, deleteEvent);
 router.patch("/:id/toggle-reg",       requireTeacher, toggleRegistration);
 

@@ -1,11 +1,17 @@
-import supabase from "../config/supabase.js";
+import { logger } from "../config/logger.js";
+// Tenant scoping: every DB call below uses req.db.from(...). The
+// Proxy chains eq("org_id", req.orgId) on reads/updates/deletes and
+// stomps org_id onto inserts. So a teacher in org A creating a
+// challenge can't accidentally tag it to org B, and the leaderboard
+// ("get next challenge for user") is now naturally scoped to the
+// caller's org. The raw `supabase` import is intentionally absent.
 
 /* GET CURRENT ACTIVE CHALLENGE — GET /api/challenge/current */
 export const getCurrentChallenge = async (req, res) => {
   try {
-    console.log("[Challenge] fetching current active challenge...");
+    logger.info("Challenge fetching current active challenge...");
 
-    const { data, error } = await supabase
+    const { data, error } = await req.db
       .from("challenges")
       .select("id, title, question, options, correct_index, difficulty, points, solution, is_active, created_at")
       .eq("is_active", true)
@@ -14,12 +20,12 @@ export const getCurrentChallenge = async (req, res) => {
       .maybeSingle();
 
     if (error) {
-      console.error("[Challenge] DB error:", error.message);
+      logger.error({ err: error }, "Challenge DB error");
       return res.status(500).json({ error: error.message });
     }
 
     if (!data) {
-      console.log("[Challenge] no active challenges found");
+      logger.info("Challenge no active challenges found");
       return res.status(404).json({
         error: "no_challenge",
         message: "No active challenge found. Run migration.sql and import challenges."
@@ -34,19 +40,19 @@ export const getCurrentChallenge = async (req, res) => {
           .replace(/^\{|\}$/g, "")
           .split(/,(?=(?:[^"]*"[^"]*")*[^"]*$)/)
           .map(s => s.replace(/^"|"$/g, "").replace(/""/g, '"'));
-        console.log("[Challenge] parsed options from string to array");
+        logger.info("Challenge parsed options from string to array");
       } catch (e) {
-        console.error("[Challenge] failed to parse options:", e.message);
+        logger.error({ err: e }, "Challenge failed to parse options");
       }
     }
 
     data.difficulty = (data.difficulty || "medium").toUpperCase();
 
-    console.log(`[Challenge] returning: "${data.title}" (${data.difficulty})`);
+    logger.info({ title: data.title, difficulty: data.difficulty }, "Challenge returning");
     return res.json(data);
 
   } catch (err) {
-    console.error("[Challenge] unexpected error:", err.message);
+    logger.error({ err: err }, "Challenge unexpected error");
     return res.status(500).json({ error: "Failed to fetch challenge" });
   }
 };
@@ -54,7 +60,7 @@ export const getCurrentChallenge = async (req, res) => {
 /* GET ALL CHALLENGES — GET /api/challenge/all */
 export const getAllChallenges = async (req, res) => {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await req.db
       .from("challenges")
       .select("id, title, difficulty, points, is_active, created_at")
       .order("created_at", { ascending: false });
@@ -71,7 +77,7 @@ export const getAllChallenges = async (req, res) => {
 /* GET SINGLE — GET /api/challenge/:id */
 export const getChallengeById = async (req, res) => {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await req.db
       .from("challenges").select("*").eq("id", req.params.id).maybeSingle();
     if (error) return res.status(500).json({ error: error.message });
     if (!data)  return res.status(404).json({ error: "Challenge not found" });
@@ -89,7 +95,7 @@ export const createChallenge = async (req, res) => {
     if (!Array.isArray(options) || options.length !== 4)
       return res.status(400).json({ error: "options must be array of 4" });
 
-    const { data, error } = await supabase.from("challenges").insert({
+    const { data, error } = await req.db.from("challenges").insert({
       title, question, options,
       correct_index: Number(correct_index),
       difficulty:    (difficulty || "medium").toLowerCase(),
@@ -110,7 +116,7 @@ export const updateChallenge = async (req, res) => {
     if (updates.difficulty) updates.difficulty = updates.difficulty.toLowerCase();
     if (updates.correct_index !== undefined) updates.correct_index = Number(updates.correct_index);
     if (updates.points !== undefined) updates.points = Number(updates.points);
-    const { data, error } = await supabase.from("challenges").update(updates).eq("id", req.params.id).select().single();
+    const { data, error } = await req.db.from("challenges").update(updates).eq("id", req.params.id).select().single();
     if (error) return res.status(500).json({ error: error.message });
     return res.json({ success: true, challenge: data });
   } catch { return res.status(500).json({ error: "Failed to update" }); }
@@ -119,7 +125,7 @@ export const updateChallenge = async (req, res) => {
 /* DELETE — DELETE /api/challenge/:id */
 export const deleteChallenge = async (req, res) => {
   try {
-    const { error } = await supabase.from("challenges").delete().eq("id", req.params.id);
+    const { error } = await req.db.from("challenges").delete().eq("id", req.params.id);
     if (error) return res.status(500).json({ error: error.message });
     return res.json({ success: true });
   } catch { return res.status(500).json({ error: "Failed to delete" }); }
@@ -128,8 +134,8 @@ export const deleteChallenge = async (req, res) => {
 /* TOGGLE — PATCH /api/challenge/:id/toggle */
 export const toggleChallenge = async (req, res) => {
   try {
-    const { data: current } = await supabase.from("challenges").select("is_active").eq("id", req.params.id).maybeSingle();
-    const { data, error } = await supabase.from("challenges").update({ is_active: !current?.is_active }).eq("id", req.params.id).select().single();
+    const { data: current } = await req.db.from("challenges").select("is_active").eq("id", req.params.id).maybeSingle();
+    const { data, error } = await req.db.from("challenges").update({ is_active: !current?.is_active }).eq("id", req.params.id).select().single();
     if (error) return res.status(500).json({ error: error.message });
     return res.json({ success: true, is_active: data.is_active });
   } catch { return res.status(500).json({ error: "Failed to toggle" }); }
@@ -150,7 +156,7 @@ export const getNextChallenge = async (req, res) => {
     // Get IDs of challenges this user already attempted
     let attemptedIds = [];
     if (userId) {
-      const { data: attempts } = await supabase
+      const { data: attempts } = await req.db
         .from("arena_attempts")
         .select("challenge_id")
         .eq("user_id", userId);
@@ -158,7 +164,7 @@ export const getNextChallenge = async (req, res) => {
     }
 
     // Fetch all active challenges (optionally filtered by difficulty)
-    let query = supabase
+    let query = req.db
       .from("challenges")
       .select("id, title, question, options, correct_index, difficulty, points, solution, is_active, created_at")
       .eq("is_active", true);
@@ -193,7 +199,7 @@ export const getNextChallenge = async (req, res) => {
     return res.json({ ...challenge, allSolved, remaining: unsolved.length });
 
   } catch (err) {
-    console.error("[Challenge/next] error:", err.message);
+    logger.error({ err: err }, "Challenge/next error");
     return res.status(500).json({ error: "Failed to fetch next challenge" });
   }
 };

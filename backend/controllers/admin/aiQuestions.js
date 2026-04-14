@@ -1,5 +1,6 @@
 import axios   from "axios";
 import supabase from "../../config/supabase.js";
+import { logger } from "../../config/logger.js";
 
 /* ═══════════════════════════════════════════
    AI QUESTION — Generate preview (admin)
@@ -66,7 +67,7 @@ Return ONLY this JSON (no markdown):
 
     return res.json(question);
   } catch (err) {
-    console.error("[AdminAI] Error:", err.message);
+    logger.error({ err: err }, "AdminAI Error");
     return res.status(500).json({ error: "AI generation failed: " + err.message });
   }
 };
@@ -87,7 +88,7 @@ export const saveAIQuestion = async (req, res) => {
     const correctAnswer = q.options[q.correct_index];
     const shuffled      = [...q.options].sort(() => Math.random() - 0.5);
 
-    const { data, error } = await supabase
+    const { data, error } = await req.db
       .from("challenges")
       .insert({
         title:         q.title,

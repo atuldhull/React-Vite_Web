@@ -4,6 +4,7 @@
  */
 
 import { getMailTransporter } from "./config.js";
+import { logger } from "../../config/logger.js";
 
 // Escape user-controlled strings before interpolating into the HTML body.
 function esc(s) {
@@ -85,9 +86,9 @@ export async function sendInvoiceEmail({ to, userName, orgName, planName, amount
       subject: `Payment Confirmed \u2014 ${planName} Plan | Math Collective`,
       html: invoiceHtml({ userName, orgName, planName, amount, orderId, paymentId, invoiceDate, expiryDate }),
     });
-    console.log(`[Payment] \u2713 Invoice sent to ${to}`);
+    logger.info({ to }, "Payment invoice email sent");
   } catch (err) {
-    console.error("[Payment] Invoice email failed:", err.message);
+    logger.error({ err: err }, "Payment Invoice email failed");
     // Swallow — payment succeeded, invoice is non-critical
   }
 }

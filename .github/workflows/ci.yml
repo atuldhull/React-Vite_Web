@@ -24,8 +24,18 @@ jobs:
       - name: Lint
         run: npm run lint
 
-      - name: Test
-        run: npm test
+      - name: Typecheck (Phase 13)
+        # tsc --noEmit on the include list in tsconfig.json. New files
+        # that opt into type-checking via `// @ts-check` get added to
+        # tsconfig.json's include list in the same PR.
+        run: npm run typecheck
+
+      - name: Test + coverage gate
+        # Runs the suite with coverage enabled. Vitest fails this step
+        # (non-zero exit) if any threshold in vitest.config.js is not
+        # met, so a PR that deletes tests or ships an untested
+        # controller rewrite is blocked before it can merge.
+        run: npm run test:coverage
 
       - name: Build
         run: npm run build
@@ -34,3 +44,20 @@ jobs:
         run: |
           ls -lh public/app/assets/*.js public/app/assets/*.css
           echo "✅ Build successful"
+
+      # ── Phase 12: Playwright browser-level E2E ─────────────
+      # Runs against the BUILT SPA served by backend/server.js
+      # (which Playwright's `webServer` config boots automatically).
+      # Uses Chromium only — adding firefox/webkit triples runtime
+      # for diminishing returns on a single-target deploy.
+      #
+      # Env vars: the playwright config falls back to dummies for
+      # SUPABASE_URL / SERVICE_ROLE_KEY / SESSION_SECRET, so CI runs
+      # without real secrets. SESSION_DB_URL is omitted intentionally
+      # — without it, the dev-mode MemoryStore is used, which is fine
+      # for the duration of the test run.
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: E2E (Playwright)
+        run: npm run e2e

@@ -1,8 +1,15 @@
+import { lazy, Suspense } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import InputField from "@/components/ui/InputField";
-import AvatarCreator from "@/components/ui/AvatarCreator";
+
+// Lazy-load AvatarCreator: it brings in @dicebear/collection (~1MB of
+// SVG avatar styles) and is only rendered when the user enters the
+// profile-edit state. Lazy-loading splits it into its own chunk, so
+// the initial profile-page paint isn't paying for an avatar builder
+// the user almost never opens.
+const AvatarCreator = lazy(() => import("@/components/ui/AvatarCreator"));
 
 export default function ProfileInfoCard({
   profile,
@@ -120,20 +127,26 @@ export default function ProfileInfoCard({
               exit={{ opacity: 0 }}
               className="mt-4 space-y-6"
             >
-              {/* ── Full Avatar Creator ── */}
+              {/* ── Full Avatar Creator (lazy-loaded) ── */}
               <div className="rounded-2xl border border-line/10 bg-black/10 p-5">
                 <p className="mb-4 font-mono text-[10px] uppercase tracking-[0.3em] text-text-dim">Your Avatar</p>
-                <AvatarCreator
-                  currentEmoji={profile.avatar_emoji || "😎"}
-                  currentColor={profile.avatar_color || "linear-gradient(135deg,#7c3aed,#3b82f6)"}
-                  currentConfig={profile.avatar_config}
-                  avatarUrl={avatarUrl}
-                  uploading={uploadingAvatar}
-                  onEmojiSelect={onEmojiSelect}
-                  onColorSelect={onColorSelect}
-                  onConfigChange={onConfigChange}
-                  onPhotoUpload={onAvatarChange}
-                />
+                <Suspense fallback={
+                  <div className="flex h-40 items-center justify-center text-xs text-text-dim">
+                    Loading avatar builder…
+                  </div>
+                }>
+                  <AvatarCreator
+                    currentEmoji={profile.avatar_emoji || "😎"}
+                    currentColor={profile.avatar_color || "linear-gradient(135deg,#7c3aed,#3b82f6)"}
+                    currentConfig={profile.avatar_config}
+                    avatarUrl={avatarUrl}
+                    uploading={uploadingAvatar}
+                    onEmojiSelect={onEmojiSelect}
+                    onColorSelect={onColorSelect}
+                    onConfigChange={onConfigChange}
+                    onPhotoUpload={onAvatarChange}
+                  />
+                </Suspense>
               </div>
 
               {/* ── Name & Bio Fields ── */}

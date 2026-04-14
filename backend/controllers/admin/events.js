@@ -7,7 +7,7 @@ import supabase from "../../config/supabase.js";
 
 export const getAdminEvents = async (req, res) => {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await req.db
       .from("events")
       .select("*")
       .order("date", { ascending: true });    // ← FIXED: was event_date
@@ -24,7 +24,7 @@ export const createEvent = async (req, res) => {
     const { title, description, location, date } = req.body;
     if (!title) return res.status(400).json({ error: "title is required" });
 
-    const { data, error } = await supabase
+    const { data, error } = await req.db
       .from("events")
       .insert({ title, description, location, date })  // ← uses `date` column
       .select().single();
@@ -38,7 +38,7 @@ export const createEvent = async (req, res) => {
 
 export const updateEvent = async (req, res) => {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await req.db
       .from("events")
       .update(req.body)
       .eq("id", req.params.id)
@@ -53,7 +53,7 @@ export const updateEvent = async (req, res) => {
 
 export const deleteEvent = async (req, res) => {
   try {
-    const { error } = await supabase.from("events").delete().eq("id", req.params.id);
+    const { error } = await req.db.from("events").delete().eq("id", req.params.id);
     if (error) return res.status(500).json({ error: error.message });
     return res.json({ success: true });
   } catch {

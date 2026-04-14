@@ -26,6 +26,7 @@
 
 import helmet    from "helmet";
 import cors      from "cors";
+import { logger } from "../config/logger.js";
 
 /* ══════════════════════════════════════════
    1. HELMET — Security Headers
@@ -39,7 +40,12 @@ export function applyHelmet(app) {
         defaultSrc:     ["'self'"],
         scriptSrc:      ["'self'", "'unsafe-inline'", "cdn.jsdelivr.net", "cdnjs.cloudflare.com", "unpkg.com", "esm.sh"],
         styleSrc:       ["'self'", "'unsafe-inline'", "fonts.googleapis.com", "cdn.jsdelivr.net", "cdnjs.cloudflare.com"],
-        fontSrc:        ["'self'", "fonts.gstatic.com", "cdn.jsdelivr.net"],
+        // `data:` allowed because the SPA bundle inlines a few small
+        // icon-font glyphs as data URIs (caught by Playwright smoke
+        // tests when CSP blocked them). Data-URI fonts aren't a
+        // meaningful XSS vector — CSP doesn't add real protection
+        // here — and blocking them just degrades typography.
+        fontSrc:        ["'self'", "data:", "fonts.gstatic.com", "cdn.jsdelivr.net"],
         imgSrc:         ["'self'", "data:", "blob:", "api.dicebear.com", "*.supabase.co"],
         connectSrc:     ["'self'", "*.supabase.co", "api.openrouter.ai", "api.dicebear.com", "openrouter.ai"],
         frameSrc:       ["'none'"],
@@ -162,13 +168,23 @@ export function applyInputSanitizer(app) {
    Takes only the last value of duplicate params.
 ══════════════════════════════════════════ */
 export function applyHPP(app) {
-  app.use((req, res, next) => {
-    // Mutate in place — don't reassign req.query (read-only in Express 5)
-    for (const key of Object.keys(req.query)) {
-      if (Array.isArray(req.query[key])) {
-        req.query[key] = req.query[key][req.query[key].length - 1];
-      }
+  app.use((req, _res, next) => {
+    // Express 5 exposes req.query as a LAZY GETTER on the prototype —
+    // each access re-parses req.url. Mutating individual keys on the
+    // returned object has no effect (verified: the next access returns
+    // a fresh parse with the array still present). The fix is to
+    // define `query` as an own property on this request so it shadows
+    // the prototype getter for the rest of the chain.
+    const cleaned = {};
+    for (const [key, val] of Object.entries(req.query)) {
+      cleaned[key] = Array.isArray(val) ? val[val.length - 1] : val;
     }
+    Object.defineProperty(req, "query", {
+      value:        cleaned,
+      writable:     true,
+      configurable: true,
+      enumerable:   true,
+    });
     next();
   });
 }
@@ -185,25 +201,12 @@ export const REQUEST_LIMITS = {
   quiz:     "5mb",    // quiz bulk generation
 };
 
-/* ══════════════════════════════════════════
-   6. SECURE SESSION CONFIG
-   Returns the session options to use.
-══════════════════════════════════════════ */
-export function getSessionConfig() {
-  const isProd = process.env.NODE_ENV === "production";
-  return {
-    secret:            process.env.SESSION_SECRET || "math_collective_secret_2026_CHANGE_IN_PROD",
-    resave:            false,
-    saveUninitialized: false,
-    name:              "mc.sid",           // don't use default 'connect.sid'
-    cookie: {
-      httpOnly: true,                      // JS can't access cookie
-      sameSite: isProd ? "strict" : "lax", // CSRF protection
-      secure:   isProd,                    // HTTPS only in prod
-      maxAge:   1000 * 60 * 60 * 24 * 7,  // 7 days
-    },
-  };
-}
+// Section 6 (getSessionConfig) was here — removed in Phase 6.3. It
+// was a duplicate session-config builder that was exported but never
+// imported anywhere, and it carried a hardcoded SESSION_SECRET
+// fallback string ("math_collective_secret_2026_CHANGE_IN_PROD")
+// that masked misconfiguration. The active session config lives in
+// backend/middleware/sessionConfig.js.
 
 /* ══════════════════════════════════════════
    7. SUSPICIOUS REQUEST LOGGER
@@ -223,11 +226,24 @@ export function applyRequestLogger(app) {
 
   app.use((req, res, next) => {
     const url = req.originalUrl;
-    const isSuspicious = SUSPICIOUS.some(p => p.test(url));
-    if (isSuspicious) {
-      console.warn(`[SECURITY] Suspicious request: ${req.method} ${url} from ${req.ip}`);
+    // Test BOTH the raw and the decoded URL — attackers usually
+    // URL-encode payloads (%3Cscript%3E) to slip past naive substring
+    // checks. decodeURIComponent throws on malformed sequences;
+    // catch and treat that as suspicious in itself.
+    let decoded;
+    try { decoded = decodeURIComponent(url); }
+    catch { decoded = ""; return abort(); }
+
+    const isSuspicious = SUSPICIOUS.some(p => p.test(url) || p.test(decoded));
+    if (isSuspicious) return abort();
+    next();
+
+    function abort() {
+      logger.warn(
+        { event: "security", method: req.method, url, ip: req.ip },
+        "suspicious request blocked"
+      );
       return res.status(400).json({ error: "Bad request" });
     }
-    next();
   });
 }

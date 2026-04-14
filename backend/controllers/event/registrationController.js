@@ -5,6 +5,7 @@
 import supabase from "../../config/supabase.js";
 import { sendNotification } from "../notificationController.js";
 import { computeStatus, generateQrToken } from "./eventHelpers.js";
+import { logger } from "../../config/logger.js";
 
 const EARLY_BIRD_THRESHOLD = 10; // first N registrations get bonus XP
 
@@ -15,7 +16,7 @@ export const registerForEvent = async (req, res) => {
 
   try {
     // 1. Validate event exists and is open
-    const { data: event } = await supabase
+    const { data: event } = await req.db
       .from("events").select("*").eq("id", eventId).eq("is_active", true).maybeSingle();
 
     if (!event) return res.status(404).json({ error: "Event not found" });
@@ -75,10 +76,10 @@ export const registerForEvent = async (req, res) => {
     // 5. Award early bird XP (if applicable)
     if (regStatus === "registered" && event.xp_bonus_first > 0) {
       if ((count || 0) < EARLY_BIRD_THRESHOLD) {
-        const { data: student } = await supabase
+        const { data: student } = await req.db
           .from("students").select("xp, weekly_xp").eq("user_id", userId).maybeSingle();
         if (student) {
-          await supabase.from("students").update({
+          await req.db.from("students").update({
             xp: (student.xp || 0) + event.xp_bonus_first,
             weekly_xp: (student.weekly_xp || 0) + event.xp_bonus_first,
           }).eq("user_id", userId);
@@ -92,7 +93,7 @@ export const registerForEvent = async (req, res) => {
       waitlisted: regStatus === "waitlisted",
     });
   } catch (err) {
-    console.error("[Event Register]", err.message);
+    logger.error({ err: err }, "Event Register");
     return res.status(500).json({ error: "Registration failed" });
   }
 };

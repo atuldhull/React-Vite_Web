@@ -8,6 +8,7 @@
  */
 
 import webpush from "web-push";
+import { logger } from "../config/logger.js";
 import supabase from "../config/supabase.js";
 
 let configured = false;
@@ -80,14 +81,14 @@ export async function sendWebPush(userId, payload) {
         if (err?.statusCode === 404 || err?.statusCode === 410) {
           dead.push(sub.id);
         } else {
-          console.error(`[WebPush] delivery failed for sub ${sub.id}:`, err?.message || err);
+          logger.error({ err, subscriptionId: sub.id }, "WebPush: delivery failed");
         }
       }
     }));
 
     if (dead.length) {
       await supabase.from("push_subscriptions").delete().in("id", dead);
-      console.log(`[WebPush] cleaned up ${dead.length} dead subscription(s)`);
+      logger.info({ cleaned: dead.length }, "WebPush: dead subscriptions pruned");
     }
   } catch (err) {
     console.error("[WebPush] sendWebPush error:", err?.message || err);

@@ -1,6 +1,15 @@
 import supabase from "../config/supabase.js";
 import { pushNotification } from "../services/realtime.js";
 import { sendWebPush } from "../services/webPush.js";
+import { logger } from "../config/logger.js";
+
+// Tenant scoping: per-request handlers (getNotifications, markRead,
+// markAllRead, clearAll, broadcastNotification) all use req.db. The
+// sendNotification HELPER is called from many controllers without
+// req in scope, so it now requires an explicit `orgId` parameter
+// (notifications.org_id is NOT NULL after migration 14, so the
+// previous helper would fail at insert time). push_subscriptions
+// is NOT a tenant table — it stays on raw supabase.
 
 /* ── GET notifications for current user ── */
 export const getNotifications = async (req, res) => {
@@ -8,7 +17,7 @@ export const getNotifications = async (req, res) => {
   if (!userId) return res.status(401).json({ error: "Login required" });
 
   try {
-    const { data, error } = await supabase
+    const { data, error } = await req.db
       .from("notifications")
       .select("*")
       .eq("user_id", userId)
@@ -30,7 +39,7 @@ export const markRead = async (req, res) => {
   if (!userId) return res.status(401).json({ error: "Login required" });
 
   try {
-    await supabase
+    await req.db
       .from("notifications")
       .update({ is_read: true })
       .eq("id", req.params.id)
@@ -48,7 +57,7 @@ export const markAllRead = async (req, res) => {
   if (!userId) return res.status(401).json({ error: "Login required" });
 
   try {
-    await supabase
+    await req.db
       .from("notifications")
       .update({ is_read: true })
       .eq("user_id", userId)
@@ -66,7 +75,7 @@ export const clearAll = async (req, res) => {
   if (!userId) return res.status(401).json({ error: "Login required" });
 
   try {
-    await supabase.from("notifications").delete().eq("user_id", userId);
+    await req.db.from("notifications").delete().eq("user_id", userId);
     return res.json({ success: true });
   } catch {
     return res.status(500).json({ error: "Failed" });
@@ -77,11 +86,40 @@ export const clearAll = async (req, res) => {
    Three delivery channels all fire together:
      1. DB row (persisted for the notifications page / bell)
      2. Socket.IO event (real-time in-page toast while the user is browsing)
-     3. Web Push (service-worker notification, including when the app is closed) */
-export const sendNotification = async ({ userIds, title, body, type = "info", link = null }) => {
+     3. Web Push (service-worker notification, including when the app is closed)
+
+   `orgId` is the org the notification BELONGS to (notifications.org_id
+   is NOT NULL after migration 14). The right value is the recipient's
+   org, not the actor's — so:
+     - If you have it on hand (most callers do — they're in a request
+       handler with req.orgId in scope), pass `orgId: req.orgId`. One
+       trip to the DB saved.
+     - If you don't (e.g. background helpers like checkEventAchievements
+       which only know a userId), omit it and we'll look it up from
+       the first recipient's students row. Adds one query — fine for
+       the rare deeply-nested call path. */
+export const sendNotification = async ({ userIds, orgId, title, body, type = "info", link = null }) => {
   if (!userIds?.length) return;
+
+  // Resolve org if caller didn't pass one. Use the FIRST recipient's
+  // org. Assumes userIds belong to the same org — true for every
+  // current call site (notifications fan out within an org, never
+  // across).
+  let resolvedOrgId = orgId;
+  if (!resolvedOrgId) {
+    const { data: s } = await supabase
+      .from("students").select("org_id").eq("user_id", userIds[0]).maybeSingle();
+    resolvedOrgId = s?.org_id;
+    if (!resolvedOrgId) {
+      console.error("[Notif] could not resolve org_id for recipient", userIds[0]);
+      return;
+    }
+  }
+
   try {
-    const rows = userIds.map(uid => ({ user_id: uid, title, body, type, link, is_read: false }));
+    const rows = userIds.map(uid => ({
+      user_id: uid, org_id: resolvedOrgId, title, body, type, link, is_read: false,
+    }));
     const { data: inserted } = await supabase.from("notifications").insert(rows).select();
 
     // 2. Real-time socket fan-out (for live in-app toasts)
@@ -104,7 +142,7 @@ export const sendNotification = async ({ userIds, title, body, type = "info", li
       sendWebPush(targetUserId, { title, body, link });
     });
   } catch (err) {
-    console.error("[Notif] send error:", err.message);
+    logger.error({ err: err }, "Notif send error");
   }
 };
 
@@ -131,12 +169,12 @@ export const subscribePush = async (req, res) => {
     }, { onConflict: "endpoint" });
 
     if (error) {
-      console.error("[Push] subscribe error:", error.message);
+      logger.error({ err: error }, "Push subscribe error");
       return res.status(500).json({ error: "Failed to save subscription" });
     }
     return res.json({ success: true });
   } catch (err) {
-    console.error("[Push] subscribe exception:", err.message);
+    logger.error({ err: err }, "Push subscribe exception");
     return res.status(500).json({ error: "Failed" });
   }
 };
@@ -164,7 +202,10 @@ export const broadcastNotification = async (req, res) => {
   if (!title || !body) return res.status(400).json({ error: "title and body required" });
 
   try {
-    const { data: students } = await supabase
+    // Scoped to caller's org — was previously broadcasting across every
+    // org's students. Notification rows are inserted via req.db too, so
+    // org_id is auto-stomped by the Proxy (no manual field needed).
+    const { data: students } = await req.db
       .from("students")
       .select("user_id")
       .eq("role", "student");
@@ -174,7 +215,7 @@ export const broadcastNotification = async (req, res) => {
     }));
 
     if (rows.length) {
-      const { data: inserted } = await supabase.from("notifications").insert(rows).select();
+      const { data: inserted } = await req.db.from("notifications").insert(rows).select();
       // Push real-time socket events + web push (same three channels as sendNotification)
       (inserted || rows).forEach(row => {
         const payload = {

@@ -1,0 +1,30 @@
+#!/usr/bin/env sh
+# ──────────────────────────────────────────────────────────────
+# Pre-commit gate.
+#
+# Runs locally before every commit. CI already enforces lint +
+# test:coverage on push/PR — but "push → wait 3 min → see failure
+# → fix → repush" is a bad feedback loop. This catches the same
+# issues in ~3 seconds on the dev machine so CI is reserved for
+# what only CI can check (fresh install, real Node version, etc.).
+#
+# Uses the SAME commands CI runs, so there's no drift between
+# "passes locally" and "passes CI".
+#
+# Skip safely (for emergency commits) with:  git commit --no-verify
+# Don't make that routine — the whole point is to catch regressions
+# before they become review noise.
+# ──────────────────────────────────────────────────────────────
+
+set -e
+
+echo "[pre-commit] lint"
+npm run lint --silent
+
+echo "[pre-commit] typecheck"
+npm run typecheck --silent
+
+echo "[pre-commit] test + coverage gate"
+npm run test:coverage --silent
+
+echo "[pre-commit] ok"

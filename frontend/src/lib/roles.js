@@ -1,5 +1,10 @@
+// @ts-check
+
 /**
  * Role utilities — single source of truth for role-based routing.
+ *
+ * @typedef {"student"|"teacher"|"admin"|"super_admin"} Role
+ * @typedef {{ id?: string, role?: Role }} UserLike
  */
 
 export const ROLES = Object.freeze({
@@ -12,6 +17,9 @@ export const ROLES = Object.freeze({
 /**
  * Returns the canonical dashboard path for a given role.
  * Used after login, unauthorized redirects, and role-based navigation.
+ *
+ * @param {Role | string | null | undefined} role
+ * @returns {string}
  */
 export function dashboardForRole(role) {
   switch (role) {
@@ -25,6 +33,10 @@ export function dashboardForRole(role) {
 
 /**
  * Returns true if the user's role is in the allowed list.
+ *
+ * @param {UserLike | null | undefined} user
+ * @param {readonly string[] | null | undefined} allowed
+ * @returns {boolean}
  */
 export function hasRole(user, allowed) {
   if (!user || !user.role) return false;

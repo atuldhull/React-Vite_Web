@@ -20,12 +20,24 @@ const PROJECT_ROOT = path.resolve(__dirname, "..");
 
 dotenv.config({ path: path.join(PROJECT_ROOT, ".env.local") });
 
+// Validate env BEFORE importing anything that uses it. validateEnv()
+// process.exit(1)s on missing required vars (with a clear message)
+// instead of letting Supabase produce cryptic errors at first DB hit.
+import { validateEnv } from "./config/env.js";
+const env = validateEnv();
+
+// Install uncaughtException / unhandledRejection handlers EARLY —
+// before we import anything else that might throw at module load —
+// so those failures land in pino instead of a bare stderr stack.
+import { installCrashHandlers } from "./config/crash.js";
+installCrashHandlers();
+
 import http from "http";
 import { Server } from "socket.io";
 import { createApp }    from "./app.js";
 import { attachSocket } from "./socket/index.js";
 
-const isProd = process.env.NODE_ENV === "production";
+const isProd = env.isProd;
 const app    = createApp();
 const server = http.createServer(app);
 
@@ -48,16 +60,18 @@ const io = new Server(server, {
 attachSocket(io);
 
 /* ── START ── */
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
+server.listen(env.port, () => {
+  // Service Role is guaranteed set at this point — validateEnv would have
+  // exited otherwise — so the line below is informational, not a check.
   console.log(`
 ┌─────────────────────────────────────────┐
 │   \u2726  MATH COLLECTIVE \u2014 SERVER LIVE  \u2726   │
 ├─────────────────────────────────────────┤
-│  \u{1F310}  http://localhost:${PORT}               │
-│  \u{1F511}  Service Role: ${process.env.SUPABASE_SERVICE_ROLE_KEY ? '\u2705 Set' : '\u274C MISSING'}           │
+│  \u{1F310}  http://localhost:${env.port}               │
+│  \u{1F511}  Service Role: \u2705 Set           │
 │  \u26A1  Live Quiz (Socket.io): ACTIVE      │
 │  \u{1F3DB}\uFE0F  Multi-Tenant: ACTIVE              │
+│  \u2728  Features on: ${String(env.enabledFeatures.length).padEnd(2)} | off: ${String(env.disabledFeatures.length).padEnd(2)}      │
 └─────────────────────────────────────────┘
   `);
 });

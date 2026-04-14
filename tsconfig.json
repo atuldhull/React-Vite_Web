@@ -1,0 +1,39 @@
+{
+  "//comments-1": "TypeScript config used ONLY for type-checking — no compilation, no emit. The codebase stays .js / .jsx; we layer types via JSDoc + ambient .d.ts files so adoption is incremental and there are no .ts -> .js rewrites to coordinate.",
+  "//comments-2": "checkJs:true makes tsc analyse .js files when they carry `// @ts-check` at the top (or via the per-file pragma). Files WITHOUT @ts-check are ignored. This is how we opt files in one at a time without breaking the build the moment a single .js file has a type issue.",
+  "//comments-3": "include is intentionally narrow — type-checking the entire codebase day one would surface 1000s of errors and bury the signal. Each new file in a future PR adds itself here when it adopts @ts-check.",
+
+  "compilerOptions": {
+    "target":            "ES2022",
+    "module":            "ESNext",
+    "moduleResolution":  "Bundler",
+    "esModuleInterop":   true,
+    "allowJs":           true,
+    "checkJs":           true,
+    "noEmit":            true,
+    "strict":            true,
+    "skipLibCheck":      true,
+    "resolveJsonModule": true,
+    "jsx":               "preserve",
+    "lib":               ["ES2022", "DOM", "DOM.Iterable"],
+    "types":             ["node", "express", "express-session"],
+    "paths": {
+      "@/*": ["./frontend/src/*"]
+    }
+  },
+
+  "include": [
+    "backend/types.d.ts",
+    "backend/lib/asyncHandler.js",
+    "frontend/src/lib/api-types.d.ts",
+    "frontend/src/lib/cn.js",
+    "frontend/src/lib/roles.js"
+  ],
+  "exclude": [
+    "node_modules",
+    "public",
+    "test-results",
+    "coverage",
+    "tests"
+  ]
+}

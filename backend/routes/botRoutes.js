@@ -1,10 +1,14 @@
 import express from "express";
 import axios   from "axios";
 import { requireAuth } from "../middleware/authMiddleware.js";
+import { aiLimiter } from "../middleware/rateLimiter.js";
+import { logger } from "../config/logger.js";
 
 const router = express.Router();
 
-router.post("/chat", requireAuth, async (req, res) => {
+// aiLimiter: ΣBot chat hits OpenRouter on every message — 20/hr per
+// user prevents a runaway client loop from draining the API budget.
+router.post("/chat", requireAuth, aiLimiter, async (req, res) => {
   const { messages, challengeContext } = req.body;
 
   if (!messages || !Array.isArray(messages)) {
@@ -118,7 +122,7 @@ Off-topic questions: respond with dramatic refusal + redirect to math.` + challe
     return res.json({ reply });
 
   } catch (err) {
-    console.error("[ΣBot] Error:", err.message);
+    logger.error({ err: err }, "ΣBot Error");
     return res.status(500).json({ error: "AI is on a coffee break ☕ try again shortly." });
   }
 });

@@ -1,5 +1,24 @@
 import archiver from "archiver";
-import supabase  from "../../config/supabase.js";
+
+// Tenant scoping: every TENANT-table query uses req.db.from(...).
+// For an org admin that means the export contains ONLY their org's
+// rows (students, challenges, arena_attempts, events, notifications).
+// Previously the export streamed the entire database across every
+// org — a single org admin could exfiltrate every other customer's
+// student list and answers. Super_admin (no impersonation) still
+// dumps platform-wide because the Proxy returns the raw client.
+//
+// Tables NOT in TENANT_TABLES (event_registrations / event_attendance
+// / event_leaderboard / achievements / user_achievements / friendships)
+// stay on a fallback raw-supabase import below. They're transitively
+// scoped via event_id (events are now org-scoped, so an org admin
+// only sees registrations to their own events) but the ABSOLUTE row
+// count exported still includes every org's row. That's a known gap
+// — adding these tables to TENANT_TABLES is a follow-up worth doing
+// but out of scope for this batch (it requires an org_id column on
+// each, plus backfill — see migration 14 for the pattern).
+import supabase from "../../config/supabase.js";
+import { logger } from "../../config/logger.js";
 
 /* ═══════════════════════════════════════════════════════════════
    EXPORT ALL DATA — ZIP with CSV files
@@ -45,16 +64,20 @@ export const exportAllData = async (req, res) => {
       achievementsDef, userAchievements,
       notifications, friendships,
     ] = await Promise.all([
-      supabase.from("students").select("user_id, name, email, role, xp, weekly_xp, title, department, subject, bio, created_at").then(r => r.data || []),
-      supabase.from("challenges").select("id, title, difficulty, points, is_active, created_at").then(r => r.data || []),
-      supabase.from("arena_attempts").select("user_id, challenge_id, selected_index, correct, xp_earned, created_at").then(r => r.data || []),
-      supabase.from("events").select("id, title, event_type, date, starts_at, ends_at, location, organiser, capacity, xp_reward, registration_open, is_active, created_at").then(r => r.data || []),
+      // ── tenant tables (scoped via req.db; the Proxy filters to req.orgId) ──
+      req.db.from("students").select("user_id, name, email, role, xp, weekly_xp, title, department, subject, bio, created_at").then(r => r.data || []),
+      req.db.from("challenges").select("id, title, difficulty, points, is_active, created_at").then(r => r.data || []),
+      req.db.from("arena_attempts").select("user_id, challenge_id, selected_index, correct, xp_earned, created_at").then(r => r.data || []),
+      req.db.from("events").select("id, title, event_type, date, starts_at, ends_at, location, organiser, capacity, xp_reward, registration_open, is_active, created_at").then(r => r.data || []),
+      // ── non-tenant tables (see header comment re: the cross-org gap they leave) ──
       supabase.from("event_registrations").select("id, event_id, user_id, status, registered_at, cancelled_at, checked_in_at, team_name").then(r => r.data || []).catch(() => []),
       supabase.from("event_attendance").select("id, event_id, user_id, checkin_method, checkin_time, xp_awarded, session_label").then(r => r.data || []).catch(() => []),
       supabase.from("event_leaderboard").select("id, event_id, user_id, score, rank, team_name, judged_at").then(r => r.data || []).catch(() => []),
       supabase.from("achievements").select("id, slug, title, category, criteria_type, criteria_value, xp_reward, rarity").then(r => r.data || []).catch(() => []),
       supabase.from("user_achievements").select("id, user_id, achievement_id, event_id, unlocked_at, xp_awarded").then(r => r.data || []).catch(() => []),
-      supabase.from("notifications").select("id, user_id, title, body, type, is_read, link, created_at").then(r => r.data || []).catch(() => []),
+      // notifications IS tenant — kept in its original slot (slot 10) so the
+      // destructuring above still aligns; the req.db scoping is what matters.
+      req.db.from("notifications").select("id, user_id, title, body, type, is_read, link, created_at").then(r => r.data || []).catch(() => []),
       supabase.from("friendships").select("id, requester_id, recipient_id, status, created_at").then(r => r.data || []).catch(() => []),
     ]);
 
@@ -99,7 +122,7 @@ export const exportAllData = async (req, res) => {
 
     await archive.finalize();
   } catch (err) {
-    console.error("[Export]", err.message);
+    logger.error({ err: err }, "Export");
     if (!res.headersSent) {
       return res.status(500).json({ error: "Export failed: " + err.message });
     }

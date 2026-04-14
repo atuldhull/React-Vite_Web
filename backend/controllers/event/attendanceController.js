@@ -4,6 +4,7 @@
 
 import supabase from "../../config/supabase.js";
 import { checkEventAchievements } from "./achievementController.js";
+import { logger } from "../../config/logger.js";
 
 /* POST /api/events/:id/checkin — student checks in with code */
 export const checkinEvent = async (req, res) => {
@@ -13,7 +14,7 @@ export const checkinEvent = async (req, res) => {
 
   try {
     // 1. Validate event
-    const { data: event } = await supabase
+    const { data: event } = await req.db
       .from("events").select("*").eq("id", eventId).maybeSingle();
     if (!event) return res.status(404).json({ error: "Event not found" });
 
@@ -67,10 +68,10 @@ export const checkinEvent = async (req, res) => {
 
     // 7. Award XP
     if (xpToAward > 0) {
-      const { data: student } = await supabase
+      const { data: student } = await req.db
         .from("students").select("xp, weekly_xp").eq("user_id", userId).maybeSingle();
       if (student) {
-        await supabase.from("students").update({
+        await req.db.from("students").update({
           xp: (student.xp || 0) + xpToAward,
           weekly_xp: (student.weekly_xp || 0) + xpToAward,
         }).eq("user_id", userId);
@@ -82,7 +83,7 @@ export const checkinEvent = async (req, res) => {
 
     return res.json({ success: true, attendance, xp_awarded: xpToAward });
   } catch (err) {
-    console.error("[Checkin]", err.message);
+    logger.error({ err: err }, "Checkin");
     return res.status(500).json({ error: "Check-in failed" });
   }
 };
@@ -93,7 +94,7 @@ export const manualCheckin = async (req, res) => {
   if (!user_id) return res.status(400).json({ error: "user_id required" });
 
   try {
-    const { data: event } = await supabase
+    const { data: event } = await req.db
       .from("events").select("xp_reward").eq("id", req.params.id).maybeSingle();
     if (!event) return res.status(404).json({ error: "Event not found" });
 
@@ -119,10 +120,10 @@ export const manualCheckin = async (req, res) => {
 
     // Award XP
     if (xp > 0) {
-      const { data: student } = await supabase
+      const { data: student } = await req.db
         .from("students").select("xp, weekly_xp").eq("user_id", user_id).maybeSingle();
       if (student) {
-        await supabase.from("students").update({
+        await req.db.from("students").update({
           xp: (student.xp || 0) + xp,
           weekly_xp: (student.weekly_xp || 0) + xp,
         }).eq("user_id", user_id);
@@ -175,7 +176,7 @@ export const scanQrCheckin = async (req, res) => {
       return res.status(409).json({ error: "Already checked in for this session", student: reg.students });
 
     // 3. Get event for XP
-    const { data: event } = await supabase
+    const { data: event } = await req.db
       .from("events").select("xp_reward, title").eq("id", eventId).maybeSingle();
     const xp = event?.xp_reward || 0;
 
@@ -197,10 +198,10 @@ export const scanQrCheckin = async (req, res) => {
 
     // 6. Award XP
     if (xp > 0) {
-      const { data: student } = await supabase
+      const { data: student } = await req.db
         .from("students").select("xp, weekly_xp").eq("user_id", reg.user_id).maybeSingle();
       if (student) {
-        await supabase.from("students").update({
+        await req.db.from("students").update({
           xp: (student.xp || 0) + xp,
           weekly_xp: (student.weekly_xp || 0) + xp,
         }).eq("user_id", reg.user_id);
@@ -217,7 +218,7 @@ export const scanQrCheckin = async (req, res) => {
       attendance,
     });
   } catch (err) {
-    console.error("[QR Scan]", err.message);
+    logger.error({ err: err }, "QR Scan");
     return res.status(500).json({ error: "Scan failed" });
   }
 };

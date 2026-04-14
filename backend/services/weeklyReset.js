@@ -8,6 +8,7 @@
  */
 
 import supabase from "../config/supabase.js";
+import { logger } from "../config/logger.js";
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000; // 7 days in ms
 
@@ -19,7 +20,7 @@ const WEEK_MS = 7 * 24 * 60 * 60 * 1000; // 7 days in ms
    4. Update week_start timestamps
 ───────────────────────────────────── */
 export async function performWeeklyReset() {
-  console.log("[WeeklyReset] Starting weekly reset...");
+  logger.info("WeeklyReset Starting weekly reset...");
 
   try {
     // 1. Find this week's winner — student with highest weekly_xp
@@ -60,10 +61,10 @@ export async function performWeeklyReset() {
           total_solved: totalSolved,
         });
 
-      if (insertErr) console.error("[WeeklyReset] Failed to save winner:", insertErr.message);
-      else console.log(`[WeeklyReset] ✓ Winner saved: ${winner.name} with ${winner.weekly_xp} XP`);
+      if (insertErr) logger.error({ err: insertErr }, "WeeklyReset Failed to save winner");
+      else logger.info({ winner: winner.name, weeklyXp: winner.weekly_xp }, "WeeklyReset: winner saved");
     } else {
-      console.log("[WeeklyReset] No XP earned this week — skipping winner record.");
+      logger.info("WeeklyReset No XP earned this week — skipping winner record.");
     }
 
     // 4. Reset weekly_xp for ALL students
@@ -74,11 +75,11 @@ export async function performWeeklyReset() {
 
     if (resetErr) throw new Error("Failed to reset weekly XP: " + resetErr.message);
 
-    console.log("[WeeklyReset] ✓ Weekly XP reset complete.");
+    logger.info("WeeklyReset ✓ Weekly XP reset complete.");
     return { success: true, winner };
 
   } catch (err) {
-    console.error("[WeeklyReset] Error:", err.message);
+    logger.error({ err: err }, "WeeklyReset Error");
     return { success: false, error: err.message };
   }
 }
@@ -98,7 +99,7 @@ export async function checkAndResetIfDue() {
       .maybeSingle();
 
     if (!data?.week_start) {
-      console.log("[WeeklyReset] No week_start found — initialising...");
+      logger.info("WeeklyReset No week_start found — initialising...");
       // First time setup — set week_start for all students to now
       await supabase
         .from("students")
@@ -111,14 +112,14 @@ export async function checkAndResetIfDue() {
     const now        = new Date();
     const daysSince  = (now - lastReset) / (1000 * 60 * 60 * 24);
 
-    console.log(`[WeeklyReset] Last reset: ${lastReset.toDateString()} (${daysSince.toFixed(1)} days ago)`);
+    logger.info({ lastReset: lastReset.toISOString(), daysSince: Number(daysSince.toFixed(1)) }, "WeeklyReset: last reset check");
 
     if (daysSince >= 7) {
-      console.log("[WeeklyReset] 7 days passed — triggering reset...");
+      logger.info("WeeklyReset 7 days passed — triggering reset...");
       await performWeeklyReset();
     }
   } catch (err) {
-    console.error("[WeeklyReset] Check error:", err.message);
+    logger.error({ err: err }, "WeeklyReset Check error");
   }
 }
 
@@ -128,7 +129,7 @@ export async function checkAndResetIfDue() {
    Call this once from server.js on startup.
 ───────────────────────────────────── */
 export function startWeeklyResetScheduler() {
-  console.log("[WeeklyReset] Scheduler started — checks every hour.");
+  logger.info("WeeklyReset Scheduler started — checks every hour.");
 
   // Check immediately on startup
   checkAndResetIfDue();

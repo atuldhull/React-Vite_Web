@@ -1,4 +1,21 @@
+// Tenant scoping: user-facing endpoints (getProfile, updateProfile,
+// getTestHistory, getUserStats) all use req.db.from(...). The Proxy
+// chains eq("org_id", req.orgId), so:
+//   - the "rank" computation in getUserStats now reflects the
+//     caller's standing within their own org (previously it ranked
+//     them against every student across every org)
+//   - test history is naturally scoped (tests belong to an org)
+//   - profile updates can't accidentally affect a same-email row in
+//     another org (org_id eq filter is added on top of user_id)
+//
+// `supabase` is still imported for two narrow uses:
+//   1. supabase.auth.* (sign-in, admin updateUserById) — auth ops
+//      are platform-wide, not tenant-scoped.
+//   2. syncTitle() helper — called without a request context (no
+//      req.db available); user_id alone is unique across orgs since
+//      it comes from auth.users.
 import supabase from "../config/supabase.js";
+import { logger } from "../config/logger.js";
 
 /* ── XP → Title mapping ── */
 export const XP_TITLES = [
@@ -42,7 +59,7 @@ export const getProfile = async (req, res) => {
   if (!userId) return res.status(401).json({ error: "Login required" });
 
   try {
-    const { data: student, error } = await supabase
+    const { data: student, error } = await req.db
       .from("students")
       .select("name, email, xp, title, role, bio, avatar_letter, avatar_emoji, avatar_color, avatar_config")
       .eq("user_id", userId)
@@ -92,7 +109,7 @@ export const updateProfile = async (req, res) => {
   if (req.body.avatar_config !== undefined) updates.avatar_config = req.body.avatar_config;
 
   try {
-    const { error } = await supabase.from("students").update(updates).eq("user_id", userId);
+    const { error } = await req.db.from("students").update(updates).eq("user_id", userId);
     if (error) return res.status(500).json({ error: error.message });
 
     // Update session name
@@ -110,7 +127,7 @@ export const getTestHistory = async (req, res) => {
   if (!userId) return res.status(401).json({ error: "Login required" });
 
   try {
-    const { data, error } = await supabase
+    const { data, error } = await req.db
       .from("test_attempts")
       .select(`
         id, score, max_score, submitted_at, started_at,
@@ -146,24 +163,26 @@ export const getUserStats = async (req, res) => {
   if (!userId) return res.status(401).json({ error: "Login required" });
 
   try {
-    const { data: student } = await supabase
+    const { data: student } = await req.db
       .from("students")
       .select("xp, title, role")   // ← FIXED: added role
       .eq("user_id", userId)
       .maybeSingle();
 
-    const { count: total } = await supabase
+    const { count: total } = await req.db
       .from("arena_attempts")
       .select("*", { count: "exact", head: true })
       .eq("user_id", userId);
 
-    const { count: correct } = await supabase
+    const { count: correct } = await req.db
       .from("arena_attempts")
       .select("*", { count: "exact", head: true })
       .eq("user_id", userId)
       .eq("correct", true);
 
-    const { count: above } = await supabase
+    // Rank within the caller's org. Was previously computed against
+    // every student in every org — now correctly per-org.
+    const { count: above } = await req.db
       .from("students")
       .select("*", { count: "exact", head: true })
       .gt("xp", student?.xp || 0);
@@ -175,7 +194,7 @@ export const getUserStats = async (req, res) => {
     // Auto-sync title based on current XP
     const correctTitle = getTitleForXP(xp);
     if (student && student.title !== correctTitle) {
-      await supabase.from("students").update({ title: correctTitle }).eq("user_id", userId);
+      await req.db.from("students").update({ title: correctTitle }).eq("user_id", userId);
     }
 
     return res.json({
@@ -189,7 +208,7 @@ export const getUserStats = async (req, res) => {
       role:      student?.role || "student",
     });
   } catch (err) {
-    console.error("[Stats]", err.message);
+    logger.error({ err: err }, "Stats");
     return res.status(500).json({ error: "Failed to fetch stats" });
   }
 };

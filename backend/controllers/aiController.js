@@ -10,6 +10,7 @@
 
 import axios   from "axios";
 import supabase from "../config/supabase.js";
+import { logger } from "../config/logger.js";
 
 const TOPICS = [
   "Matrices and Linear Algebra", "Differential Calculus", "Integral Calculus",
@@ -86,7 +87,7 @@ Return ONLY this JSON (no markdown, no extra text):
     if (aiData.correct_index < 0 || aiData.correct_index > 3) throw new Error("AI: correct_index out of range");
 
     // ── 4. Insert into Supabase ──
-    const { data, error } = await supabase
+    const { data, error } = await req.db
       .from("challenges")
       .insert({
         title:         aiData.title,
@@ -102,7 +103,7 @@ Return ONLY this JSON (no markdown, no extra text):
       .single();
 
     if (error) {
-      console.error("[AI] DB insert error:", error.message);
+      logger.error({ err: error }, "AI DB insert error");
       return res.status(500).json({ error: "DB insert failed: " + error.message, aiData });
     }
 
@@ -115,7 +116,7 @@ Return ONLY this JSON (no markdown, no extra text):
     });
 
   } catch (err) {
-    console.error("[AI] Error:", err.message);
+    logger.error({ err: err }, "AI Error");
     return res.status(500).json({ error: err.message });
   }
 };

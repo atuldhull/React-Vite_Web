@@ -165,19 +165,21 @@ export async function applyReferralCode(req, res) {
     // Referrer gets XP
     await supabase.rpc("increment_xp", { user_id_param: referrerId, xp_amount: REFERRER_XP })
       .catch(async () => {
-        // Fallback if RPC doesn't exist: manual update
-        const { data: referrer } = await supabase.from("students").select("xp").eq("user_id", referrerId).single();
+        // Fallback if RPC doesn't exist: manual update via req.db
+        // (Proxy scopes to caller's org; cross-org referrals would
+        // need explicit handling here — not a current scenario.)
+        const { data: referrer } = await req.db.from("students").select("xp").eq("user_id", referrerId).single();
         if (referrer) {
-          await supabase.from("students").update({ xp: (referrer.xp || 0) + REFERRER_XP }).eq("user_id", referrerId);
+          await req.db.from("students").update({ xp: (referrer.xp || 0) + REFERRER_XP }).eq("user_id", referrerId);
         }
       });
 
     // Referred user gets bonus XP
     await supabase.rpc("increment_xp", { user_id_param: referredId, xp_amount: REFERRED_XP })
       .catch(async () => {
-        const { data: referred } = await supabase.from("students").select("xp").eq("user_id", referredId).single();
+        const { data: referred } = await req.db.from("students").select("xp").eq("user_id", referredId).single();
         if (referred) {
-          await supabase.from("students").update({ xp: (referred.xp || 0) + REFERRED_XP }).eq("user_id", referredId);
+          await req.db.from("students").update({ xp: (referred.xp || 0) + REFERRED_XP }).eq("user_id", referredId);
         }
       });
 
@@ -188,8 +190,8 @@ export async function applyReferralCode(req, res) {
       await supabase.from("referral_limits").insert({ ip_address: ip, date: today, count: 1 });
     }
 
-    // ── Notify referrer ──
-    await supabase.from("notifications").insert({
+    // ── Notify referrer ──  Proxy auto-stomps org_id onto the row.
+    await req.db.from("notifications").insert({
       user_id: referrerId,
       title: "🎉 Referral Reward!",
       body: `Someone joined using your code! You earned ${REFERRER_XP} XP.`,
@@ -282,7 +284,7 @@ export async function getReferralLeaderboard(req, res) {
       .slice(0, 20);
 
     const userIds = sorted.map(([id]) => id);
-    const { data: profiles } = await supabase
+    const { data: profiles } = await req.db
       .from("students")
       .select("user_id, name, avatar_emoji, avatar_color, title")
       .in("user_id", userIds);
@@ -317,7 +319,7 @@ export async function validateCode(req, res) {
     if (!data) return res.json({ valid: false });
 
     // Get referrer name
-    const { data: profile } = await supabase
+    const { data: profile } = await req.db
       .from("students")
       .select("name")
       .eq("user_id", data.user_id)

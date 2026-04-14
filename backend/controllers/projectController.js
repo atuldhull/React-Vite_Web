@@ -1,9 +1,23 @@
 import supabase from "../config/supabase.js";
 
+// Tenant scoping: tenant-table access (projects, teams, project_votes,
+// students) goes through req.db.from(...), which is installed by
+// injectTenant on /api routes. The raw `supabase` import remains
+// because project_categories is a GLOBAL table per tenantMiddleware
+// (categories are platform-wide, not per-org).
+//
+// One caveat for getProjects/getCategories: these routes are public
+// (no requireAuth in registerRoutes.js). For an anonymous caller,
+// req.orgId is undefined and the Proxy falls through to an unscoped
+// query — same behaviour as before. That's acceptable in the current
+// single-org world; once a second org joins, "public project gallery
+// for org X" needs a different mechanism (subdomain, /:orgSlug path,
+// or query param) to set the viewing org context for unauth requests.
+
 /* GET ALL PROJECTS — GET /api/projects */
 export const getProjects = async (req, res) => {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await req.db
       .from("projects")
       .select(`*, teams(name, members, leader_id)`)
       .eq("is_approved", true)
@@ -31,12 +45,12 @@ export const getMyTeam = async (req, res) => {
   if (!userId) return res.status(401).json({ error: "Login required" });
   try {
     // Check if user is in any team
-    const { data: teams } = await supabase.from("teams").select("*");
+    const { data: teams } = await req.db.from("teams").select("*");
     const myTeam = (teams || []).find(t => t.members?.includes(userId) || t.leader_id === userId);
     if (!myTeam) return res.json({ team: null });
 
     // Get their project
-    const { data: project } = await supabase
+    const { data: project } = await req.db
       .from("projects").select("*").eq("team_id", myTeam.id).maybeSingle();
 
     return res.json({ team: myTeam, project: project || null });
@@ -59,14 +73,15 @@ export const createTeam = async (req, res) => {
     let memberIds = [userId];
 
     if (emails.length) {
-      const { data: members } = await supabase.from("students").select("user_id, email").in("email", emails);
+      const { data: members } = await req.db.from("students").select("user_id, email").in("email", emails);
       memberIds = [userId, ...(members || []).map(m => m.user_id)];
     }
 
     if (memberIds.length < 3) return res.status(400).json({ error: "Minimum 3 members required" });
     if (memberIds.length > 6) return res.status(400).json({ error: "Maximum 6 members allowed" });
 
-    const { data, error } = await supabase.from("teams").insert({
+    // Proxy auto-injects org_id onto the teams insert.
+    const { data, error } = await req.db.from("teams").insert({
       name, members: memberIds, leader_id: userId,
     }).select().single();
 
@@ -88,17 +103,19 @@ export const submitProject = async (req, res) => {
       return res.status(400).json({ error: "title, description, category, teamId required" });
     }
 
-    // Verify user is in this team
-    const { data: team } = await supabase.from("teams").select("*").eq("id", teamId).maybeSingle();
+    // Verify user is in this team. The Proxy's org_id filter
+    // additionally blocks anyone trying to submit against a team
+    // belonging to another org by guessing its ID.
+    const { data: team } = await req.db.from("teams").select("*").eq("id", teamId).maybeSingle();
     if (!team || (!team.members?.includes(userId) && team.leader_id !== userId)) {
       return res.status(403).json({ error: "You must be in this team to submit" });
     }
 
     // Check no existing project for this team
-    const { data: existing } = await supabase.from("projects").select("id").eq("team_id", teamId).maybeSingle();
+    const { data: existing } = await req.db.from("projects").select("id").eq("team_id", teamId).maybeSingle();
     if (existing) return res.status(400).json({ error: "This team already has a project" });
 
-    const { data, error } = await supabase.from("projects").insert({
+    const { data, error } = await req.db.from("projects").insert({
       team_id: teamId, title, description, category,
       github_url: github_url || null, demo_url: demo_url || null,
       is_approved: false,  // teacher must approve
@@ -122,25 +139,30 @@ export const voteProject = async (req, res) => {
     const voteType   = (userRole === 'teacher' || userRole === 'admin') ? 'teacher' : 'student';
 
     // Check already voted
-    const { data: existing } = await supabase
+    const { data: existing } = await req.db
       .from("project_votes").select("id")
       .eq("project_id", projectId).eq("user_id", userId).maybeSingle();
     if (existing) return res.status(400).json({ error: "Already voted for this project" });
 
-    // Can't vote for own team's project
-    const { data: project } = await supabase.from("projects").select("team_id").eq("id", projectId).maybeSingle();
-    const { data: myTeam }  = await supabase.from("teams").select("id").eq("leader_id", userId).maybeSingle();
-    if (myTeam && project?.team_id === myTeam.id) {
+    // Can't vote for own team's project. The Proxy ensures both
+    // lookups are scoped to req.orgId — a vote attempt against
+    // another org's project resolves project=null and falls through
+    // to the insert, which in turn fails because project_votes.org_id
+    // wouldn't match anything meaningful. Cleaner: bail early.
+    const { data: project } = await req.db.from("projects").select("team_id").eq("id", projectId).maybeSingle();
+    if (!project) return res.status(404).json({ error: "Project not found" });
+    const { data: myTeam }  = await req.db.from("teams").select("id").eq("leader_id", userId).maybeSingle();
+    if (myTeam && project.team_id === myTeam.id) {
       return res.status(400).json({ error: "Cannot vote for your own team's project" });
     }
 
-    // Record vote
-    await supabase.from("project_votes").insert({ project_id: projectId, user_id: userId, vote_type: voteType });
+    // Record vote — Proxy auto-injects org_id.
+    await req.db.from("project_votes").insert({ project_id: projectId, user_id: userId, vote_type: voteType });
 
     // Update vote count
     const field = voteType === 'teacher' ? 'teacher_votes' : 'student_votes';
-    const { data: proj } = await supabase.from("projects").select(field).eq("id", projectId).maybeSingle();
-    await supabase.from("projects").update({ [field]: (proj?.[field] || 0) + 1 }).eq("id", projectId);
+    const { data: proj } = await req.db.from("projects").select(field).eq("id", projectId).maybeSingle();
+    await req.db.from("projects").update({ [field]: (proj?.[field] || 0) + 1 }).eq("id", projectId);
 
     return res.json({ success: true, voteType });
   } catch {
@@ -151,7 +173,9 @@ export const voteProject = async (req, res) => {
 /* APPROVE PROJECT (teacher/admin) — PATCH /api/projects/:id/approve */
 export const approveProject = async (req, res) => {
   try {
-    const { error } = await supabase.from("projects").update({ is_approved: true }).eq("id", req.params.id);
+    // Proxy adds eq("org_id", req.orgId): a teacher in org A cannot
+    // approve org B's project even by guessing the URL.
+    const { error } = await req.db.from("projects").update({ is_approved: true }).eq("id", req.params.id);
     if (error) return res.status(500).json({ error: error.message });
     return res.json({ success: true });
   } catch {
@@ -162,7 +186,7 @@ export const approveProject = async (req, res) => {
 /* GET PENDING PROJECTS (teacher/admin) — GET /api/projects/pending */
 export const getPendingProjects = async (req, res) => {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await req.db
       .from("projects").select(`*, teams(name)`)
       .eq("is_approved", false).order("created_at", { ascending: false });
     if (error) return res.status(500).json({ error: error.message });

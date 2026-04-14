@@ -9,6 +9,7 @@
  */
 
 import supabase from "../config/supabase.js";
+import { logger } from "../config/logger.js";
 
 /* ─────────────────────────────────────
    HELPERS
@@ -215,7 +216,7 @@ export const checkFeatureFlag = (featureName) => async (req, res, next) => {
 
     next();
   } catch (err) {
-    console.error("[checkFeatureFlag]", err.message);
+    logger.error({ err: err }, "checkFeatureFlag");
     return res.status(500).json({ error: "Feature check failed" });
   }
 };

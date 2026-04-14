@@ -5,3 +5,13 @@ node_modules/
 .DS_Store
 dist/
 .claude/
+coverage/
+
+# Playwright
+test-results/
+playwright-report/
+playwright/.cache/
+
+# Project notes / runbooks / API spec — kept locally only,
+# not for public consumption.
+docs/

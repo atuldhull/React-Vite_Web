@@ -1,4 +1,5 @@
 import supabase from "../../config/supabase.js";
+import { logger } from "../../config/logger.js";
 
 /* ═══════════════════════════════════════════
    USERS — Get all students
@@ -10,7 +11,7 @@ export const getAllUsers = async (req, res) => {
     const limit = Math.min(100, Number(req.query.limit) || 50);
     const from  = (page - 1) * limit;
 
-    const { data, count, error } = await supabase
+    const { data, count, error } = await req.db
       .from("students")
       .select("id, user_id, name, email, xp, title, role, department, subject, created_at", { count: "exact" })
       .order("created_at", { ascending: false })
@@ -54,7 +55,7 @@ export const createUser = async (req, res) => {
     const userId = authData.user.id;
 
     // Upsert into students table
-    const { error: dbError } = await supabase
+    const { error: dbError } = await req.db
       .from("students")
       .upsert({
         user_id:    userId,
@@ -68,7 +69,7 @@ export const createUser = async (req, res) => {
       }, { onConflict: "email" });
 
     if (dbError) {
-      console.error("[CreateUser] Students insert error:", dbError.message);
+      logger.error({ err: dbError }, "CreateUser Students insert error");
       // User was created in Auth — partial failure
     }
 
@@ -78,7 +79,7 @@ export const createUser = async (req, res) => {
       userId,
     });
   } catch (err) {
-    console.error("[CreateUser] Error:", err.message);
+    logger.error({ err: err }, "CreateUser Error");
     return res.status(500).json({ error: "Failed to create user" });
   }
 };
@@ -120,7 +121,7 @@ export const updateUserRole = async (req, res) => {
       return res.status(400).json({ error: "Role must be 'student', 'teacher' or 'admin'" });
     }
 
-    const { error } = await supabase
+    const { error } = await req.db
       .from("students")
       .update({ role })
       .eq("user_id", userId);
@@ -141,7 +142,7 @@ export const deleteUser = async (req, res) => {
     const { userId } = req.params;
 
     // Delete from students table first
-    await supabase.from("students").delete().eq("user_id", userId);
+    await req.db.from("students").delete().eq("user_id", userId);
 
     // Delete from Supabase Auth
     const { error } = await supabase.auth.admin.deleteUser(userId);

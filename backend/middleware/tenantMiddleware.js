@@ -14,6 +14,7 @@
  */
 
 import supabase from "../config/supabase.js";
+import { logger } from "../config/logger.js";
 
 /* ─────────────────────────────────────────────────────
    Tables that MUST be org-scoped (org_id filter applied)
@@ -131,7 +132,7 @@ export const injectTenant = async (req, res, next) => {
           user_agent:  req.headers["user-agent"],
         });
       } catch (err) {
-        console.error("[Audit]", err.message);
+        logger.error({ err: err }, "Audit");
       }
     },
   };

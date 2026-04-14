@@ -14,20 +14,38 @@
 import { useState, useRef, useMemo, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { createAvatar } from "@dicebear/core";
-import * as avatarStyles from "@dicebear/collection";
+// Named imports of ONLY the 8 styles actually used. The previous
+// `import * as avatarStyles from "@dicebear/collection"` was a
+// namespace import — rollup can't tree-shake those because runtime
+// code could in theory access any key dynamically, so the bundler
+// has to include every ~30 style at build time (each with its own
+// SVG sprite logic). Switching to explicit named imports lets
+// tree-shaking drop the unused styles — significantly lighter
+// profile chunk, verified in the build output.
+import {
+  adventurer,
+  avataaars,
+  bigEars,
+  lorelei,
+  notionists,
+  openPeeps,
+  personas,
+  micah,
+} from "@dicebear/collection";
+
 // ═══════════════════════════════════════════════════════════
 // AVAILABLE STYLES
 // ═══════════════════════════════════════════════════════════
 
 const STYLES = [
-  { key: "adventurer", label: "Explorer", icon: "🧭", style: avatarStyles.adventurer },
-  { key: "avataaars", label: "Classic", icon: "👤", style: avatarStyles.avataaars },
-  { key: "bigEars", label: "Big Ears", icon: "👂", style: avatarStyles.bigEars },
-  { key: "lorelei", label: "Lorelei", icon: "🎨", style: avatarStyles.lorelei },
-  { key: "notionists", label: "Notion", icon: "✏️", style: avatarStyles.notionists },
-  { key: "openPeeps", label: "Peeps", icon: "🫂", style: avatarStyles.openPeeps },
-  { key: "personas", label: "Persona", icon: "🎭", style: avatarStyles.personas },
-  { key: "micah", label: "Micah", icon: "🌈", style: avatarStyles.micah },
+  { key: "adventurer", label: "Explorer", icon: "🧭", style: adventurer },
+  { key: "avataaars",  label: "Classic",  icon: "👤", style: avataaars },
+  { key: "bigEars",    label: "Big Ears", icon: "👂", style: bigEars },
+  { key: "lorelei",    label: "Lorelei",  icon: "🎨", style: lorelei },
+  { key: "notionists", label: "Notion",   icon: "✏️", style: notionists },
+  { key: "openPeeps",  label: "Peeps",    icon: "🫂", style: openPeeps },
+  { key: "personas",   label: "Persona",  icon: "🎭", style: personas },
+  { key: "micah",      label: "Micah",    icon: "🌈", style: micah },
 ];
 
 // ═══════════════════════════════════════════════════════════

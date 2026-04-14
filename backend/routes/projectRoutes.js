@@ -5,18 +5,20 @@ import {
   approveProject, getPendingProjects, addCategory, deleteCategory,
 } from "../controllers/projectController.js";
 import { requireAuth, requireTeacher, requireAdmin } from "../middleware/authMiddleware.js";
+import { validateBody } from "../validators/common.js";
+import { createTeamSchema, submitProjectSchema, addCategorySchema } from "../validators/projects.js";
 
 const router = express.Router();
 
 router.get("/",                     getProjects);
 router.get("/categories",           getCategories);
 router.get("/my-team",              requireAuth,    getMyTeam);
-router.post("/teams",               requireAuth,    createTeam);
-router.post("/",                    requireAuth,    submitProject);
+router.post("/teams",               requireAuth,    validateBody(createTeamSchema),     createTeam);
+router.post("/",                    requireAuth,    validateBody(submitProjectSchema),  submitProject);
 router.post("/:id/vote",            requireAuth,    voteProject);
 router.patch("/:id/approve",        requireTeacher, approveProject);
 router.get("/pending",              requireTeacher, getPendingProjects);
-router.post("/categories",          requireTeacher, addCategory);
+router.post("/categories",          requireTeacher, validateBody(addCategorySchema),    addCategory);
 router.delete("/categories/:id",    requireAdmin,   deleteCategory);
 
 export default router;

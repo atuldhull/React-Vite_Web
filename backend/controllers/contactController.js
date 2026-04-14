@@ -1,9 +1,16 @@
 /**
  * CONTACT CONTROLLER
- * Sends contact form submissions to asymptotesbmsit@gmail.com
+ * Sends contact form submissions to asymptotesbmsit@gmail.com.
+ *
+ * Request-body validation lives in validators/contact.js (applied as
+ * an Express middleware on the route). By the time this controller
+ * runs, name/email/subject/message have already been trimmed, length-
+ * capped, and email-format-checked — the 400-noise that used to be
+ * the first 20 lines of this function is gone.
  */
 
 import nodemailer from "nodemailer";
+import { logger } from "../config/logger.js";
 
 // Escape HTML special characters to prevent injection in rendered emails
 function escapeHtml(s) {
@@ -14,11 +21,6 @@ function escapeHtml(s) {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
-}
-
-// Basic email format validation (don't embed unexpected content in mailto links)
-function isValidEmail(e) {
-  return typeof e === "string" && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e) && e.length < 320;
 }
 
 // Resolve arena URL from env, fall back sensibly
@@ -33,22 +35,6 @@ function arenaUrl() {
 ───────────────────────────────────── */
 export const sendContactMessage = async (req, res) => {
   const { name, email, subject, message } = req.body;
-
-  if (!email || !message) {
-    return res.status(400).json({ error: "Email and message are required." });
-  }
-  if (!isValidEmail(email)) {
-    return res.status(400).json({ error: "Invalid email format." });
-  }
-  if (typeof message !== "string" || message.length > 5000) {
-    return res.status(400).json({ error: "Message too long (max 5000 chars)." });
-  }
-  if (name && (typeof name !== "string" || name.length > 200)) {
-    return res.status(400).json({ error: "Name too long." });
-  }
-  if (subject && (typeof subject !== "string" || subject.length > 200)) {
-    return res.status(400).json({ error: "Subject too long." });
-  }
 
   // Escape all user input before embedding in HTML
   const safeName    = escapeHtml(name || "Anonymous");
@@ -148,11 +134,11 @@ export const sendContactMessage = async (req, res) => {
       `,
     });
 
-    console.log(`[Contact] \u2713 Message from ${email} sent successfully`);
+    logger.info({ email }, "Contact message sent successfully");
     return res.json({ success: true, message: "Message sent! We'll reply within 24 hours." });
 
   } catch (err) {
-    console.error("[Contact] Email error:", err.message);
+    logger.error({ err: err }, "Contact Email error");
     return res.status(500).json({ error: "Failed to send message. Please try again." });
   }
 };

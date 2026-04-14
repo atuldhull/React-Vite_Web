@@ -25,6 +25,10 @@ import {
   getBillingHistory,
   getPublicPlans,
 } from "../controllers/paymentController.js";
+import { validateBody } from "../validators/common.js";
+import { createOrderSchema, verifyPaymentSchema } from "../validators/payment.js";
+import { paymentLimiter } from "../middleware/rateLimiter.js";
+import { idempotencyMiddleware } from "../middleware/idempotency.js";
 
 const router = express.Router();
 
@@ -34,14 +38,26 @@ router.get("/plans", getPublicPlans);
 /* ── Webhook — req.body is parsed JSON from express.json(). The raw body
       bytes are preserved as req.rawBody (see server.js verify callback)
       so the handler can HMAC-verify the Razorpay signature against the
-      exact bytes Razorpay signed. ── */
+      exact bytes Razorpay signed.
+      NOT validated via Zod: Razorpay posts an event envelope we don't
+      control; the handler does its own shape-check + HMAC verification. ── */
 router.post("/webhook", razorpayWebhook);
 
 /* ── Org admin protected ── */
 router.use(requireAdmin, injectTenant);
 
-router.post("/create-order", createOrder);
-router.post("/verify",       verifyPayment);
+// paymentLimiter: caps at 10 attempts per 10 min per org — Razorpay
+// itself rate-limits on their side, but hitting that would stall every
+// admin in the org; better to catch a hot loop here first.
+//
+// idempotencyMiddleware on /create-order: clients can pass an
+// `Idempotency-Key` header so a network retry doesn't create a
+// SECOND Razorpay order + duplicate payment_history row. See
+// backend/middleware/idempotency.js for the contract; opt-in only —
+// callers that don't send the header keep the previous behaviour.
+router.post("/create-order", paymentLimiter, idempotencyMiddleware(),
+            validateBody(createOrderSchema), createOrder);
+router.post("/verify",       paymentLimiter, validateBody(verifyPaymentSchema), verifyPayment);
 router.get("/history",       getBillingHistory);
 
 export default router;

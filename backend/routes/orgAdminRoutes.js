@@ -8,6 +8,12 @@
 import express from "express";
 import { requireAdmin }  from "../middleware/authMiddleware.js";
 import { injectTenant }  from "../middleware/tenantMiddleware.js";
+import { validateBody }  from "../validators/common.js";
+import {
+  inviteUserSchema,
+  updateUserRoleSchema,
+  toggleOrgFeatureSchema,
+} from "../validators/admin.js";
 import {
   getOrgStats,
   listOrgUsers,
@@ -32,10 +38,10 @@ router.get("/analytics",  getOrgAnalytics);
 
 /* ── User Management ── */
 router.get("/users",                    listOrgUsers);
-router.patch("/users/:userId/role",     updateUserRole);
+router.patch("/users/:userId/role",     validateBody(updateUserRoleSchema), updateUserRole);
 router.post("/users/:userId/suspend",   setUserStatus(false));
 router.post("/users/:userId/activate",  setUserStatus(true));
-router.post("/invite",                  inviteUser);
+router.post("/invite",                  validateBody(inviteUserSchema),     inviteUser);
 
 /* ── Branding ── */
 router.get("/branding",   getBranding);
@@ -43,6 +49,6 @@ router.patch("/branding", updateBranding);
 
 /* ── Feature Management ── */
 router.get("/features",    getOrgFeatures);
-router.patch("/features",  toggleOrgFeature);
+router.patch("/features",  validateBody(toggleOrgFeatureSchema), toggleOrgFeature);
 
 export default router;

@@ -6,6 +6,7 @@ import { useMonument } from "@/hooks/useMonument";
 import Button from "@/components/ui/Button";
 import Loader from "@/components/ui/Loader";
 import { user } from "@/lib/api";
+import http from "@/lib/http";
 
 import ProfileInfoCard from "./profile/ProfileInfoCard";
 import ActivityStatsCard from "./profile/ActivityStatsCard";
@@ -120,7 +121,7 @@ export default function ProfilePage() {
       setSaving(true);
       const { data } = await user.updateProfile
         ? await user.updateProfile({ name: editName.trim(), bio: editBio.trim() })
-        : await (await import("@/lib/http")).default.patch("/user/profile", {
+        : await http.patch("/user/profile", {
             name: editName.trim(),
             bio: editBio.trim(),
           });
@@ -146,7 +147,6 @@ export default function ProfilePage() {
 
     try {
       setUploadingAvatar(true);
-      const http = (await import("@/lib/http")).default;
       const fd = new FormData();
       fd.append("avatar", file);
       const { data } = await http.patch("/user/profile", fd);
@@ -194,7 +194,6 @@ export default function ProfilePage() {
   /* ── avatar field callbacks ── */
   async function handleEmojiSelect(emoji) {
     try {
-      const http = (await import("@/lib/http")).default;
       await http.patch("/user/profile", { avatar_emoji: emoji });
       setProfile((prev) => ({ ...prev, avatar_emoji: emoji }));
     } catch { /* ignore */ }
@@ -202,7 +201,6 @@ export default function ProfilePage() {
 
   async function handleColorSelect(gradient) {
     try {
-      const http = (await import("@/lib/http")).default;
       await http.patch("/user/profile", { avatar_color: gradient });
       setProfile((prev) => ({ ...prev, avatar_color: gradient }));
     } catch { /* ignore */ }
@@ -210,7 +208,6 @@ export default function ProfilePage() {
 
   async function handleConfigChange(config) {
     try {
-      const http = (await import("@/lib/http")).default;
       await http.patch("/user/profile", { avatar_config: config });
       setProfile((prev) => ({ ...prev, avatar_config: config }));
     } catch { /* ignore */ }

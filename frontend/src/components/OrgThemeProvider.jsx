@@ -13,6 +13,7 @@
 
 import { useEffect, useState } from "react";
 import { useAuthStore } from "@/store/auth-store";
+import http from "@/lib/http";
 
 export default function OrgThemeProvider({ children }) {
   const user = useAuthStore((s) => s.user);
@@ -39,18 +40,16 @@ export default function OrgThemeProvider({ children }) {
   useEffect(() => {
     if (status !== "authenticated" || !user?.org_id) return;
 
-    import("@/lib/http").then(({ default: http }) => {
-      http.get("/org-admin/branding")
-        .then((res) => {
-          const data = res.data;
-          setBranding(data);
+    http.get("/org-admin/branding")
+      .then((res) => {
+        const data = res.data;
+        setBranding(data);
 
-          const root = document.documentElement;
-          if (data.primary_color) root.style.setProperty("--org-primary", data.primary_color);
-          if (data.secondary_color) root.style.setProperty("--org-secondary", data.secondary_color);
-        })
-        .catch(() => { /* not an org admin, or no branding — ignore */ });
-    });
+        const root = document.documentElement;
+        if (data.primary_color) root.style.setProperty("--org-primary", data.primary_color);
+        if (data.secondary_color) root.style.setProperty("--org-secondary", data.secondary_color);
+      })
+      .catch(() => { /* not an org admin, or no branding — ignore */ });
   }, [status, user?.org_id]);
 
   return children;

@@ -14,6 +14,7 @@ import crypto from "crypto";
 import supabase from "../../config/supabase.js";
 import { webhookSecret } from "./config.js";
 import { applyPlanUpgrade } from "./upgrade.js";
+import { logger } from "../../config/logger.js";
 
 const isProd = process.env.NODE_ENV === "production";
 
@@ -23,16 +24,16 @@ export const razorpayWebhook = async (req, res) => {
   // Signature verification — non-negotiable in production.
   if (!secret) {
     if (isProd) {
-      console.error("[Webhook] RAZORPAY_WEBHOOK_SECRET missing in production — rejecting");
+      logger.error("Webhook RAZORPAY_WEBHOOK_SECRET missing in production — rejecting");
       return res.status(503).json({ error: "Webhook not configured" });
     }
-    console.warn("[Webhook] RAZORPAY_WEBHOOK_SECRET not set — dev mode, skipping signature check");
+    logger.warn("Webhook RAZORPAY_WEBHOOK_SECRET not set — dev mode, skipping signature check");
   } else {
     // Use the raw request body as Razorpay signed it. Re-serializing
     // JSON is NOT safe (different key order/whitespace breaks the HMAC).
     const rawBody = req.rawBody;
     if (!rawBody || !Buffer.isBuffer(rawBody)) {
-      console.error("[Webhook] raw body missing — server.js not wired correctly");
+      logger.error("Webhook raw body missing — server.js not wired correctly");
       return res.status(500).json({ error: "Server misconfigured" });
     }
 
@@ -50,14 +51,14 @@ export const razorpayWebhook = async (req, res) => {
     }
 
     if (!ok) {
-      console.warn("[Webhook] Invalid signature");
+      logger.warn("Webhook Invalid signature");
       return res.status(400).json({ error: "Invalid webhook signature" });
     }
   }
 
   const event   = req.body?.event;
   const payload = req.body?.payload?.payment?.entity;
-  console.log(`[Webhook] event=${event}`);
+  logger.info({ event }, "Webhook received");
 
   try {
     if (event === "payment.captured" && payload?.order_id) {
@@ -80,8 +81,9 @@ export const razorpayWebhook = async (req, res) => {
       });
 
       if (!result.alreadyPaid) {
-        console.log(
-          `[Webhook] \u2713 org=${payment.org_id} upgraded to ${payment.plan_name}`,
+        logger.info(
+          { orgId: payment.org_id, plan: payment.plan_name },
+          "Webhook org plan upgraded"
         );
       }
     }
@@ -91,12 +93,12 @@ export const razorpayWebhook = async (req, res) => {
         .from("payment_history")
         .update({ status: "failed" })
         .eq("razorpay_order_id", payload.order_id);
-      console.log(`[Webhook] payment failed for order ${payload.order_id}`);
+      logger.warn({ orderId: payload.order_id }, "Webhook payment failed");
     }
 
     return res.json({ received: true });
   } catch (err) {
-    console.error("[Webhook] Error:", err.message);
+    logger.error({ err: err }, "Webhook Error");
     // Return 500 so Razorpay retries — don't swallow silently.
     return res.status(500).json({ error: err.message });
   }

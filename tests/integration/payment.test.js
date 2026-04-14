@@ -234,15 +234,34 @@ describe("POST /api/payment/verify", () => {
       plan_name: "pro", plan_id: "plan-pro", amount: 499, status: "created",
     });
 
+    // A plausibly-formatted (64-char hex) but wrong signature, so it
+    // passes the Zod format check (validators/payment.js) and reaches
+    // the controller's HMAC verification. The format-level rejection
+    // is covered by a separate test below.
     const res = await request(buildApp())
       .post("/api/payment/verify")
       .send({
         razorpay_order_id:   "order_test",
         razorpay_payment_id: "pay_xyz",
-        razorpay_signature:  "deadbeef",
+        razorpay_signature:  "a".repeat(64),
       });
     expect(res.status).toBe(400);
     expect(res.body.error).toMatch(/signature/i);
+  });
+
+  it("Zod rejects a malformed signature (not 64-char hex) with 400 before HMAC", async () => {
+    const res = await request(buildApp())
+      .post("/api/payment/verify")
+      .send({
+        razorpay_order_id:   "order_test",
+        razorpay_payment_id: "pay_xyz",
+        razorpay_signature:  "deadbeef",   // too short
+      });
+    expect(res.status).toBe(400);
+    // Zod's envelope differs from the controller's — check that the
+    // signature field is called out in `issues`, not the `error` string.
+    expect(res.body.error).toBe("Validation failed");
+    expect(res.body.issues?.some(i => i.path === "razorpay_signature")).toBe(true);
   });
 
   it("accepts a valid signature and upgrades the plan", async () => {
