@@ -23,8 +23,8 @@ const CertificatesPage   = lazy(() => import("@/features/student/pages/Certifica
 const ProjectsPage       = lazy(() => import("@/features/student/pages/ProjectsPage"));
 const NotificationsPage  = lazy(() => import("@/features/student/pages/NotificationsPage"));
 const ReferralPage       = lazy(() => import("@/features/student/pages/ReferralPage"));
-const StudentProfilePage = lazy(() => import("@/features/student/pages/StudentProfilePage"));
-// Phase 15 — rich public profile for /profile/:userId
+// Rich public profile for /profile/:userId — replaces the legacy
+// /student/:userId path which now just redirects here.
 const RichProfilePage    = lazy(() => import("@/features/profile/pages/RichProfilePage"));
 const BillingPage        = lazy(() => import("@/features/student/pages/BillingPage"));
 const LiveQuizPage       = lazy(() => import("@/features/student/pages/LiveQuizPage"));

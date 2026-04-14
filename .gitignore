@@ -15,3 +15,12 @@ playwright/.cache/
 # Project notes / runbooks / API spec — kept locally only,
 # not for public consumption.
 docs/
+
+# Internal development notes — same policy as docs/. These describe
+# the "how" + "history" + design rationale; not for public viewers
+# of the repo. Files stay on the local disk.
+/PROGRESS.md
+/PROJECT_BRIEF.md
+/PROJECT_CONFIG.md
+/PRODUCTION_CHECKLIST.md
+/VISUAL_THEME_SYSTEM.md
