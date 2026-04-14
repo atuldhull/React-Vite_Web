@@ -13,6 +13,7 @@ import challengeRoutes    from "./challengeRoutes.js";
 import leaderboardRoutes  from "./leaderboardRoutes.js";
 import arenaRoutes        from "./arenaRoutes.js";
 import userRoutes         from "./userRoutes.js";
+import userProfileRoutes  from "./userProfileRoutes.js";
 import eventRoutes        from "./eventRoutes.js";
 import teacherRoutes      from "./teacherRoutes.js";
 import quizRoutes         from "./quizRoutes.js";
@@ -45,6 +46,7 @@ export default function registerApiRoutes(app) {
   app.use("/api/leaderboard",   leaderboardRoutes);
   app.use("/api/arena",         arenaRoutes);
   app.use("/api/user",          userRoutes);
+  app.use("/api/users",         userProfileRoutes);
   app.use("/api/events",        eventRoutes);
   app.use("/api/contact",       contactLimiter, contactRoutes);
   app.use("/api/teacher",       teacherRoutes);
