@@ -48,13 +48,33 @@ export const registerForEvent = async (req, res) => {
     const isFull = event.capacity && (count || 0) >= event.capacity;
     const regStatus = isFull ? "waitlisted" : "registered";
 
+    // Paid events (migration 19): new registrations start at
+    // payment_status='pending' instead of 'not_required'. That makes
+    // the event UI show "submit your UPI ref" to the student and the
+    // admin reconciliation page pick up the row.
+    const initialPaymentStatus = event.is_paid ? "pending" : "not_required";
+
     // 4. Create or re-activate registration
     let registration;
     if (existing && existing.status === "cancelled") {
-      // Re-register (was cancelled before)
+      // Re-register (was cancelled before).
+      // On re-registration for a paid event, ALSO reset the payment
+      // fields — a prior rejection shouldn't taint the new attempt.
+      const update = {
+        status:          regStatus,
+        registered_at:   new Date().toISOString(),
+        cancelled_at:    null,
+        qr_token:        generateQrToken(),
+        payment_status:  initialPaymentStatus,
+        payment_ref:     null,
+        rejection_reason: null,
+        paid_at:         null,
+        marked_by:       null,
+        marked_at:       null,
+      };
       const { data, error } = await supabase
         .from("event_registrations")
-        .update({ status: regStatus, registered_at: new Date().toISOString(), cancelled_at: null, qr_token: generateQrToken() })
+        .update(update)
         .eq("id", existing.id).select().single();
       if (error) return res.status(500).json({ error: error.message });
       registration = data;
@@ -68,13 +88,20 @@ export const registerForEvent = async (req, res) => {
           team_name: req.body.team_name || null,
           notes: req.body.notes || null,
           qr_token: generateQrToken(),
+          payment_status: initialPaymentStatus,
+          org_id: event.org_id || null,
         }).select().single();
       if (error) return res.status(500).json({ error: error.message });
       registration = data;
     }
 
-    // 5. Award early bird XP (if applicable)
-    if (regStatus === "registered" && event.xp_bonus_first > 0) {
+    // 5. Award early bird XP (if applicable).
+    // For PAID events we skip the XP bonus until the payment is
+    // verified — otherwise a student could spam registrations to
+    // farm XP without actually paying. The bonus is re-applied in
+    // markPaid if the payment is later verified (future enhancement;
+    // for now the XP simply isn't awarded on unpaid events).
+    if (regStatus === "registered" && event.xp_bonus_first > 0 && !event.is_paid) {
       if ((count || 0) < EARLY_BIRD_THRESHOLD) {
         const { data: student } = await req.db
           .from("students").select("xp, weekly_xp").eq("user_id", userId).maybeSingle();

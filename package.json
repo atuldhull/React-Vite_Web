@@ -45,6 +45,7 @@
     "@react-three/fiber": "9.5.0",
     "@react-three/postprocessing": "3.0.4",
     "@react-three/rapier": "2.2.0",
+    "@sentry/node": "10.48.0",
     "@supabase/supabase-js": "2.99.1",
     "alea": "1.0.1",
     "archiver": "7.0.1",

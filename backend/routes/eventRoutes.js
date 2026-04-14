@@ -21,10 +21,13 @@ import {
   getEventLeaderboard, updateEventScore, publishEventResults,
   // Site settings
   getSiteSettings, updateSiteSetting,
+  // Paid-event reconciliation (migration 19)
+  submitPaymentRef, markPaid, rejectPayment, getPaymentsForEvent,
 } from "../controllers/event/index.js";
 import { requireAuth, requireAdmin, requireTeacher, checkFeatureFlag } from "../middleware/authMiddleware.js";
 import { validateBody } from "../validators/common.js";
 import { createEventSchema, updateEventSchema } from "../validators/events.js";
+import { submitPaymentSchema, markPaidSchema, rejectPaymentSchema } from "../validators/registrations.js";
 
 const router = express.Router();
 
@@ -58,5 +61,34 @@ router.get("/:id/attendance",         requireTeacher, getAttendance);
 router.get("/:id/leaderboard",        getEventLeaderboard);
 router.post("/:id/leaderboard",       requireTeacher, checkFeatureFlag("event_leaderboard"), updateEventScore);
 router.post("/:id/leaderboard/publish", requireAdmin, checkFeatureFlag("event_leaderboard"), publishEventResults);
+
+// ── Paid-event reconciliation (migration 19) ────────────
+// Student submits their UPI reference after paying.
+router.post(
+  "/:id/registrations/:regId/pay",
+  requireAuth,
+  validateBody(submitPaymentSchema),
+  submitPaymentRef,
+);
+// Admin/teacher lists payments for reconciliation.
+router.get(
+  "/:id/payments",
+  requireTeacher,
+  getPaymentsForEvent,
+);
+// Admin/teacher flips a submitted payment to paid.
+router.post(
+  "/:id/registrations/:regId/mark-paid",
+  requireTeacher,
+  validateBody(markPaidSchema),
+  markPaid,
+);
+// Admin/teacher rejects a submitted payment with a reason.
+router.post(
+  "/:id/registrations/:regId/reject",
+  requireTeacher,
+  validateBody(rejectPaymentSchema),
+  rejectPayment,
+);
 
 export default router;

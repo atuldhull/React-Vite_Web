@@ -69,6 +69,11 @@ export default function EventsPage() {
   const [showCheckin, setShowCheckin] = useState(null); // event id showing checkin input
   const [recs, setRecs] = useState([]);
   const [recPrefs, setRecPrefs] = useState(null);
+  // Paid-event payment submission state (migration 19).
+  // Keyed by event.id so multiple open payment forms on the page
+  // don't trample each other.
+  const [payRefInputs, setPayRefInputs] = useState({});
+  const [payLoading, setPayLoading] = useState(null);
 
   // Fetch events
   const fetchEvents = useCallback(async () => {
@@ -155,6 +160,32 @@ export default function EventsPage() {
       setActionResult({ eventId: event.id, type: "error", message: err.response?.data?.error || "Cancel failed" });
     } finally {
       setActionLoading(null);
+    }
+  };
+
+  // Paid-event: submit UPI transaction reference after paying.
+  const handleSubmitPayment = async (event) => {
+    const regId = event.user_registration?.id;
+    const ref = (payRefInputs[event.id] || "").trim();
+    if (!regId || !ref) return;
+    setPayLoading(event.id);
+    try {
+      await eventsApi.submitPayment(event.id, regId, ref);
+      setActionResult({
+        eventId: event.id,
+        type: "success",
+        message: "Payment reference submitted — an admin will verify shortly",
+      });
+      setPayRefInputs((s) => ({ ...s, [event.id]: "" }));
+      fetchEvents();
+    } catch (err) {
+      const issues = err.response?.data?.issues;
+      const msg = issues?.[0]?.message
+        || err.response?.data?.error
+        || "Submission failed";
+      setActionResult({ eventId: event.id, type: "error", message: msg });
+    } finally {
+      setPayLoading(null);
     }
   };
 
@@ -363,6 +394,27 @@ export default function EventsPage() {
                                 Attended ✓
                               </span>
                             )}
+                            {/* Paid-event badges (migration 19) */}
+                            {event.is_paid && event.price_paise > 0 && (
+                              <span className="rounded-full border border-secondary/25 bg-secondary/8 px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider text-secondary">
+                                ₹{(event.price_paise / 100).toFixed(0)}
+                              </span>
+                            )}
+                            {event.is_paid && isRegistered && event.user_registration?.payment_status === "paid" && (
+                              <span className="rounded-full border border-success/25 bg-success/8 px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider text-success">
+                                Paid ✓
+                              </span>
+                            )}
+                            {event.is_paid && isRegistered && event.user_registration?.payment_status === "submitted" && (
+                              <span className="rounded-full border border-secondary/25 bg-secondary/8 px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider text-secondary">
+                                Awaiting verification
+                              </span>
+                            )}
+                            {event.is_paid && isRegistered && event.user_registration?.payment_status === "rejected" && (
+                              <span className="rounded-full border border-danger/25 bg-danger/8 px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider text-danger">
+                                Payment rejected
+                              </span>
+                            )}
                           </div>
 
                           {/* Title */}
@@ -425,6 +477,75 @@ export default function EventsPage() {
                                 qrToken={event.user_registration.qr_token}
                                 eventTitle={event.title}
                               />
+                            </div>
+                          )}
+
+                          {/* Paid-event: payment panel (migration 19).
+                              Only shown to registered students whose
+                              payment isn't already verified. */}
+                          {event.is_paid && isRegistered && event.user_registration?.payment_status !== "paid" && event.user_registration?.payment_status !== "not_required" && (
+                            <div className="mt-4 rounded-xl border border-secondary/20 bg-secondary/[0.04] p-4">
+                              <div className="flex items-start justify-between gap-3 flex-wrap">
+                                <div>
+                                  <p className="font-mono text-[10px] uppercase tracking-wider text-secondary">Payment required</p>
+                                  <p className="mt-1 math-text text-xl font-bold text-white">
+                                    ₹{((event.price_paise || 0) / 100).toFixed(2)}
+                                  </p>
+                                </div>
+                                {event.payment_qr_base64 && (
+                                  <img
+                                    src={event.payment_qr_base64}
+                                    alt="Payment QR"
+                                    className="h-28 w-28 rounded-lg border border-line/15 bg-white p-1"
+                                  />
+                                )}
+                              </div>
+                              {event.payment_upi_id && (
+                                <p className="mt-2 font-mono text-[11px] text-text-muted">
+                                  UPI ID: <span className="select-all text-white">{event.payment_upi_id}</span>
+                                </p>
+                              )}
+                              {event.payment_instructions && (
+                                <p className="mt-2 text-[11px] leading-5 text-text-dim whitespace-pre-wrap">
+                                  {event.payment_instructions}
+                                </p>
+                              )}
+
+                              {/* Rejection reason — shown so the student knows why and how to retry. */}
+                              {event.user_registration?.payment_status === "rejected" && event.user_registration?.rejection_reason && (
+                                <p className="mt-2 rounded-lg border border-danger/25 bg-danger/[0.06] px-3 py-2 text-[11px] text-danger">
+                                  Previous attempt rejected: {event.user_registration.rejection_reason}
+                                </p>
+                              )}
+
+                              {/* Reference-submit form. Hidden once status='submitted' (admin reviewing). */}
+                              {event.user_registration?.payment_status !== "submitted" && (
+                                <div className="mt-3 flex flex-wrap items-center gap-2">
+                                  <input
+                                    type="text"
+                                    placeholder="UPI Ref / Transaction ID"
+                                    value={payRefInputs[event.id] || ""}
+                                    onChange={(e) => setPayRefInputs((s) => ({ ...s, [event.id]: e.target.value }))}
+                                    onKeyDown={(e) => e.key === "Enter" && handleSubmitPayment(event)}
+                                    className="flex-1 min-w-[180px] rounded-lg border border-line/15 bg-black/15 px-3 py-2 font-mono text-sm text-white outline-none focus:border-secondary/40"
+                                    maxLength={32}
+                                  />
+                                  <Button
+                                    size="sm"
+                                    variant="secondary"
+                                    onClick={() => handleSubmitPayment(event)}
+                                    loading={payLoading === event.id}
+                                    disabled={!((payRefInputs[event.id] || "").trim())}
+                                  >
+                                    {event.user_registration?.payment_status === "rejected" ? "Resubmit" : "I've paid"}
+                                  </Button>
+                                </div>
+                              )}
+                              {event.user_registration?.payment_status === "submitted" && (
+                                <p className="mt-3 font-mono text-[10px] text-text-dim">
+                                  Ref submitted: <span className="text-text-muted">{event.user_registration.payment_ref}</span> — an admin will verify shortly.
+                                </p>
+                              )}
                             </div>
                           )}
 

@@ -14,6 +14,14 @@ export { getEvents, getEvent, createEvent, updateEvent, deleteEvent, toggleRegis
 // Registration
 export { registerForEvent, cancelRegistration, getRegistrations } from "./registrationController.js";
 
+// Paid-event reconciliation (migration 19)
+export {
+  submitPaymentRef,
+  markPaid,
+  rejectPayment,
+  getPaymentsForEvent,
+} from "./paymentReconciliationController.js";
+
 // Attendance
 export { checkinEvent, manualCheckin, scanQrCheckin, getAttendance } from "./attendanceController.js";
 

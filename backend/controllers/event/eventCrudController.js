@@ -112,9 +112,23 @@ export const createEvent = async (req, res) => {
       capacity, venue_type, venue_link, xp_reward,
       xp_bonus_first, xp_bonus_winner, requires_checkin,
       starts_at, ends_at, cover_image_url,
+      // Paid-event fields (migration 19)
+      is_paid, price_paise, payment_upi_id, payment_qr_base64, payment_instructions,
     } = req.body;
 
     if (!title) return res.status(400).json({ error: "title required" });
+
+    // Paid event sanity: if is_paid=true, price_paise must be >0 and
+    // at least ONE of {upi_id, qr} must be set — otherwise the event
+    // page has no way for the student to actually pay.
+    if (is_paid === true) {
+      if (!price_paise || price_paise <= 0) {
+        return res.status(400).json({ error: "Paid events need a non-zero price_paise" });
+      }
+      if (!payment_upi_id && !payment_qr_base64) {
+        return res.status(400).json({ error: "Paid events need at least a payment_upi_id or a payment_qr_base64" });
+      }
+    }
 
     const { data, error } = await req.db.from("events").insert({
       title,
@@ -143,6 +157,12 @@ export const createEvent = async (req, res) => {
       ends_at:                ends_at                || null,
       created_by:             req.userId             || null,
       cover_image_url:        cover_image_url        || null,
+      // Paid-event fields
+      is_paid:                is_paid === true,
+      price_paise:            price_paise            || 0,
+      payment_upi_id:         payment_upi_id         || null,
+      payment_qr_base64:      payment_qr_base64      || null,
+      payment_instructions:   payment_instructions   || null,
     }).select().single();
 
     if (error) return res.status(500).json({ error: error.message });
@@ -181,10 +201,28 @@ export const updateEvent = async (req, res) => {
       "capacity", "venue_type", "venue_link", "xp_reward",
       "xp_bonus_first", "xp_bonus_winner", "requires_checkin",
       "checkin_code", "starts_at", "ends_at", "cover_image_url",
+      // Paid-event fields (migration 19). Allow unsetting by passing
+      // explicit null — that's how an admin flips a paid event back
+      // to free without losing the rest of the row.
+      "is_paid", "price_paise", "payment_upi_id",
+      "payment_qr_base64", "payment_instructions",
     ];
     const updates = {};
     for (const key of allowed) {
       if (req.body[key] !== undefined) updates[key] = req.body[key];
+    }
+
+    // Same paid-event sanity as createEvent, but only when the update
+    // sets is_paid=true. Partial updates that don't touch is_paid are
+    // unaffected.
+    if (updates.is_paid === true) {
+      const effectivePrice = updates.price_paise;
+      if (effectivePrice === undefined || effectivePrice === null || effectivePrice <= 0) {
+        return res.status(400).json({ error: "Paid events need a non-zero price_paise" });
+      }
+      if (updates.payment_upi_id === null && updates.payment_qr_base64 === null) {
+        return res.status(400).json({ error: "Paid events need at least a payment_upi_id or a payment_qr_base64" });
+      }
     }
 
     const { data, error } = await req.db.from("events")

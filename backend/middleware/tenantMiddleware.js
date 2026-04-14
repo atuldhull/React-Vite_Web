@@ -23,6 +23,7 @@ const TENANT_TABLES = new Set([
   "students",
   "challenges",
   "events",
+  "event_registrations",   // migration 19 — org_id backfilled from parent event
   "arena_attempts",
   "announcements",
   "notifications",

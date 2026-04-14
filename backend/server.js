@@ -32,6 +32,12 @@ const env = validateEnv();
 import { installCrashHandlers } from "./config/crash.js";
 installCrashHandlers();
 
+// Initialise Sentry BEFORE createApp() so module-load throws and
+// auto-instrumented HTTP spans are captured. No-ops when SENTRY_DSN
+// isn't set (feature-gated same pattern as Razorpay / VAPID).
+import { initSentry } from "./config/sentry.js";
+initSentry();
+
 import http from "http";
 import { Server } from "socket.io";
 import { createApp }    from "./app.js";

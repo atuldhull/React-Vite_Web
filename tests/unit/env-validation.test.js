@@ -213,10 +213,11 @@ describe("validateEnv — feature gates", () => {
     process.env.OPENROUTER_API_KEY   = "or-key";
     process.env.CONTACT_EMAIL        = "a@b.co";
     process.env.CONTACT_APP_PASSWORD = "p";
+    process.env.SENTRY_DSN           = "https://x@o.ingest.sentry.io/1";  // Phase 14 — Sentry gate
 
     const validateEnv = await loadValidator();
     const env = validateEnv();
-    expect(env.enabledFeatures.length).toBe(4);
+    expect(env.enabledFeatures.length).toBe(5);
     expect(env.disabledFeatures.length).toBe(0);
     expect(warnSpy).not.toHaveBeenCalled();
   });
@@ -249,10 +250,11 @@ describe("validateEnv — feature gates", () => {
     delete process.env.OPENROUTER_API_KEY;
     delete process.env.CONTACT_EMAIL;
     delete process.env.CONTACT_APP_PASSWORD;
+    delete process.env.SENTRY_DSN;
 
     const validateEnv = await loadValidator();
     const env = validateEnv();
-    expect(env.disabledFeatures.length).toBe(4);
+    expect(env.disabledFeatures.length).toBe(5);
     expect(exitSpy).not.toHaveBeenCalled();
   });
 });

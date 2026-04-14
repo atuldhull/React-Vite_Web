@@ -31,6 +31,12 @@ const EMPTY_FORM = {
   requires_checkin: false, checkin_code: "",
   starts_at: "", ends_at: "", cover_image_url: "",
   registration_deadline: "", banner_color: "#7c3aed",
+  // Paid-event fields (migration 19). price_rupees is a UI-only
+  // field; we convert to paise in the submit handler. Keeping it as
+  // rupees in the form matches how a teacher actually thinks about
+  // the fee.
+  is_paid: false, price_rupees: "", payment_upi_id: "",
+  payment_qr_base64: "", payment_instructions: "",
 };
 
 export default function AdminEventsPage() {
@@ -55,6 +61,11 @@ export default function AdminEventsPage() {
   const [healthData, setHealthData] = useState(null);
   const [healthLoading, setHealthLoading] = useState(false);
   const [adminInsights, setAdminInsights] = useState(null);
+  // Paid-event reconciliation panel (migration 19)
+  const [expandedPayments, setExpandedPayments] = useState(null);
+  const [paymentsData, setPaymentsData] = useState({ event: null, registrations: [] });
+  const [paymentsLoading, setPaymentsLoading] = useState(false);
+  const [reconcilingId, setReconcilingId] = useState(null);
 
   const fetchEvents = useCallback(() => {
     setLoading(true);
@@ -97,7 +108,19 @@ export default function AdminEventsPage() {
         starts_at: form.starts_at || form.date || null,
         ends_at: form.ends_at || null,
         registration_deadline: form.registration_deadline || null,
+        // Paid-event fields. Convert rupees → paise for the API.
+        // Empty strings become nulls so the validator's optional()
+        // branches are hit instead of failing on "" vs. UPI regex.
+        is_paid: !!form.is_paid,
+        price_paise: form.is_paid && form.price_rupees
+          ? Math.round(Number(form.price_rupees) * 100)
+          : 0,
+        payment_upi_id:       form.is_paid ? (form.payment_upi_id || null) : null,
+        payment_qr_base64:    form.is_paid ? (form.payment_qr_base64 || null) : null,
+        payment_instructions: form.is_paid ? (form.payment_instructions || null) : null,
       };
+      // strip the UI-only field before sending
+      delete payload.price_rupees;
       if (editId) {
         await eventsApi.update(editId, payload);
         showMsg("Event updated");
@@ -126,9 +149,83 @@ export default function AdminEventsPage() {
       cover_image_url: ev.cover_image_url || "",
       registration_deadline: ev.registration_deadline ? new Date(ev.registration_deadline).toISOString().slice(0, 16) : "",
       banner_color: ev.banner_color || "#7c3aed",
+      // Paid-event fields
+      is_paid: !!ev.is_paid,
+      price_rupees: ev.price_paise ? String(ev.price_paise / 100) : "",
+      payment_upi_id: ev.payment_upi_id || "",
+      payment_qr_base64: ev.payment_qr_base64 || "",
+      payment_instructions: ev.payment_instructions || "",
     });
     setEditId(ev.id); setShowForm(true);
     window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  // Convert an uploaded file (File object) to a data:URL string so
+  // the backend can store it inline. 200KB cap is enforced by the
+  // Zod validator server-side; we surface an early error client-side
+  // so the user doesn't upload then get rejected.
+  const handleQrFile = async (file) => {
+    if (!file) return;
+    if (file.size > 200 * 1024) {
+      showMsg("QR image too large — re-export at a lower resolution (target <50KB)");
+      return;
+    }
+    if (!/^image\/(png|jpe?g)$/.test(file.type)) {
+      showMsg("QR must be a PNG or JPEG image");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => setField("payment_qr_base64", reader.result);
+    reader.readAsDataURL(file);
+  };
+
+  const viewPayments = async (eventId) => {
+    if (expandedPayments === eventId) { setExpandedPayments(null); return; }
+    setExpandedPayments(eventId); setPaymentsLoading(true);
+    try {
+      const { data } = await eventsApi.listPayments(eventId);
+      setPaymentsData({ event: data.event, registrations: data.registrations || [] });
+    } catch {
+      setPaymentsData({ event: null, registrations: [] });
+    }
+    setPaymentsLoading(false);
+  };
+
+  const refreshPayments = async (eventId) => {
+    setPaymentsLoading(true);
+    try {
+      const { data } = await eventsApi.listPayments(eventId);
+      setPaymentsData({ event: data.event, registrations: data.registrations || [] });
+    } catch { /* keep prior data */ }
+    setPaymentsLoading(false);
+  };
+
+  const handleMarkPaid = async (eventId, regId) => {
+    setReconcilingId(regId);
+    try {
+      await eventsApi.markPaid(eventId, regId);
+      showMsg("Marked paid");
+      await refreshPayments(eventId);
+    } catch (err) {
+      showMsg(err.response?.data?.error || "Mark-paid failed");
+    } finally {
+      setReconcilingId(null);
+    }
+  };
+
+  const handleRejectPayment = async (eventId, regId) => {
+    const reason = window.prompt("Reason for rejecting this payment (shown to the student):");
+    if (!reason || !reason.trim()) return;
+    setReconcilingId(regId);
+    try {
+      await eventsApi.rejectPayment(eventId, regId, reason.trim());
+      showMsg("Payment rejected");
+      await refreshPayments(eventId);
+    } catch (err) {
+      showMsg(err.response?.data?.error || "Reject failed");
+    } finally {
+      setReconcilingId(null);
+    }
   };
 
   const handleDelete = async (id) => {
@@ -298,6 +395,40 @@ export default function AdminEventsPage() {
                     </div>
                   </div>
                 </div>
+                {/* ── Paid Event (migration 19) ── */}
+                <div className="rounded-xl border border-line/15 bg-panel/40 p-4">
+                  <label className="flex items-center gap-2 text-sm text-white cursor-pointer">
+                    <input type="checkbox" checked={form.is_paid} onChange={e => setField("is_paid", e.target.checked)} className="accent-primary" />
+                    <span className="font-semibold">This is a paid event</span>
+                    <span className="font-mono text-[10px] text-text-dim">(manual UPI / QR)</span>
+                  </label>
+                  {form.is_paid && (
+                    <div className="mt-3 space-y-3">
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <InputField label="Price (₹)" placeholder="50" type="number" value={form.price_rupees} onChange={e => setField("price_rupees", e.target.value)} />
+                        <InputField label="UPI ID (VPA)" placeholder="name@okhdfcbank" value={form.payment_upi_id} onChange={e => setField("payment_upi_id", e.target.value)} />
+                      </div>
+                      <div>
+                        <label className="mb-1.5 block font-mono text-[10px] uppercase tracking-wider text-text-dim">QR Image (PNG/JPEG, &lt;50KB ideal)</label>
+                        <input type="file" accept="image/png,image/jpeg" onChange={e => handleQrFile(e.target.files?.[0])}
+                          className="w-full rounded-xl border border-line/15 bg-panel/70 px-4 py-3 text-sm text-white outline-none file:mr-3 file:rounded-lg file:border-0 file:bg-primary/20 file:px-3 file:py-1 file:text-white" />
+                        {form.payment_qr_base64 && (
+                          <div className="mt-2 flex items-start gap-2">
+                            <img src={form.payment_qr_base64} alt="QR preview" className="h-24 w-24 rounded-lg border border-line/15 bg-white p-1" />
+                            <button type="button" onClick={() => setField("payment_qr_base64", "")}
+                              className="font-mono text-[10px] text-danger hover:underline">remove</button>
+                          </div>
+                        )}
+                      </div>
+                      <InputField label="Instructions (shown to students)" placeholder="Include your USN in the transaction note"
+                        value={form.payment_instructions} onChange={e => setField("payment_instructions", e.target.value)} multiline />
+                      <p className="font-mono text-[10px] text-text-dim">
+                        Students will see the QR + UPI ID on the event page, pay from their UPI app, and submit the 12-digit reference number. You verify in your own bank app and mark them paid from the Payments panel on each event.
+                      </p>
+                    </div>
+                  )}
+                </div>
+
                 <div className="flex gap-3">
                   <Button type="submit" loading={saving} size="sm">{editId ? "Update Event" : "Create Event"}</Button>
                   {editId && <Button variant="ghost" size="sm" onClick={() => { setEditId(null); setForm({ ...EMPTY_FORM }); setShowForm(false); }}>Cancel Edit</Button>}
@@ -353,6 +484,11 @@ export default function AdminEventsPage() {
                   <Button variant="ghost" size="sm" onClick={() => viewHealth(ev.id)}>
                     {expandedHealth === ev.id ? "Hide" : "Health"}
                   </Button>
+                  {ev.is_paid && (
+                    <Button variant="ghost" size="sm" onClick={() => viewPayments(ev.id)}>
+                      {expandedPayments === ev.id ? "Hide" : "Payments"}
+                    </Button>
+                  )}
                   <Button variant="secondary" size="sm" onClick={() => handleEdit(ev)}>Edit</Button>
                   <Button variant="danger" size="sm" onClick={() => handleDelete(ev.id)}>Delete</Button>
                 </div>
@@ -435,6 +571,81 @@ export default function AdminEventsPage() {
                 </motion.div>
               )}
             </AnimatePresence>
+            {/* Payments Panel (migration 19) */}
+            <AnimatePresence>
+              {expandedPayments === ev.id && ev.is_paid && (
+                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}>
+                  <Card variant="solid" className="mt-1 ml-4 border-l-2 border-l-secondary/30">
+                    <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+                      <div>
+                        <p className="font-mono text-[10px] uppercase tracking-wider text-secondary">Payments</p>
+                        {paymentsData.event && (
+                          <p className="mt-0.5 font-mono text-[10px] text-text-dim">
+                            ₹{((paymentsData.event.price_paise || 0) / 100).toFixed(2)} per seat
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex gap-2">
+                        {paymentsData.registrations.length > 0 && (
+                          <Button variant="ghost" size="sm" onClick={() => exportCSV(paymentsData.registrations, `payments-${ev.title}`)}>Export CSV</Button>
+                        )}
+                        <Button variant="ghost" size="sm" onClick={() => refreshPayments(ev.id)}>Refresh</Button>
+                      </div>
+                    </div>
+                    {paymentsLoading ? <Loader variant="dots" size="sm" /> : paymentsData.registrations.length === 0 ? (
+                      <p className="text-xs text-text-dim">No registrations yet</p>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left text-xs">
+                          <thead><tr className="border-b border-line/10 font-mono text-[9px] uppercase tracking-wider text-text-dim">
+                            <th className="px-2 py-2">Student</th><th className="px-2 py-2">Email</th><th className="px-2 py-2">UPI Ref</th><th className="px-2 py-2">Status</th><th className="px-2 py-2">Paid At</th><th className="px-2 py-2">Actions</th>
+                          </tr></thead>
+                          <tbody>
+                            {paymentsData.registrations.map(r => {
+                              const ps = r.payment_status || "pending";
+                              const busy = reconcilingId === r.id;
+                              return (
+                                <tr key={r.id} className="border-b border-line/5 hover:bg-white/[0.02]">
+                                  <td className="px-2 py-2 text-white">{r.students?.name || "—"}</td>
+                                  <td className="px-2 py-2 text-text-dim">{r.students?.email || "—"}</td>
+                                  <td className="px-2 py-2 font-mono text-text-muted">{r.payment_ref || "—"}</td>
+                                  <td className="px-2 py-2"><span className={`rounded-full px-2 py-0.5 font-mono text-[8px] uppercase ${
+                                    ps === "paid" ? "bg-success/10 text-success" :
+                                    ps === "submitted" ? "bg-secondary/10 text-secondary" :
+                                    ps === "rejected" ? "bg-danger/10 text-danger" :
+                                    ps === "pending" ? "bg-warning/10 text-warning" :
+                                    "bg-white/5 text-text-dim"
+                                  }`}>{ps.replace("_", " ")}</span></td>
+                                  <td className="px-2 py-2 text-text-dim">{r.paid_at ? new Date(r.paid_at).toLocaleDateString() : "—"}</td>
+                                  <td className="px-2 py-2">
+                                    {ps === "submitted" && (
+                                      <div className="flex gap-1">
+                                        <Button variant="primary" size="sm" loading={busy} onClick={() => handleMarkPaid(ev.id, r.id)}>Mark paid</Button>
+                                        <Button variant="danger" size="sm" loading={busy} onClick={() => handleRejectPayment(ev.id, r.id)}>Reject</Button>
+                                      </div>
+                                    )}
+                                    {ps === "rejected" && r.rejection_reason && (
+                                      <span className="font-mono text-[10px] text-danger">{r.rejection_reason}</span>
+                                    )}
+                                    {ps === "paid" && (
+                                      <span className="font-mono text-[10px] text-success">✓ verified</span>
+                                    )}
+                                    {(ps === "pending" || ps === "not_required") && (
+                                      <span className="font-mono text-[10px] text-text-dim">awaiting ref</span>
+                                    )}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </Card>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
             {/* Health Metrics Panel */}
             <AnimatePresence>
               {expandedHealth === ev.id && (

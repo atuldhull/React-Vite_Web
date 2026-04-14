@@ -22,6 +22,7 @@ import { responseShapeMiddleware } from "./middleware/errorShape.js";
 import { csrfProtection, invalidCsrfTokenError } from "./middleware/csrfProtection.js";
 import { requestLoggerMiddleware } from "./middleware/requestLogger.js";
 import { logger }              from "./config/logger.js";
+import { captureException }    from "./config/sentry.js";
 import {
   applyHelmet,
   applyCors,
@@ -216,6 +217,19 @@ export function createApp() {
       method: req.method,
       url:    req.originalUrl,
     }, "unhandled error in request");
+
+    // Forward to Sentry (no-op when SENTRY_DSN isn't set). We pass
+    // requestId/userId/orgId so the issue is searchable by the id
+    // a user quotes from their error toast. CSRF is filtered above
+    // already — those don't reach this branch.
+    captureException(err, {
+      requestId: req.id,
+      userId:    req.session?.user?.id,
+      orgId:     req.session?.user?.org_id,
+      url:       req.originalUrl,
+      method:    req.method,
+    });
+
     if (req.path.startsWith("/api/")) {
       return res.status(500).json({ error: "Internal server error", requestId: req.id });
     }

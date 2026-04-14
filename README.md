@@ -46,8 +46,9 @@ Open [http://localhost:5173/app/](http://localhost:5173/app/) for dev or [http:/
 | Database | Supabase PostgreSQL |
 | Auth | Supabase Auth (email/password) |
 | AI | OpenRouter API (DeepSeek model) |
-| Payments | Razorpay |
+| Payments | Razorpay (subscriptions) + manual UPI/QR (paid events) |
 | Messaging | E2EE (ECDH + AES-GCM) |
+| Monitoring | UptimeRobot (liveness) + Sentry (errors, optional) |
 | Fonts | Space Grotesk, JetBrains Mono, Outfit |
 
 ---

@@ -70,6 +70,12 @@ const FEATURE_GATES = [
     optionalAlongsideRequired: [],
     docs:       "Gmail app password — see Google account settings",
   },
+  {
+    feature:    "Sentry error reporting",
+    vars:       ["SENTRY_DSN"],
+    optionalAlongsideRequired: [],
+    docs:       "docs/RUNBOOK_MONITORING.md",
+  },
 ];
 
 /**

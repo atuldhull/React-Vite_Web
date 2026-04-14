@@ -71,6 +71,14 @@ export const events = {
   leaderboard: (id) => http.get(`/events/${id}/leaderboard`),
   updateScore: (id, data) => http.post(`/events/${id}/leaderboard`, data),
   publishResults: (id) => http.post(`/events/${id}/leaderboard/publish`),
+  // Paid-event reconciliation (migration 19)
+  submitPayment: (id, regId, paymentRef) =>
+    http.post(`/events/${id}/registrations/${regId}/pay`, { paymentRef }),
+  listPayments: (id) => http.get(`/events/${id}/payments`),
+  markPaid: (id, regId) =>
+    http.post(`/events/${id}/registrations/${regId}/mark-paid`, {}),
+  rejectPayment: (id, regId, reason) =>
+    http.post(`/events/${id}/registrations/${regId}/reject`, { reason }),
 };
 
 // ── Achievements ──
