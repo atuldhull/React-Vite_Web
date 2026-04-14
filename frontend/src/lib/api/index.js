@@ -288,8 +288,13 @@ export const chat = {
   // Friends
   sendRequest: (recipientId) => http.post("/chat/friends/request", { recipientId }),
   respondRequest: (requestId, accept) => http.post("/chat/friends/respond", { requestId, accept }),
+  cancelRequest: (recipientId) => http.post("/chat/friends/request/cancel", { recipientId }),
+  unfriend: (friendshipId) => http.delete(`/chat/friends/${friendshipId}`),
   getFriends: () => http.get("/chat/friends"),
   getPending: () => http.get("/chat/friends/pending"),
+  // Relationship state (Phase 15 — powers FriendButton / UserHoverCard)
+  getRelationship: (userId) => http.get(`/chat/relationship/${userId}`),
+  getRelationshipsBatch: (userIds) => http.post("/chat/relationships/batch", { userIds }),
   // Conversations
   getOrCreateConversation: (otherUserId) => http.post("/chat/conversations", { otherUserId }),
   getConversations: () => http.get("/chat/conversations"),
@@ -306,4 +311,15 @@ export const chat = {
   // Settings
   getSettings: () => http.get("/chat/settings"),
   updateSettings: (settings) => http.patch("/chat/settings", settings),
+};
+
+// ── Users / Rich profiles (Phase 15) ──
+// Distinct from the `user` singular namespace (self-actions) above.
+// `users` is plural and takes a user id as first arg — mirrors the
+// backend /api/users/:id/* route tree.
+export const users = {
+  profile:         (id)                      => http.get(`/users/${id}/profile`),
+  friends:         (id, page = 1, limit = 20) => http.get(`/users/${id}/friends`,  { params: { page, limit } }),
+  activity:        (id, page = 1, limit = 20) => http.get(`/users/${id}/activity`, { params: { page, limit } }),
+  mutualFriends:   (id)                      => http.get(`/users/${id}/mutual-friends`),
 };
