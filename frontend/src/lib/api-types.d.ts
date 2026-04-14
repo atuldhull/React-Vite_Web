@@ -4,6 +4,480 @@
  */
 
 export interface paths {
+    "/api/chat/relationship/{userId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Relationship state between viewer and target (for FriendButton / MessageButton rendering)
+         * @description Returns the cached state the UI needs to pick the right
+         *     button. `self:true` hides the buttons. `blocked` hides them.
+         *     `canMessage` gates the Message button specifically
+         *     (derived from target's `allow_messages_from` policy).
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    userId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Relationship state */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["RelationshipState"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/chat/relationships/batch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Batch relationship lookup (for list pages — leaderboard, event registrants)
+         * @description Pre-warms the client-side relationship cache for a list of
+         *     users in ONE request. The leaderboard fires this on mount so
+         *     hovering any row renders the hovercard instantly. Capped at
+         *     100 ids per call; over-cap rejected with 400.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        userIds: string[];
+                    };
+                };
+            };
+            responses: {
+                /** @description Map of userId → RelationshipState */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: components["schemas"]["RelationshipState"];
+                        };
+                    };
+                };
+                /** @description Validation failed (empty list, >100 ids, or invalid uuid) */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/chat/friends/request/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Withdraw a pending friend request I (the viewer) sent
+         * @description 404 if no matching pending row exists — the UI can blindly call and refetch.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        recipientId: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Cancelled */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Validation failed */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description No pending request to cancel */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/chat/friends/{friendshipId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove an accepted friendship (unfriend)
+         * @description Works for either side of the friendship. Doesn't delete
+         *     conversation history or messages — that stays in case the
+         *     pair re-friends later. 400 if the row is still pending
+         *     (use cancel endpoint for that); 403 if caller is neither
+         *     party; 404 if the id doesn't exist.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    friendshipId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Unfriended */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Friendship is still pending — use cancel instead */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Caller is neither the requester nor the recipient */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Friendship not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/users/{id}/profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Rich profile aggregate (header + counts + access + relationship)
+         * @description Single payload powering the `/profile/:userId` page. Respects
+         *     `profile_visibility` — returns a minimal private card
+         *     (`profile.isPrivate=true`) when the viewer isn't allowed.
+         *     Email is only included when `access.isSelf=true`.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Profile aggregate */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            profile?: components["schemas"]["PublicProfile"] | components["schemas"]["PrivateProfileCard"];
+                            access?: components["schemas"]["ProfileAccess"];
+                            relationship?: components["schemas"]["RelationshipState"];
+                        };
+                    };
+                };
+                /** @description User not in viewer's org (or doesn't exist — no distinction) */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/users/{id}/friends": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Paginated friend list with mutual-friend flags
+         * @description Each row is flagged `isMutual:true` when the viewer is also
+         *     friends with that person — the Friends tab + hovercard use
+         *     this to highlight shared connections. When the target's
+         *     `show_friend_list=false` and viewer is not self, returns
+         *     `{ friends: [], hiddenByUser: true }`.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    page?: number;
+                    limit?: number;
+                };
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Paginated friends */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            friends?: {
+                                /** Format: uuid */
+                                id?: string;
+                                name?: string;
+                                title?: string | null;
+                                xp?: number | null;
+                                avatar_emoji?: string | null;
+                                avatar_color?: string | null;
+                                isMutual?: boolean;
+                            }[];
+                            total?: number;
+                            page?: number;
+                            limit?: number;
+                            hiddenByUser?: boolean;
+                        };
+                    };
+                };
+                /** @description Profile is private (not an accepted friend) */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/users/{id}/activity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Merged timeline of event registrations + achievement unlocks
+         * @description Sorted descending by timestamp. Respects `show_activity_feed`
+         *     — returns `hiddenByUser:true` when the viewer isn't allowed
+         *     (non-self + target has activity hidden).
+         */
+        get: {
+            parameters: {
+                query?: {
+                    page?: number;
+                    limit?: number;
+                };
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Activity page */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            items?: {
+                                /** @enum {string} */
+                                kind?: "event" | "achievement";
+                                /** Format: date-time */
+                                at?: string;
+                                data?: {
+                                    [key: string]: unknown;
+                                };
+                            }[];
+                            page?: number;
+                            limit?: number;
+                            hasMore?: boolean;
+                            hiddenByUser?: boolean;
+                        };
+                    };
+                };
+                /** @description Profile is private */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/users/{id}/mutual-friends": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Intersection of viewer's friends and target's friends
+         * @description Powers the Overview tab's "You and N others share..." avatar
+         *     strip. Capped at 50 returned rows; self-view returns
+         *     `{ mutual:[], count:0 }` (nothing useful to show).
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Mutual friends */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            mutual?: {
+                                /** Format: uuid */
+                                id?: string;
+                                name?: string;
+                                avatar_emoji?: string | null;
+                                avatar_color?: string | null;
+                            }[];
+                            count?: number;
+                        };
+                    };
+                };
+                /** @description Profile is private */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/health": {
         parameters: {
             query?: never;
@@ -948,6 +1422,71 @@ export interface components {
             /** @example free */
             org_plan?: string;
             is_active?: boolean;
+        };
+        /**
+         * @description Shape returned by /api/chat/relationship/:id and embedded in
+         *     the profile aggregate. Single source of truth for which
+         *     button the UI renders.
+         */
+        RelationshipState: {
+            /** @description true when viewer is looking at their own id */
+            self: boolean;
+            /** @enum {string|null} */
+            friendship: "pending_sent" | "pending_received" | "accepted" | null;
+            blocked: false | ("by_me" | "by_them");
+            /** @description Derived from target's allow_messages_from + friendship + block */
+            canMessage: boolean;
+            /** Format: uuid */
+            friendshipId: string | null;
+        };
+        /**
+         * @description Per-viewer access flags for the target profile. Every
+         *     /api/users/:id/* endpoint returns these (directly or via the
+         *     profile aggregate) so the frontend can render consistent
+         *     disabled-tab / private-card states.
+         */
+        ProfileAccess: {
+            canViewProfile?: boolean;
+            canViewActivityFeed?: boolean;
+            canViewFriendList?: boolean;
+            isSelf?: boolean;
+            isFriend?: boolean;
+            /** @enum {string} */
+            reason?: "self" | "public" | "friend" | "private" | "blocked";
+        };
+        PublicProfile: {
+            /** Format: uuid */
+            id?: string;
+            name?: string;
+            /** @description Only present when access.isSelf=true */
+            email?: string;
+            xp?: number;
+            weekly_xp?: number;
+            title?: string | null;
+            bio?: string | null;
+            avatar_emoji?: string | null;
+            avatar_color?: string | null;
+            avatar_config?: Record<string, never> | null;
+            role?: string;
+            department?: string | null;
+            /** Format: date-time */
+            created_at?: string;
+            friend_count?: number;
+            achievement_count?: number;
+        };
+        /**
+         * @description Shape returned when the viewer isn't allowed to see the
+         *     full profile. Only a few safe fields so hovercards + name
+         *     displays across the app still render something.
+         */
+        PrivateProfileCard: {
+            /** Format: uuid */
+            id?: string;
+            name?: string;
+            avatar_emoji?: string | null;
+            avatar_color?: string | null;
+            /** @enum {boolean} */
+            isPrivate?: true;
         };
     };
     responses: {

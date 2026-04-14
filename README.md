@@ -48,6 +48,7 @@ Open [http://localhost:5173/app/](http://localhost:5173/app/) for dev or [http:/
 | AI | OpenRouter API (DeepSeek model) |
 | Payments | Razorpay (subscriptions) + manual UPI/QR (paid events) |
 | Messaging | E2EE (ECDH + AES-GCM) |
+| Social | Rich profiles with hovercards, FriendButton state machine, privacy tiers |
 | Monitoring | UptimeRobot (liveness) + Sentry (errors, optional) |
 | Fonts | Space Grotesk, JetBrains Mono, Outfit |
 
