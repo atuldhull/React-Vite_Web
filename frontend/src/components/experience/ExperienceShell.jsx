@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import PandaBot from "@/components/panda/PandaBot";
 import InteractiveCursor from "@/components/experience/InteractiveCursor";
 import LoadingScreen from "@/components/experience/LoadingScreen";
+import HovercardRoot from "@/components/social/HovercardRoot";
 import { useReducedMotionPreference } from "@/hooks/useReducedMotionPreference";
 import { useScrollEffects } from "@/hooks/useScrollEffects";
 import { useSmoothScroll } from "@/hooks/useSmoothScroll";
@@ -34,6 +35,10 @@ export default function ExperienceShell({ children }) {
       <InteractiveCursor enabled={!reducedMotion} />
       {children}
       <PandaBot />
+      {/* Phase 15: single-portal hovercard — listens to hovercard-store
+          and renders the currently-shown card anchored via portal.
+          Zero cost when no card is open (returns null). */}
+      <HovercardRoot />
     </>
   );
 }
