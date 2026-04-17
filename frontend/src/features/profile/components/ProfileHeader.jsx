@@ -15,6 +15,7 @@ import { Link } from "react-router-dom";
 import Card from "@/components/ui/Card";
 import FriendButton from "@/components/social/FriendButton";
 import MessageButton from "@/components/social/MessageButton";
+import IdentityGlyph from "@/components/identity/IdentityGlyph";
 
 /**
  * @param {{
@@ -42,6 +43,12 @@ export default function ProfileHeader({ profile, access, userId }) {
         {/* Name + role + stats */}
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
+            {/* Identity glyph — the unique math-sigil derived from this
+                user's public key. Same user → same glyph, everywhere
+                on the platform. Changes iff they regenerate keys. */}
+            {!isPrivate && userId && (
+              <IdentityGlyph userId={userId} size={36} title="Identity glyph" />
+            )}
             <h1 className="font-display text-2xl font-bold tracking-tight text-white sm:text-3xl">
               {profile.name || "Unknown user"}
             </h1>

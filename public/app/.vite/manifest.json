@@ -143,20 +143,9 @@
       "_use-scroll.js"
     ]
   },
-  "_UserHoverCard.js": {
-    "file": "assets/UserHoverCard.js",
-    "name": "UserHoverCard",
-    "imports": [
-      "index.html"
-    ]
-  },
   "_features.js": {
     "file": "assets/features.js",
     "name": "features"
-  },
-  "_index.js": {
-    "file": "assets/index.js",
-    "name": "index"
   },
   "_use-scroll.js": {
     "file": "assets/use-scroll.js",
@@ -191,7 +180,6 @@
       "src/features/student/pages/ProjectsPage.jsx",
       "src/features/student/pages/NotificationsPage.jsx",
       "src/features/student/pages/ReferralPage.jsx",
-      "src/features/student/pages/StudentProfilePage.jsx",
       "src/features/profile/pages/RichProfilePage.jsx",
       "src/features/student/pages/BillingPage.jsx",
       "src/features/student/pages/LiveQuizPage.jsx",
@@ -291,8 +279,7 @@
       "_Card.js",
       "_InputField.js",
       "_CapacityBar.js",
-      "_useMonument.js",
-      "_UserHoverCard.js"
+      "_useMonument.js"
     ]
   },
   "src/features/admin/pages/AdminFeaturesPage.jsx": {
@@ -315,8 +302,7 @@
     "imports": [
       "index.html",
       "_Card.js",
-      "_useMonument.js",
-      "_UserHoverCard.js"
+      "_useMonument.js"
     ]
   },
   "src/features/admin/pages/AdminSettingsPage.jsx": {
@@ -388,7 +374,6 @@
       "_useMonument.js",
       "_Card.js",
       "_AchievementBadge.js",
-      "_UserHoverCard.js",
       "_use-scroll.js"
     ]
   },
@@ -468,7 +453,6 @@
       "_MonumentHero.js",
       "_useMonument.js",
       "_Card.js",
-      "_UserHoverCard.js",
       "_use-scroll.js"
     ]
   },
@@ -501,7 +485,6 @@
     "isDynamicEntry": true,
     "imports": [
       "index.html",
-      "_index.js",
       "_Card.js",
       "_InputField.js"
     ]
@@ -513,7 +496,6 @@
     "isDynamicEntry": true,
     "imports": [
       "index.html",
-      "_index.js",
       "_useMonument.js",
       "_Card.js"
     ]
@@ -555,20 +537,6 @@
     "isDynamicEntry": true,
     "imports": [
       "index.html",
-      "_MonumentHero.js",
-      "_useMonument.js",
-      "_Card.js",
-      "_use-scroll.js"
-    ]
-  },
-  "src/features/student/pages/StudentProfilePage.jsx": {
-    "file": "assets/StudentProfilePage.js",
-    "name": "StudentProfilePage",
-    "src": "src/features/student/pages/StudentProfilePage.jsx",
-    "isDynamicEntry": true,
-    "imports": [
-      "index.html",
-      "_index.js",
       "_MonumentHero.js",
       "_useMonument.js",
       "_Card.js",
@@ -671,7 +639,6 @@
     "isDynamicEntry": true,
     "imports": [
       "index.html",
-      "_index.js",
       "_useMonument.js",
       "_Card.js"
     ],

@@ -15,10 +15,12 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { io } from "socket.io-client";
 import { chat } from "@/lib/api";
-import { encryptMessage, decryptMessage, getPublicKey } from "@/lib/crypto";
+import { encryptMessage, decryptMessage } from "@/lib/crypto";
 import { useAuthStore } from "@/store/auth-store";
+import { useIdentityStore } from "@/store/identity-store";
 import Button from "@/components/ui/Button";
 import UserHoverCard from "@/components/social/UserHoverCard";
+import IdentityGlyph from "@/components/identity/IdentityGlyph";
 
 // ═══════════════════════════════════════════════════════════
 // VIEWS
@@ -47,6 +49,14 @@ const VIEW = { LIST: "list", CHAT: "chat", SEARCH: "search", REQUESTS: "requests
  */
 export default function ChatPanel({ open, onClose, initialPeerUserId = null, onTargetConsumed }) {
   const user = useAuthStore((s) => s.user);
+  // Identity is our source of truth for E2EE. If it's not "ready",
+  // encrypt/decrypt will throw. ChatPanel reads the CryptoKey + sigil
+  // directly and hands them to the crypto lib. The ceremony modal
+  // (mounted in ExperienceShell via IdentityModalsRoot) handles the
+  // "not yet forged" case — this component just checks the gate.
+  const identityStatus     = useIdentityStore((s) => s.status);
+  const myPrivateKey       = useIdentityStore((s) => s.privateKey);
+  const mySigil            = useIdentityStore((s) => s.sigil);
   const [view, setView] = useState(VIEW.LIST);
   const [conversations, setConversations] = useState([]);
   const [activeConv, setActiveConv] = useState(null);
@@ -62,14 +72,16 @@ export default function ChatPanel({ open, onClose, initialPeerUserId = null, onT
   const socketRef = useRef(null);
   const typingTimeout = useRef(null);
 
-  // ── Initialize E2EE keys + Socket.IO ──
+  // ── Initialize Socket.IO ──
+  //
+  // Public-key registration has moved to the identity store's
+  // hydrate() path — it re-publishes on every app boot. No need
+  // to re-register here. The store also exposes `myPrivateKey`,
+  // which we pass through to encryptMessage / decryptMessage
+  // (they used to fetch it themselves via getOrCreateKeyPair,
+  // which no longer exists).
   useEffect(() => {
     if (!user?.id || !open) return;
-
-    // Register E2EE public key
-    getPublicKey().then((pk) => {
-      chat.registerKey(pk).catch(() => {});
-    });
 
     // Socket.IO for real-time
     const socket = io(window.location.origin, { withCredentials: true, transports: ["websocket", "polling"] });
@@ -79,8 +91,9 @@ export default function ChatPanel({ open, onClose, initialPeerUserId = null, onT
     socket.on("chat:receive", async (msg) => {
       if (msg.conversationId === activeConv?.id) {
         try {
+          if (!myPrivateKey) throw new Error("identity not ready");
           const senderKey = await chat.getKey(msg.senderId);
-          const decrypted = await decryptMessage(msg.encryptedContent, msg.iv, senderKey.data.publicKey);
+          const decrypted = await decryptMessage(msg.encryptedContent, msg.iv, senderKey.data.publicKey, myPrivateKey);
           setMessages((prev) => [...prev, { ...msg, content: decrypted, decrypted: true }]);
           chat.markAsRead(msg.conversationId).catch(() => {});
         } catch {
@@ -106,7 +119,7 @@ export default function ChatPanel({ open, onClose, initialPeerUserId = null, onT
 
     return () => { socket.disconnect(); socketRef.current = null; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id, open, activeConv?.id]);
+  }, [user?.id, open, activeConv?.id, myPrivateKey]);
 
   // ── Load conversations ──
   const loadConversations = useCallback(async () => {
@@ -156,13 +169,16 @@ export default function ChatPanel({ open, onClose, initialPeerUserId = null, onT
       const { data: keyData } = await chat.getKey(otherId);
       setPeerKey(keyData.publicKey);
 
-      // Decrypt messages
+      // Decrypt messages. Requires the identity store to be "ready"
+      // (myPrivateKey available) — without it we render a placeholder
+      // so the UI explains WHY rather than silently failing.
       const decrypted = await Promise.all(
         (msgs || []).reverse().map(async (m) => {
           try {
+            if (!myPrivateKey) throw new Error("identity not ready");
             const senderKeyId = m.sender_id === user.id ? otherId : m.sender_id;
             const { data: sk } = await chat.getKey(senderKeyId);
-            const content = await decryptMessage(m.encrypted_content, m.iv, sk.publicKey);
+            const content = await decryptMessage(m.encrypted_content, m.iv, sk.publicKey, myPrivateKey);
             return { ...m, content, decrypted: true };
           } catch {
             return { ...m, content: "[Cannot decrypt]", decrypted: false };
@@ -173,7 +189,7 @@ export default function ChatPanel({ open, onClose, initialPeerUserId = null, onT
       setMessages(decrypted);
       chat.markAsRead(conv.id).catch(() => {});
     } catch { /* ignore */ }
-  }, [user?.id]);
+  }, [user?.id, myPrivateKey]);
 
   // ── Open a conversation ──
   const openConversation = useCallback(async (conv) => {
@@ -188,12 +204,13 @@ export default function ChatPanel({ open, onClose, initialPeerUserId = null, onT
   // ── Send message ──
   const handleSend = async () => {
     if (!input.trim() || !activeConv || !peerKey || sending) return;
+    if (!myPrivateKey) return; // gated by IdentityModalsRoot upstream
     setSending(true);
     const text = input.trim();
     setInput("");
 
     try {
-      const { encrypted, iv } = await encryptMessage(text, peerKey);
+      const { encrypted, iv } = await encryptMessage(text, peerKey, myPrivateKey);
       const otherId = activeConv.participant_a === user.id ? activeConv.participant_b : activeConv.participant_a;
 
       // Save to DB
@@ -281,12 +298,25 @@ export default function ChatPanel({ open, onClose, initialPeerUserId = null, onT
           {view === VIEW.CHAT ? (
             <button onClick={() => { setView(VIEW.LIST); setActiveConv(null); }} className="flex items-center gap-2 text-sm text-text-muted hover:text-white">
               <span>←</span>
+              {/* Peer's identity glyph — the "is this still the same person?"
+                  visual. A sudden change mid-conversation is a signal that
+                  the peer rotated keys. */}
+              {activeConv?.otherUser?.user_id && (
+                <IdentityGlyph userId={activeConv.otherUser.user_id} size={22} inline />
+              )}
               <span>{activeConv?.otherUser?.name || "Back"}</span>
             </button>
           ) : (
-            <h3 className="text-sm font-semibold text-white" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
-              Messages {totalUnread > 0 && <span className="ml-1 rounded-full bg-primary px-1.5 py-0.5 text-[10px] text-white">{totalUnread}</span>}
-            </h3>
+            <div className="flex items-center gap-2">
+              {/* My own sigil — always visible in the list view header so
+                  the user gets used to seeing their mathematical self. */}
+              {mySigil && identityStatus === "ready" && (
+                <IdentityGlyph sigil={mySigil} size={22} inline title="Your identity" />
+              )}
+              <h3 className="text-sm font-semibold text-white" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
+                Messages {totalUnread > 0 && <span className="ml-1 rounded-full bg-primary px-1.5 py-0.5 text-[10px] text-white">{totalUnread}</span>}
+              </h3>
+            </div>
           )}
           <div className="flex items-center gap-2">
             {view === VIEW.LIST && (

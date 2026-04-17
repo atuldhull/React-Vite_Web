@@ -43,6 +43,7 @@ import { users } from "@/lib/api";
 import FriendButton from "@/components/social/FriendButton";
 import MessageButton from "@/components/social/MessageButton";
 import MutualFriendsStrip from "@/components/social/MutualFriendsStrip";
+import IdentityGlyph from "@/components/identity/IdentityGlyph";
 
 const CARD_WIDTH  = 280;
 const VIEWPORT_PAD = 8;
@@ -212,7 +213,7 @@ function HovercardContent({ profile, mutual, loading, userId, onNavigate }) {
 
   return (
     <div className="space-y-3">
-      {/* Header — avatar + name + title */}
+      {/* Header — avatar + identity glyph + name + title */}
       <div className="flex items-center gap-3">
         <div
           className="flex h-12 w-12 items-center justify-center rounded-full text-2xl shadow"
@@ -221,6 +222,9 @@ function HovercardContent({ profile, mutual, loading, userId, onNavigate }) {
         >
           {p.avatar_emoji || "👤"}
         </div>
+        {!isPrivate && userId && (
+          <IdentityGlyph userId={userId} size={28} title="Identity glyph" />
+        )}
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-semibold text-white">
             {p.name || "Unknown"}

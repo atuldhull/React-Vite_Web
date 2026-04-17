@@ -1,104 +1,26 @@
 /**
  * E2EE Crypto Utilities — Web Crypto API
  *
- * Flow:
- *   1. Each user generates an ECDH key pair on first use
- *   2. Public key is uploaded to server, private key stays in IndexedDB
- *   3. To send a message: derive shared secret from (my private + their public)
- *   4. Encrypt message with AES-GCM using derived key
- *   5. Server stores encrypted blob — CANNOT read it
- *   6. Recipient derives same shared secret, decrypts
+ * Flow (post-Identity-Ceremony):
+ *   1. User's keypair is deterministically derived from their 12-word
+ *      recovery phrase (see lib/identity/keys.js) and held in memory
+ *      by useIdentityStore.
+ *   2. To send a message: derive shared secret from (my private +
+ *      their public) via ECDH.
+ *   3. Encrypt message with AES-GCM using derived key.
+ *   4. Server stores encrypted blob — CANNOT read it.
+ *   5. Recipient derives the same shared secret independently and
+ *      decrypts.
  *
- * Key storage: IndexedDB (persists across sessions, not accessible to server)
+ * This file used to own the keypair (generate + IndexedDB storage).
+ * That responsibility has moved to the identity layer — this file is
+ * now purely the "math" of encrypt/decrypt. Callers pass their own
+ * private key in; we don't hunt for it.
+ *
+ * The legacy getOrCreateKeyPair / generateKeyPair / getPublicKey
+ * helpers have been removed. Any caller that used to invoke them
+ * must now read the keypair from useIdentityStore.
  */
-
-const DB_NAME = "mc_e2ee";
-const STORE_NAME = "keys";
-const KEY_ID = "my_keypair";
-
-// ═══════════════════════════════════════════════════════════
-// IndexedDB helpers
-// ═══════════════════════════════════════════════════════════
-
-function openDB() {
-  return new Promise((resolve, reject) => {
-    const req = indexedDB.open(DB_NAME, 1);
-    req.onupgradeneeded = () => req.result.createObjectStore(STORE_NAME);
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
-  });
-}
-
-async function dbGet(key) {
-  const db = await openDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE_NAME, "readonly");
-    const req = tx.objectStore(STORE_NAME).get(key);
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
-  });
-}
-
-async function dbSet(key, value) {
-  const db = await openDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE_NAME, "readwrite");
-    tx.objectStore(STORE_NAME).put(value, key);
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error);
-  });
-}
-
-// ═══════════════════════════════════════════════════════════
-// Key Generation (ECDH P-256)
-// ═══════════════════════════════════════════════════════════
-
-/**
- * Generate a new ECDH key pair.
- * Public key is exportable (sent to server).
- * Private key is non-extractable (stays in browser).
- */
-export async function generateKeyPair() {
-  const keyPair = await crypto.subtle.generateKey(
-    { name: "ECDH", namedCurve: "P-256" },
-    false, // private key NOT extractable
-    ["deriveKey"],
-  );
-
-  // Export public key as JWK for storage/transport
-  const publicKeyJwk = await crypto.subtle.exportKey("jwk", keyPair.publicKey);
-
-  // Store the full key pair in IndexedDB
-  await dbSet(KEY_ID, {
-    privateKey: keyPair.privateKey, // CryptoKey object (non-extractable)
-    publicKey: keyPair.publicKey,
-    publicKeyJwk,
-  });
-
-  return publicKeyJwk;
-}
-
-/**
- * Get existing key pair from IndexedDB, or generate new one.
- * Returns { privateKey: CryptoKey, publicKeyJwk: object }
- */
-export async function getOrCreateKeyPair() {
-  const existing = await dbGet(KEY_ID);
-  if (existing && existing.privateKey && existing.publicKeyJwk) {
-    return existing;
-  }
-  const _publicKeyJwk = await generateKeyPair();
-  const stored = await dbGet(KEY_ID);
-  return stored;
-}
-
-/**
- * Get just the public key JWK (for uploading to server).
- */
-export async function getPublicKey() {
-  const kp = await getOrCreateKeyPair();
-  return kp.publicKeyJwk;
-}
 
 // ═══════════════════════════════════════════════════════════
 // Shared Secret Derivation
@@ -141,13 +63,19 @@ async function deriveSharedKey(myPrivateKey, theirPublicKeyJwk) {
 /**
  * Encrypt a plaintext message for a specific recipient.
  *
+ * Callers (ChatPanel) get `myPrivateKey` from useIdentityStore —
+ * it's the CryptoKey derived from the user's recovery phrase.
+ * Passing it in explicitly (rather than letting this module fetch
+ * it) keeps the encryption path a pure function of its inputs.
+ *
  * @param {string} plaintext — the message content
  * @param {object} recipientPublicKeyJwk — their public key (from server)
- * @returns {{ encrypted: string, iv: string }} — base64 encoded cipher + IV
+ * @param {CryptoKey} myPrivateKey — the sender's ECDH private key
+ * @returns {Promise<{ encrypted: string, iv: string }>} — base64 cipher + IV
  */
-export async function encryptMessage(plaintext, recipientPublicKeyJwk) {
-  const kp = await getOrCreateKeyPair();
-  const sharedKey = await deriveSharedKey(kp.privateKey, recipientPublicKeyJwk);
+export async function encryptMessage(plaintext, recipientPublicKeyJwk, myPrivateKey) {
+  if (!myPrivateKey) throw new Error("encryptMessage: myPrivateKey is required");
+  const sharedKey = await deriveSharedKey(myPrivateKey, recipientPublicKeyJwk);
 
   // Random 12-byte IV for AES-GCM
   const iv = crypto.getRandomValues(new Uint8Array(12));
@@ -171,11 +99,12 @@ export async function encryptMessage(plaintext, recipientPublicKeyJwk) {
  * @param {string} encryptedBase64 — the encrypted content (base64)
  * @param {string} ivBase64 — the IV (base64)
  * @param {object} senderPublicKeyJwk — sender's public key (from server)
- * @returns {string} — decrypted plaintext
+ * @param {CryptoKey} myPrivateKey — the receiver's ECDH private key
+ * @returns {Promise<string>} — decrypted plaintext
  */
-export async function decryptMessage(encryptedBase64, ivBase64, senderPublicKeyJwk) {
-  const kp = await getOrCreateKeyPair();
-  const sharedKey = await deriveSharedKey(kp.privateKey, senderPublicKeyJwk);
+export async function decryptMessage(encryptedBase64, ivBase64, senderPublicKeyJwk, myPrivateKey) {
+  if (!myPrivateKey) throw new Error("decryptMessage: myPrivateKey is required");
+  const sharedKey = await deriveSharedKey(myPrivateKey, senderPublicKeyJwk);
 
   const cipherBuffer = base64ToBuf(encryptedBase64);
   const iv = base64ToBuf(ivBase64);
