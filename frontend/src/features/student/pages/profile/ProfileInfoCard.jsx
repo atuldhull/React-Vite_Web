@@ -32,7 +32,12 @@ export default function ProfileInfoCard({
   currentTitle,
   level,
 }) {
-  const avatarUrl = profile.avatar_url;
+  // avatar_config holds the current avatar source. Two shapes today:
+  //   { type: "photo", dataUrl: "data:image/..." }   uploaded by user
+  //   anything else                                  fall back to emoji/color
+  // Legacy users with a real avatar_url field still render through this.
+  const avatarUrl = profile.avatar_url
+    || (profile.avatar_config?.type === "photo" ? profile.avatar_config.dataUrl : null);
   const initial = (profile.name || "U").charAt(0).toUpperCase();
 
   return (

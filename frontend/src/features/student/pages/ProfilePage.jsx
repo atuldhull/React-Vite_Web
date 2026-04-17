@@ -140,22 +140,47 @@ export default function ProfilePage() {
     }
   }
 
-  /* ── avatar upload — accepts event or raw File ── */
+  /* ── avatar upload — accepts event or raw File ──
+     The backend's updateProfile doesn't have a file-upload middleware
+     (no multer wired on /api/user/profile), so we convert the file to
+     a base64 data URL client-side and persist it via the existing
+     avatar_config JSON field. Rendering switches to <img> when
+     avatar_config.type === "photo" (see ProfileInfoCard + IdentityGlyph
+     fallbacks). Capped at 200 KB so a single row doesn't bloat — a
+     well-compressed JPEG at ~500×500 fits comfortably. */
   async function handleAvatarChange(fileOrEvent) {
     const file = fileOrEvent instanceof File ? fileOrEvent : fileOrEvent?.target?.files?.[0];
     if (!file) return;
 
+    const MAX_BYTES = 200 * 1024;
+    if (!/^image\/(png|jpe?g|webp)$/.test(file.type)) {
+      alert("Please pick a PNG, JPEG, or WebP image.");
+      return;
+    }
+    if (file.size > MAX_BYTES) {
+      alert("Image too large (max 200 KB). Try a smaller/compressed version.");
+      return;
+    }
+
     try {
       setUploadingAvatar(true);
-      const fd = new FormData();
-      fd.append("avatar", file);
-      const { data } = await http.patch("/user/profile", fd);
+      // Read the file as a data URL (base64-encoded). FileReader is
+      // async with events, not promises, so we wrap it.
+      const dataUrl = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload  = () => resolve(String(reader.result));
+        reader.onerror = () => reject(reader.error);
+        reader.readAsDataURL(file);
+      });
+
+      const nextConfig = { type: "photo", dataUrl };
+      await http.patch("/user/profile", { avatar_config: nextConfig });
       setProfile((prev) => ({
-        ...prev,
-        avatar_url: data?.avatar_url || prev.avatar_url,
+        ...(prev || {}),
+        avatar_config: nextConfig,
       }));
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to upload avatar");
+      alert(err.response?.data?.error || err.response?.data?.message || "Failed to upload avatar");
     } finally {
       setUploadingAvatar(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
