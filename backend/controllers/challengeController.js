@@ -26,10 +26,10 @@ export const getCurrentChallenge = async (req, res) => {
 
     if (!data) {
       logger.info("Challenge no active challenges found");
-      return res.status(404).json({
-        error: "no_challenge",
-        message: "No active challenge found. Run migration.sql and import challenges."
-      });
+      // Same policy as getNextChallenge — return 200+null instead of
+      // 404 so the browser console stays clean. The frontend renders
+      // the empty state when `challenge` is null.
+      return res.json({ challenge: null, reason: "no_active" });
     }
 
     // Fix options: if it came back as a string (bad CSV import), parse it
@@ -176,7 +176,13 @@ export const getNextChallenge = async (req, res) => {
     const { data: all, error } = await query;
 
     if (error) return res.status(500).json({ error: error.message });
-    if (!all || all.length === 0) return res.status(404).json({ error: "no_challenge", message: "No active challenges." });
+    // "No challenges available" is not an error — it's a real state
+    // (all solved / none match the filter / none active yet). Return
+    // 200 with challenge=null so the frontend renders the empty UI
+    // without the browser logging a red 404 in the console.
+    if (!all || all.length === 0) {
+      return res.json({ challenge: null, reason: "no_active" });
+    }
 
     // Filter to unsolved ones
     const unsolved = all.filter(c => !attemptedIds.includes(c.id));

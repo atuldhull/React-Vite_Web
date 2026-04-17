@@ -36,7 +36,13 @@ const state = {
 };
 
 vi.mock("../../backend/config/supabase.js", () => {
-  const builder = () => {
+  // table-aware builder — login now queries students THEN organisations
+  // separately (the nested join was unreliable in some Supabase schema-
+  // cache states, see authController for rationale). For tests, each
+  // table returns its own state slot. If a test doesn't explicitly set
+  // state.org, we fall back to student.data?.organisations so older
+  // tests that stubbed the legacy nested shape still work unmodified.
+  const builder = (table) => {
     const chain = {
       select:  () => chain,
       update:  () => chain,
@@ -45,7 +51,16 @@ vi.mock("../../backend/config/supabase.js", () => {
       delete:  () => chain,
       eq:      () => chain,
       gt:      () => chain,
-      maybeSingle: async () => state.student,
+      maybeSingle: async () => {
+        if (table === "organisations") {
+          if (state.org !== undefined) return state.org;
+          // Legacy fallback: older tests stashed the org inside the
+          // student row's `organisations` property.
+          const nested = state.student?.data?.organisations;
+          return nested ? { data: nested, error: null } : { data: null, error: null };
+        }
+        return state.student;
+      },
       single:      async () => state.student,
       // awaiting the chain (e.g. after .update().eq()) resolves generic.
       then: (r) => Promise.resolve(state.generic).then(r),
@@ -54,7 +69,7 @@ vi.mock("../../backend/config/supabase.js", () => {
   };
   return {
     default: {
-      from: () => builder(),
+      from: (table) => builder(table),
       auth: {
         signInWithPassword: async () => state.signIn,
         signUp:             async () => ({ data: { user: null }, error: null }),

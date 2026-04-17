@@ -14,10 +14,11 @@ export default function AdminSettingsPage() {
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState(null);
 
+  const [loadError, setLoadError] = useState(false);
   useEffect(() => {
     eventsApi.settings()
-      .then((r) => setSettings(r.data || {}))
-      .catch(() => {})
+      .then((r) => { setSettings(r.data || {}); setLoadError(false); })
+      .catch(() => setLoadError(true))
       .finally(() => setLoading(false));
   }, []);
 
@@ -40,6 +41,7 @@ export default function AdminSettingsPage() {
   };
 
   if (loading) return <div style={{ position: "relative" }}><MonumentBackground monument="magma" intensity={0.1} /><div className="flex justify-center py-20"><Loader variant="orbit" size="lg" label="Loading settings..." /></div></div>;
+  if (loadError) return <div style={{ position: "relative" }}><MonumentBackground monument="magma" intensity={0.1} /><div className="flex flex-col items-center gap-3 py-20 text-center"><p className="text-4xl">⚠️</p><p className="text-sm text-danger">Couldn&apos;t load site settings</p><button onClick={() => { setLoadError(false); setLoading(true); eventsApi.settings().then(r => setSettings(r.data || {})).catch(() => setLoadError(true)).finally(() => setLoading(false)); }} className="rounded border border-line/20 bg-white/5 px-3 py-1.5 text-xs text-white hover:bg-white/10">Retry</button></div></div>;
 
   return (
     <div style={{ position: "relative" }}><MonumentBackground monument="magma" intensity={0.1} />

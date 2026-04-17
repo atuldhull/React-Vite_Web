@@ -130,16 +130,34 @@ const login = async (req, res) => {
 
     const authUser = data.user;
 
-    // Fetch full student profile including org
-    const { data: student } = await supabase
+    // Fetch the student row WITHOUT a nested organisations join.
+    // The earlier version used `select("... organisations(...)")`
+    // which in some environments silently returned null when the
+    // FK/schema-cache relationship was unhappy — sending login into
+    // the auto-create branch below and forcing role=student in the
+    // session even when the real row had role=admin. Splitting into
+    // two plain queries is more robust.
+    const { data: student, error: studentErr } = await supabase
       .from("students")
-      .select(`
-        name, email, user_id, role, xp, title, org_id, is_active,
-        weekly_xp, department, subject,
-        organisations(id, name, slug, primary_color, status, plan_name, feature_flags)
-      `)
+      .select("name, email, user_id, role, xp, title, org_id, is_active, weekly_xp, department, subject")
       .eq("user_id", authUser.id)
       .maybeSingle();
+
+    if (studentErr) {
+      logger.error({ err: studentErr, email: authUser.email }, "Login students lookup failed");
+    }
+
+    // Fetch org separately. Failure here is non-fatal — session
+    // gets org=null and the UI falls back to theme defaults.
+    let org = null;
+    if (student?.org_id) {
+      const { data: orgRow } = await supabase
+        .from("organisations")
+        .select("id, name, slug, primary_color, status, plan_name, feature_flags")
+        .eq("id", student.org_id)
+        .maybeSingle();
+      org = orgRow || null;
+    }
 
     // Blocked account
     if (student?.is_active === false) {
@@ -147,14 +165,13 @@ const login = async (req, res) => {
     }
 
     // Blocked org
-    if (student?.organisations?.status === "suspended") {
+    if (org?.status === "suspended") {
       return res.status(403).json({ error: "Your organisation's account has been suspended." });
     }
 
     const role  = student?.role  || "student";
     const title = student?.title || "Axiom Scout";
     const xp    = student?.xp    || 0;
-    const org   = student?.organisations || null;
 
     // Create student row if first login. Pre-migration this auto-
     // created an orphan row with org_id=NULL — now NOT NULL, so we

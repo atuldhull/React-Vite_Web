@@ -97,28 +97,30 @@ export default function AdminChallengesPage() {
   };
 
   const handleToggle = async (id) => {
-    await challenges.toggle(id).catch(() => {});
+    try { await challenges.toggle(id); }
+    catch (err) { showMsg(err.response?.data?.error || "Could not toggle challenge"); return; }
     fetch();
   };
 
   const handleDelete = async (id) => {
     if (!confirm("Delete this challenge?")) return;
-    await challenges.remove(id).catch(() => {});
-    showMsg("Deleted");
-    fetch();
+    try { await challenges.remove(id); showMsg("Deleted"); fetch(); }
+    catch (err) { showMsg(err.response?.data?.error || "Delete failed"); }
   };
 
   const handleBulkToggle = async (activate) => {
     const ids = [...selected];
     if (!ids.length) return;
+    let failed = 0;
     for (const id of ids) {
       const ch = list.find((c) => c.id === id);
       if (ch && (activate ? ch.is_active === false : ch.is_active !== false)) {
-        await challenges.toggle(id).catch(() => {});
+        try { await challenges.toggle(id); }
+        catch { failed++; }
       }
     }
     setSelected(new Set());
-    showMsg(`${ids.length} challenges updated`);
+    showMsg(failed ? `Updated ${ids.length - failed} / ${ids.length} — ${failed} failed` : `${ids.length} challenges updated`);
     fetch();
   };
 
