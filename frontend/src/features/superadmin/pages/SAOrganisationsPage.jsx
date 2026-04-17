@@ -90,13 +90,30 @@ export default function SAOrganisationsPage() {
                 <button onClick={async () => { setStatsId(org.id); setStatsData(null); try { const { data } = await superAdmin.orgStats(org.id); setStatsData(data); } catch { setStatsData({ error: true }); } }}
                   className="rounded-lg bg-white/5 px-2.5 py-1 font-mono text-[10px] text-text-muted hover:text-white transition">Stats</button>
                 {org.status === "active" ? (
-                  <button onClick={async () => { if (!confirm("Suspend?")) return; await superAdmin.suspendOrg(org.id).catch(() => {}); fetchOrgs(); }}
+                  <button
+                    onClick={async () => {
+                      if (!confirm("Suspend?")) return;
+                      try { await superAdmin.suspendOrg(org.id); showMsg("Suspended"); }
+                      catch (err) { showMsg(err.response?.data?.error || "Suspend failed"); return; }
+                      fetchOrgs();
+                    }}
                     className="rounded-lg bg-warning/10 px-2.5 py-1 font-mono text-[10px] text-warning">Suspend</button>
                 ) : (
-                  <button onClick={async () => { await superAdmin.activateOrg(org.id).catch(() => {}); fetchOrgs(); }}
+                  <button
+                    onClick={async () => {
+                      try { await superAdmin.activateOrg(org.id); showMsg("Activated"); }
+                      catch (err) { showMsg(err.response?.data?.error || "Activate failed"); return; }
+                      fetchOrgs();
+                    }}
                     className="rounded-lg bg-success/10 px-2.5 py-1 font-mono text-[10px] text-success">Activate</button>
                 )}
-                <button onClick={async () => { if (!confirm("DELETE permanently?")) return; await superAdmin.deleteOrg(org.id).catch(() => {}); fetchOrgs(); }}
+                <button
+                  onClick={async () => {
+                    if (!confirm("DELETE permanently?")) return;
+                    try { await superAdmin.deleteOrg(org.id); showMsg("Deleted"); }
+                    catch (err) { showMsg(err.response?.data?.error || "Delete failed"); return; }
+                    fetchOrgs();
+                  }}
                   className="rounded-lg bg-danger/10 px-2.5 py-1 font-mono text-[10px] text-danger">Delete</button>
               </div>
             </div>

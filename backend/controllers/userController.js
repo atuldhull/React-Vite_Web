@@ -66,7 +66,36 @@ export const getProfile = async (req, res) => {
       .maybeSingle();
 
     if (error) return res.status(500).json({ error: error.message });
-    if (!student) return res.status(404).json({ error: "Profile not found" });
+
+    // No students row: this is typical for super_admin accounts
+    // (they operate the platform, they're not enrolled in any org)
+    // and also covers any edge case where registration inserted
+    // the auth row but skipped the students row. Rather than 404ing
+    // — which makes the profile page look broken — fall back to a
+    // minimal profile built from session data. Users with a real
+    // students row get the full enriched response below; this branch
+    // is the graceful degradation path.
+    if (!student) {
+      const sessionName = req.session.user.name || req.session.user.email || "User";
+      return res.json({
+        name:          sessionName,
+        email:         req.session.user.email || "",
+        bio:           "",
+        avatar_letter: sessionName.charAt(0).toUpperCase(),
+        avatar_emoji:  req.session.user.role === "super_admin" ? "👑" : "😎",
+        avatar_color:  "linear-gradient(135deg,#7c3aed,#3b82f6)",
+        avatar_config: null,
+        xp:            0,
+        level:         1,
+        title:         req.session.user.role === "super_admin" ? "Platform Operator" : "Axiom Scout",
+        role:          req.session.user.role || "student",
+        nextTitle:     null,
+        xpTitles:      XP_TITLES,
+        // Hint to the frontend that this is a minimal/fallback
+        // profile so it can hide XP-related widgets gracefully.
+        minimal:       true,
+      });
+    }
 
     const xp       = student.xp || 0;
     const title    = getTitleForXP(xp);

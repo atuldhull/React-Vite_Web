@@ -29,6 +29,7 @@ export const adminNavigation = [
   { to: "/admin/challenges", label: "Challenges", note: "Question ops" },
   { to: "/admin/events", label: "Events", note: "Event management" },
   { to: "/admin/data", label: "Data Ops", note: "Data management" },
+  { to: "/admin/features", label: "Features", note: "Feature flags + plan" },
   { to: "/admin/settings", label: "Settings", note: "System config" },
 ];
 

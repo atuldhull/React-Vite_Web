@@ -2,36 +2,38 @@
 
 **A multi-tenant competitive mathematics platform for university students.**
 
-Built with React 19 + Vite 8 (frontend), Express 5 + Supabase (backend), Three.js (3D), Socket.IO (real-time). Features AI-powered challenges, live quizzes, XP gamification, E2EE messaging, and a cinematic 3D homepage.
+React 19 + Vite 7 frontend, Express 5 + Supabase backend, Three.js for the 3D homepage,
+Socket.IO for live quiz + real-time chat. AI-assisted challenges via OpenRouter, XP
+gamification, end-to-end encrypted messaging, rich profile pages, and a monument-themed
+visual system.
 
-> Last updated: April 13, 2026 (backend reorganised into `backend/`)  
-> Status: 136/136 tests passing · 0 ESLint issues · production build 3.2s
+> **Status:** 571 tests passing · 0 ESLint issues · production build < 15s
 
 ---
 
 ## Quick Start
 
 ```bash
-# Install dependencies
-npm install
+# 1. Install dependencies (legacy-peer-deps needed for the Three.js + zustand overrides)
+npm install --legacy-peer-deps
 
-# Configure environment
+# 2. Configure environment — copy the template and fill in real values
 cp .env.example .env.local
-# Edit .env.local with your keys (see below)
 
-# Run BOTH backend (:3000) and frontend (:5173) in one terminal
+# 3. Run both servers — backend on :3000, Vite dev server on :5173
 npm run dev
 
-# Or run them separately if you need to (e.g. two IDE panes)
+# Individually, if you prefer two terminals:
 npm run dev:server     # nodemon backend/server.js
 npm run dev:frontend   # vite on :5173 with /api + /socket.io proxied
 
-# Production build
+# Production build + serve
 npm run build          # builds frontend -> public/app/
 npm start              # node backend/server.js serves API + built SPA
 ```
 
-Open [http://localhost:5173/app/](http://localhost:5173/app/) for dev or [http://localhost:3000/](http://localhost:3000/) for the prod-style build.
+Open **http://localhost:5173/app/** in dev, or **http://localhost:3000/** for the built
+SPA served by Express.
 
 ---
 
@@ -39,173 +41,59 @@ Open [http://localhost:5173/app/](http://localhost:5173/app/) for dev or [http:/
 
 | Layer | Technology |
 |-------|-----------|
-| Frontend | React 19, Vite 8, Tailwind CSS 3.4, Zustand 5, React Router v7 |
+| Frontend | React 19, Vite 7, Tailwind CSS 3.4, Zustand 5, React Router v7 |
 | 3D | Three.js 0.183, @react-three/fiber 9, @react-three/drei 10 |
 | Animation | Framer Motion 12, GSAP 3.14 |
 | Backend | Express 5, Socket.IO 4.7 |
-| Database | Supabase PostgreSQL |
-| Auth | Supabase Auth (email/password) |
-| AI | OpenRouter API (DeepSeek model) |
+| Database | Supabase PostgreSQL (multi-tenant with RLS) |
+| Auth | Supabase Auth (email/password) + express-session |
+| AI | OpenRouter API (DeepSeek model) — question generation + tutor bot |
 | Payments | Razorpay (subscriptions) + manual UPI/QR (paid events) |
-| Messaging | E2EE (ECDH + AES-GCM) |
-| Social | Rich profiles with hovercards, FriendButton state machine, privacy tiers |
-| Monitoring | UptimeRobot (liveness) + Sentry (errors, optional) |
+| Messaging | E2EE (ECDH-P256 + AES-GCM, keys derived from a 12-word recovery phrase) |
+| Identity | Deterministic keypair + visual math sigils from a custom 2048-word wordlist |
+| Social | Rich profile pages with hovercards, FriendButton state machine, privacy tiers |
+| Monitoring | UptimeRobot (liveness) + Sentry (errors — optional, feature-gated) |
 | Fonts | Space Grotesk, JetBrains Mono, Outfit |
 
 ---
 
-## Project Structure
-
-```
-Atul_Web/
-├── backend/                       # All server-side code
-│   ├── server.js                  # Thin entrypoint: boots http+io, listens
-│   ├── app.js                     # Express app factory (createApp)
-│   ├── socket/                    # Socket.IO, split by concern
-│   │   ├── index.js               #   orchestrator
-│   │   ├── auth.js                #   session-based socket auth
-│   │   ├── notifications.js       #   register_user + pushNotification
-│   │   ├── presence.js            #   presence tracking + admin room
-│   │   ├── quiz.js                #   live quiz engine
-│   │   └── chat.js                #   E2EE chat relays
-│   ├── config/                    # Supabase, OpenRouter clients
-│   ├── services/
-│   │   └── realtime.js            # Decouples server.js from controllers
-│   │                              # (breaks the old circular import)
-│   ├── controllers/
-│   │   ├── adminController.js     # barrel -> admin/*.js (8 modules)
-│   │   ├── certificateController.js # barrel -> certificate/*.js (5 modules)
-│   │   ├── paymentController.js   # barrel -> payment/*.js (7 modules)
-│   │   ├── superAdminController.js # barrel -> superAdmin/*.js (5 modules)
-│   │   ├── event/                 # eventCrud, registration, attendance,
-│   │   │                          #   leaderboard, achievement, siteSettings
-│   │   ├── admin/                 # aiQuestions, users, events, stats, xp,
-│   │   │                          #   teamsProjects, scheduledTests, dataExport
-│   │   ├── certificate/           # assets, latex, batch, download, helpers
-│   │   ├── payment/               # config, orders, verification, webhook,
-│   │   │                          #   upgrade, billing, invoiceEmail
-│   │   ├── superAdmin/            # analytics, organisations, plans,
-│   │   │                          #   impersonation, auditLogs
-│   │   ├── arenaController.js     # Challenge submission + penalty scoring
-│   │   ├── authController.js      # Register, login, logout
-│   │   ├── messagingController.js # E2EE chat + friendships
-│   │   ├── notificationController.js # Real-time notifications
-│   │   └── ...                    # challenge, contact, gallery, insights,
-│   │                              #   referral, teacher, user, orgAdmin, ai
-│   ├── middleware/                # Auth guards + rate limiters + tenant
-│   ├── routes/                    # Express route files (one per domain)
-│   └── migrations/                # Numbered SQL migrations
-│
-├── frontend/                      # React 19 + Vite 8 SPA
-│   ├── src/
-│   │   ├── app/                   # App.jsx, router.jsx
-│   │   │   └── routes/            # one file per logical route group
-│   │   │       ├── publicRoutes.jsx
-│   │   │       ├── authRoutes.jsx
-│   │   │       ├── teacherRoutes.jsx
-│   │   │       ├── adminRoutes.jsx
-│   │   │       ├── superAdminRoutes.jsx
-│   │   │       └── errorRoutes.jsx
-│   │   ├── features/
-│   │   │   ├── errors/            # 404 + 403 pages
-│   │   │   ├── home/              # Homepage (scroll-synced video)
-│   │   │   ├── arena/             # Challenge arena
-│   │   │   ├── events/            # Event browser + scanner
-│   │   │   ├── student/
-│   │   │   │   ├── pages/
-│   │   │   │   │   ├── profile/   # 7 sub-components (1068 -> 364 lines)
-│   │   │   │   │   └── liveQuiz/  # 6 phase screens (981 -> 332 lines)
-│   │   │   ├── teacher/
-│   │   │   │   └── pages/teacherQuiz/  # 5 sub-components (937 -> 366)
-│   │   │   ├── admin/
-│   │   │   └── superadmin/
-│   │   ├── components/
-│   │   │   ├── auth/              # ProtectedRoute, GuestOnlyRoute
-│   │   │   ├── backgrounds/
-│   │   │   │   └── monument/      # 8 biome scenes (MonumentBackground
-│   │   │   │                      #   was 672 lines, now 53 + sub-files)
-│   │   │   └── ui/
-│   │   ├── hooks/
-│   │   │   ├── useFetch.js        # shared loading/error/data pattern
-│   │   │   └── useMonument.js
-│   │   ├── lib/
-│   │   │   ├── animations.js      # shared framer-motion variants
-│   │   │   ├── roles.js           # dashboardForRole, hasRole
-│   │   │   └── http.js            # axios + 401 interceptor
-│   │   └── styles/
-│   └── public/
-│
-├── tests/
-│   ├── unit/                      # roles, auth-guard (jsdom), arena-scoring,
-│   │                              #   event-status, feature-flags, security
-│   └── integration/               # api-smoke (supertest), payment (supertest),
-│                                  #   auth-flow (static analysis)
-│
-├── public/                        # SPA build output (served by backend)
-│   └── app/                       # Vite build target
-│
-├── docs/
-│   ├── PAYMENT_SETUP.md           # Razorpay env vars + webhook setup guide
-│   └── ...SQL
-├── package.json                   # Single root (no monorepo); scripts point
-│                                  # at backend/server.js and vite for frontend
-├── PROJECT_CONFIG.md
-├── PROJECT_BRIEF.md
-├── PROGRESS.md
-└── VISUAL_THEME_SYSTEM.md
-```
-
-### Layout at a glance
-
-- **`backend/`** — everything Node.js: server, routes, controllers, middleware, services, config, SQL migrations. No UI code here.
-- **`frontend/`** — everything React/Vite: components, pages, hooks, stores, styles, static assets. No Express code here.
-- **`tests/`** — cross-cutting. Unit tests for pure logic (roles, scoring, status), jsdom-based component tests, and supertest-based API integration tests that import from `backend/`.
-- **`public/app/`** — Vite build output consumed by the Express static middleware in production. Safe to delete — `npm run build` regenerates it.
-- Root holds only shared configs (`vite.config.js`, `vitest.config.js`, `eslint.config.js`, `tailwind.config.cjs`, `postcss.config.cjs`), the `.env*` files, and documentation.
-
----
-
-## Key Features
+## Features
 
 ### For Students
-- **Challenge Arena** — Random questions with XP rewards and penalties
-- **Live Quizzes** — Real-time Socket.IO quiz sessions
-- **Dashboard** — XP tracking, streaks, weekly rankings
-- **Leaderboards** — Weekly and all-time rankings
-- **E2EE Messaging** — End-to-end encrypted friend chat
-- **Friend System** — Request/accept with real-time notifications
-- **Certificates** — Downloadable PDF certificates
-- **Projects** — Team collaboration with voting
-- **PANDA Bot** — AI math tutor in every challenge
+- **Challenge Arena** — randomised questions with XP rewards/penalties and streak tracking.
+- **Live Quizzes** — Socket.IO-backed real-time quiz sessions with host controls.
+- **Leaderboards** — weekly, all-time, and per-event rankings.
+- **Rich Profile Pages** — own + peer profiles at `/profile/:userId` with Overview,
+  Achievements, Friends, and Activity tabs. Respects per-user privacy settings.
+- **Identity Ceremony** — first-time E2EE setup forges a unique math sigil from a
+  12-word recovery phrase. Same phrase → same identity across devices.
+- **E2EE Messaging** — end-to-end encrypted chat with deterministic keys, restore flow,
+  and WhatsApp-style durability across browser / device switches.
+- **Friend System** — request / accept / cancel / unfriend with optimistic UI, mutual-
+  friends discovery, and hovercards everywhere a name appears.
+- **Certificates** — downloadable PDFs for attended events and achievements.
+- **Projects** — team collaboration with voting.
+- **PANDA Bot** — AI math tutor embedded in every challenge.
 
-### For Teachers
-- **AI Question Generator** — DeepSeek-powered MCQ generation with preview/regenerate/save
-- **Challenge Manager** — Activate/deactivate questions
-- **Quiz Hosting** — Create live quiz sessions
-- **Student Doubt Notifications** — Get notified when students ask questions
-
-### For Admins
-- **User Management** — Create, delete, change roles
-- **AI Question Generator** — Same as teacher, with bulk operations
-- **Data Operations** — Clear attempts, reset XP, weekly reset
-- **Event Management** — Create/edit events, view registrations, attendance tracking, CSV export
-- **Event Health Metrics** — Fill rate, attendance rate, cancel rate, check-in method breakdown
-- **Platform Insights** — Active users, registration trends, top events, achievement stats
-- **Feature Management** — Toggle platform features ON/OFF within subscription plan
-- **Data Export** — Download all platform data as ZIP with 11 CSV files
-- **Site Settings** — Registration gate, org branding
+### For Teachers / Admins
+- **AI Question Generator** — DeepSeek-powered MCQ generation with preview / regenerate
+  / save. Bulk generation for admins.
+- **Event Management** — create, edit, toggle registration, view registrations +
+  attendance, CSV export, event-health metrics.
+- **Paid Events** — manual UPI/QR reconciliation: teacher uploads a QR or types a VPA,
+  students submit payment reference, admin verifies against their bank app. Supports
+  mark-paid, reject (with reason), re-submit.
+- **Data Operations** — clear attempts, reset XP, delete teams/tests, weekly reset.
+- **Platform Insights** — active users, registration trends, top events, achievement
+  stats, and per-event health.
+- **Feature Management** — toggle platform features on/off within a subscription plan.
 
 ### For Super Admins
-- **Organisation Management** — Create, suspend, activate, delete orgs
-- **Subscription Plans** — Starter / Professional / Enterprise with feature-based gating
-- **Feature Flags** — Per-org feature overrides (enable/disable any feature for any org)
-- **Impersonation** — Log into any org as admin for debugging
-- **Audit Logs** — Track all admin actions across platform
-- **Payment History** — Razorpay payment records
-
-### Homepage
-- **Scroll-synced video** — Cinematic desert monument journey, controlled by scroll
-- **Title overlay** — "Math Collective" with stats bar and scroll indicator
+- **Organisation Management** — create, suspend, activate, delete orgs.
+- **Subscription Plans** — Starter / Professional / Enterprise with feature-based gating.
+- **Per-Org Feature Flags** — override any feature for any org from a central UI.
+- **Impersonation** — log in as any org's admin for support debugging.
+- **Audit Logs** — durable record of every admin action across the platform.
 
 ---
 
@@ -213,32 +101,21 @@ Atul_Web/
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `SUPABASE_URL` | Yes | Supabase project URL |
-| `SUPABASE_ANON_KEY` | Yes | Supabase anonymous key |
-| `SUPABASE_SERVICE_ROLE_KEY` | Yes | Supabase service role key |
-| `OPENROUTER_API_KEY` | Yes | OpenRouter API key (for AI) |
-| `SESSION_SECRET` | Yes | Random 32+ char string |
-| `CONTACT_EMAIL` | Yes | Gmail account used to send contact + invoice emails |
-| `CONTACT_APP_PASSWORD` | Yes | Gmail app password for `CONTACT_EMAIL` |
-| `RAZORPAY_KEY_ID` | For payments | Razorpay public key id (safe to expose to frontend) |
-| `RAZORPAY_KEY_SECRET` | For payments | Razorpay API secret (server-only) |
-| `RAZORPAY_WEBHOOK_SECRET` | For payments | HMAC key for webhook — **required in production** |
-| `PUBLIC_URL` | No | Base URL used in invoice emails (falls back to relative URLs) |
-| `FRONTEND_URL` | Prod | CORS allow-list when `NODE_ENV=production` |
-| `PORT` | No | Server port (default: 3000) |
+| `SUPABASE_URL` | yes | Supabase project URL |
+| `SUPABASE_SERVICE_ROLE_KEY` | yes | Supabase service role key (server-only) |
+| `SESSION_SECRET` | yes | Random 32+ char string — used for express-session signing |
+| `FRONTEND_URL` | prod | CORS allow-list origin in production |
+| `SESSION_DB_URL` or `REDIS_URL` | prod | Postgres or Redis backing store for sessions |
+| `OPENROUTER_API_KEY` | feature | Enables AI question generation + PANDA tutor |
+| `CONTACT_EMAIL` / `CONTACT_APP_PASSWORD` | feature | Gmail + app password for contact form + invoice emails |
+| `RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET` / `RAZORPAY_WEBHOOK_SECRET` | feature | Razorpay (for org subscriptions) |
+| `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_CONTACT` | feature | Web push notifications. Generate with `node backend/scripts/generateVapidKeys.js` |
+| `SENTRY_DSN` | feature | Sentry error reporting (any free-tier DSN works) |
+| `PORT` | no | Server port (default 3000) |
 
-See [docs/PAYMENT_SETUP.md](docs/PAYMENT_SETUP.md) for the full Razorpay setup walkthrough and [docs/PWA_AND_PUSH.md](docs/PWA_AND_PUSH.md) for installable-PWA + web-push configuration.
-
-### Web Push (VAPID)
-
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `VAPID_PUBLIC_KEY` | For push | VAPID public key (server-side reference) |
-| `VAPID_PRIVATE_KEY` | For push | VAPID private key — **server only, never expose** |
-| `VAPID_CONTACT` | For push | `mailto:admin@your-domain.com` — used by push services |
-| `VITE_VAPID_PUBLIC_KEY` | For push | Same as `VAPID_PUBLIC_KEY` — baked into frontend bundle |
-
-Generate with: `node backend/scripts/generateVapidKeys.js`. The app works without these set — push is simply no-op'd, and Socket.IO in-app notifications still fire.
+Missing a feature-gated var? Feature silently disables at boot with a warning log. Missing
+a required var in production → process exits immediately with a clear error (see
+`backend/config/env.js`).
 
 ---
 
@@ -248,173 +125,137 @@ Generate with: `node backend/scripts/generateVapidKeys.js`. The app works withou
 super_admin > admin > teacher > student
 ```
 
-Each higher role inherits all lower role permissions.
-
----
-
-## Arena Scoring
-
-| Difficulty | Points (correct) | Penalty (wrong) |
-|-----------|-------------------|-----------------|
-| Easy | +20 XP | -5 XP |
-| Medium | +50 XP | -10 XP |
-| Hard | +100 XP | -20 XP |
-| Extreme | +100 XP | -20 XP |
-
-XP is floored at 0 (can never go negative total).
-
----
-
-## Subscription Plans & Feature Flags
-
-| Feature | Starter | Professional | Enterprise |
-|---------|---------|-------------|-----------|
-| Arena + Leaderboard | Yes | Yes | Yes |
-| Events + Notifications | Yes | Yes | Yes |
-| AI Question Generator | - | Yes | Yes |
-| Certificates | - | Yes | Yes |
-| Live Quiz | - | Yes | Yes |
-| Team Projects | - | Yes | Yes |
-| Achievements | - | Yes | Yes |
-| QR Check-in | - | Yes | Yes |
-| E2EE Messaging | - | - | Yes |
-| Referral System | - | - | Yes |
-| Advanced Analytics | - | - | Yes |
-| Custom Branding | - | - | Yes |
-| Data Export | - | - | Yes |
-| API Access | - | - | Yes |
-
-Super admins can override any feature per org. Org admins can toggle features within their plan.
-
----
-
-## Monument Theme System
-
-Every page uses `useMonument('name')` + `<MonumentBackground monument="name" />`.
-8 themed biomes: desert, pyramid, glacier, jungle, city, abyss, sky, magma.
-CSS variables auto-set: `--page-accent`, `--page-glow`, `--org-primary`, `--org-secondary`.
-
----
-
-## SQL Migrations
-
-All in `migrations/` folder — run in Supabase SQL editor in numbered order (01 through 12).
-
----
-
-## Scripts
-
-```bash
-npm start              # Production server (node server.js)
-npm run dev            # Dev server with auto-reload (nodemon)
-npm run dev:frontend   # Vite dev server (port 5173)
-npm run build          # Production frontend build -> public/app/
-npm run lint           # ESLint check (0 errors, 0 warnings on main)
-npm run lint:fix       # ESLint auto-fix
-npm run format         # Prettier format all files
-npm run format:check   # Prettier check (CI)
-npm test               # Vitest run — 136 tests
-npm run test:watch     # Vitest watch mode
-```
-
-## Testing
-
-136 tests across 10 files (2.5s total):
-
-| Layer | Files | Count | Coverage |
-|-------|-------|-------|----------|
-| Unit | `tests/unit/` | 110 | Pure logic: arena scoring, event status, feature flags, role helpers, security config, route guards |
-| Integration | `tests/integration/` | 26 | Real HTTP via `supertest`: auth flow, bot auth, payment (create/verify/webhook), 404 handling |
-| Component | `tests/unit/auth-guard.test.jsx` | 10 | React + jsdom: ProtectedRoute, GuestOnlyRoute across every role/state |
-
-Run a single file: `npx vitest run tests/integration/payment.test.js`
-
----
-
-## CI/CD
-
-- **GitHub Actions** runs on every push/PR to `main`: lint + build
-- **Dependabot** checks npm dependencies weekly for security updates
-- Config: `.github/workflows/ci.yml`, `.github/dependabot.yml`
-
----
-
-## Deployment
-
-### Render (Recommended — Free Tier)
-
-**Backend:**
-1. Create new Web Service → connect GitHub repo
-2. Build command: `npm install --legacy-peer-deps`
-3. Start command: `node server.js`
-4. Add environment variables (SUPABASE_URL, keys, etc.)
-
-**Frontend:**
-1. Create new Static Site → connect same repo
-2. Build command: `npm run build`
-3. Publish directory: `public/app`
-4. Add rewrite rule: `/*` → `/index.html` (SPA routing)
-
-### Railway / Fly.io
-1. Connect GitHub repo
-2. Set build + start commands same as above
-3. Add env vars in dashboard
-
-### Manual VPS
-```bash
-git clone https://github.com/atuldhull/React-Vite_Web.git
-cd React-Vite_Web
-npm install --legacy-peer-deps
-cp .env.example .env.local   # Fill in your keys
-npm run build                 # Build frontend
-npm start                     # Start backend (serves frontend from public/app/)
-```
+Higher roles inherit every lower-role permission. Protection is enforced at three layers:
+`ProtectedRoute` in the router, role-specific Express middleware on each `/api/*` route,
+and database-level Row Level Security policies on every tenant table.
 
 ---
 
 ## Architecture
 
 ```
-Client (React SPA)
-  │ HTTP + WebSocket
+Client (React 19 SPA, Vite 7)
+  │ HTTPS + WebSocket
   ▼
-Express 5 Server (:3000)
+Express 5 server (:3000)
   ├── REST API (/api/*)
-  ├── Socket.IO (quiz, chat, notifications)
-  ├── Session middleware (express-session)
-  ├── Tenant middleware (auto org_id injection)
-  ├── Auth middleware (role-based: student/teacher/admin/super_admin)
-  └── Feature flag middleware (plan-based gating)
+  ├── Socket.IO (quiz engine, chat relays, notifications, presence)
+  ├── express-session with Postgres-backed store in production
+  ├── Tenant middleware — auto-injects org_id into every Supabase query
+  ├── Auth middleware — role-based route guards
+  ├── CSRF middleware — double-submit cookie pattern (csrf-csrf)
+  ├── Zod validation on every mutating request body
+  ├── Pino structured logging with request-ID tagging (AsyncLocalStorage)
+  └── Global error handler → pino + optional Sentry capture
         │
         ▼
   Supabase PostgreSQL
-  ├── 15+ tables (students, challenges, events, etc.)
-  ├── Service role key (server-side only)
-  └── Auth (email/password)
+  ├── 20+ tables (students, orgs, challenges, events, messages, …)
+  ├── Row Level Security: default-deny on every tenant table
+  └── Service-role key for backend writes (service-role bypasses RLS by design)
 ```
 
 ---
 
-## Development Log
+## Scripts
 
-See [PROGRESS.md](PROGRESS.md) for the complete changelog (Phases 1–7).
+```bash
+npm start              # Production server — node backend/server.js
+npm run dev            # concurrently — backend (nodemon) + frontend (vite)
+npm run build          # Production frontend build → public/app/
+npm run lint           # ESLint check
+npm run typecheck      # TypeScript check (JSDoc + checkJs — no compile)
+npm test               # Vitest run — 571 tests
+npm run test:coverage  # Vitest with coverage gate (CI)
+npm run e2e            # Playwright E2E smoke tests
+```
 
 ---
 
-## Code Quality
+## Testing
 
-- **ESLint** — `eslint.config.js` (flat config, React + hooks plugins). 0 errors, 0 warnings.
-- **Prettier** — `.prettierrc` (120 chars, double quotes, trailing commas)
-- **No TypeScript** — JS-only. TS migration is still the single largest architectural gap.
-- **Vitest** — 136 tests across unit, integration (supertest), and component (jsdom) layers.
+**571 tests across 54 files**:
 
-### Architectural Highlights
+| Layer | What it covers |
+|-------|----------------|
+| **Unit** | Pure logic — roles, feature flags, crypto primitives, mnemonic/sigil derivation, relationship state helpers, arena scoring |
+| **Integration** | Express routes via `supertest` — auth, payment, messaging, chat settings, relationship endpoints, profile aggregation, paid events |
+| **Component (jsdom)** | React components with mocked stores — FriendButton state machine, MessageButton, ProfileTabs, tab content, IdentityGlyph |
+| **E2E (Playwright)** | 7 browser-level smoke tests against a production build — health probes, CSRF, SPA shell, security headers |
 
-- **Barrel-split controllers** — every previously-God controller (event, admin, certificate, payment, superAdmin) is now one-line barrel files re-exporting from per-domain sub-modules. Largest remaining: `messagingController.js` at 537 lines.
-- **Route-based code splitting** — 34 page components load via `React.lazy()` with a Suspense fallback. Initial bundle no longer ships admin/teacher code to guests.
-- **Auth hardening** — HTTP 401 interceptor + `ProtectedRoute` + `GuestOnlyRoute` + `dashboardForRole` helper. 403 / 404 pages render in place so the URL stays accurate.
-- **Payment security** — webhook signature verified against raw request bytes (not re-serialized JSON), timing-safe HMAC compare, refuses to boot unsigned webhooks in production. Idempotent via shared `applyPlanUpgrade` helper. See `docs/PAYMENT_SETUP.md`.
-- **Decoupled realtime** — `services/realtime.js` breaks the old circular import between `server.js` and the notification controller. Controllers no longer reach back into `server.js` for `pushNotification`.
+Coverage thresholds enforced in `vitest.config.js` (55 / 45 / 55 / 55 baseline, actual
+numbers consistently 10+ points above). Pre-commit hook runs lint + typecheck +
+`test:coverage` so regressions never reach `main`.
+
+---
+
+## CI / CD
+
+GitHub Actions workflow at `.github/workflows/ci.yml`:
+
+1. `npm ci --legacy-peer-deps`
+2. `npm run lint`
+3. `npm run typecheck`
+4. `npm run test:coverage` (fails the job if coverage drops below threshold)
+5. `npm run build`
+6. `npx playwright install chromium --with-deps`
+7. `npm run e2e`
+
+Every push to `main` + every PR runs the full pipeline. Dependabot checks npm deps
+weekly.
+
+---
+
+## Deployment
+
+### Render (recommended — free tier)
+
+1. **New Web Service** → connect your GitHub repo.
+2. **Build command:** `npm install --legacy-peer-deps && npm run build`
+3. **Start command:** `npm start`
+4. Add env vars from the table above.
+5. First deploy takes 3–4 minutes. Hit `/api/health` to verify.
+
+UptimeRobot pinging `/api/health` every 5 min keeps the free-tier dyno warm during
+active hours.
+
+### Other platforms
+
+Any host that runs a persistent Node process + supports WebSockets works: Fly.io,
+Railway, Oracle Cloud free VM. **Vercel does not** — the app needs a persistent Socket.IO
+connection which serverless functions can't provide.
+
+---
+
+## Subscription Plans & Feature Flags
+
+| Feature | Starter | Professional | Enterprise |
+|---------|---------|--------------|------------|
+| Arena + Leaderboard | ✓ | ✓ | ✓ |
+| Events + Notifications | ✓ | ✓ | ✓ |
+| AI Question Generator | — | ✓ | ✓ |
+| Certificates | — | ✓ | ✓ |
+| Live Quiz | — | ✓ | ✓ |
+| Team Projects | — | ✓ | ✓ |
+| Achievements | — | ✓ | ✓ |
+| QR Check-in | — | ✓ | ✓ |
+| E2EE Messaging | — | — | ✓ |
+| Referral System | — | — | ✓ |
+| Advanced Analytics | — | — | ✓ |
+| Custom Branding | — | — | ✓ |
+| Data Export | — | — | ✓ |
+| API Access | — | — | ✓ |
+
+Super-admins can override any feature for any org from the Feature Flags UI.
+
+---
+
+## Monument Theme System
+
+Every page calls `useMonument('name')` + renders `<MonumentBackground monument="name" />`.
+Eight themed biomes (desert, pyramid, glacier, jungle, city, abyss, sky, magma) each set
+CSS variables `--page-accent`, `--page-glow`, `--org-primary`, `--org-secondary` so
+buttons and cards automatically match the current scene.
 
 ---
 

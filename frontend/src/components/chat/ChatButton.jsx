@@ -32,7 +32,7 @@ export default function ChatButton() {
         onClick={toggleChat}
         whileHover={{ scale: 1.1 }}
         whileTap={{ scale: 0.9 }}
-        className="fixed bottom-20 right-5 z-50 flex h-12 w-12 items-center justify-center rounded-full border border-primary/30 bg-surface/80 shadow-lg backdrop-blur-xl transition hover:border-primary/50"
+        className="fixed bottom-5 left-5 z-50 flex h-12 w-12 items-center justify-center rounded-full border border-primary/30 bg-surface/80 shadow-lg backdrop-blur-xl transition hover:border-primary/50"
         style={{ boxShadow: "0 4px 20px rgba(var(--color-primary), 0.2)" }}
         aria-label="Open messages"
       >

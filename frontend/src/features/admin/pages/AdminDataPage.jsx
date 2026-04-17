@@ -80,13 +80,13 @@ export default function AdminDataPage() {
             <div className="flex gap-3">
               <Button size="sm" variant="ghost" disabled={!userId} onClick={async () => {
                 if (!confirm("Clear all attempts for this user?")) return;
-                await admin.clearAttempts(userId).catch(() => {});
-                showMsg("Attempts cleared");
+                try { await admin.clearAttempts(userId); showMsg("Attempts cleared"); }
+                catch (err) { showMsg(err.response?.data?.error || "Failed to clear attempts"); }
               }}>Clear Attempts</Button>
               <Button size="sm" variant="ghost" disabled={!userId} onClick={async () => {
                 if (!confirm("Reset XP to 0?")) return;
-                await admin.resetXp(userId).catch(() => {});
-                showMsg("XP reset to 0");
+                try { await admin.resetXp(userId); showMsg("XP reset to 0"); }
+                catch (err) { showMsg(err.response?.data?.error || "Failed to reset XP"); }
               }}>Reset XP</Button>
             </div>
           </div>
@@ -123,8 +123,8 @@ export default function AdminDataPage() {
               </div>
               <Button variant="danger" size="sm" onClick={async () => {
                 if (!confirm("Delete this team?")) return;
-                await admin.deleteTeam(t.id).catch(() => {});
-                showMsg("Team deleted"); fetchData();
+                try { await admin.deleteTeam(t.id); showMsg("Team deleted"); fetchData(); }
+                catch (err) { showMsg(err.response?.data?.error || "Delete failed"); }
               }}>Delete</Button>
             </div>
           ))}
@@ -146,8 +146,8 @@ export default function AdminDataPage() {
               </div>
               <Button variant="danger" size="sm" onClick={async () => {
                 if (!confirm("Delete this test?")) return;
-                await admin.deleteTest(t.id).catch(() => {});
-                showMsg("Test deleted"); fetchData();
+                try { await admin.deleteTest(t.id); showMsg("Test deleted"); fetchData(); }
+                catch (err) { showMsg(err.response?.data?.error || "Delete failed"); }
               }}>Delete</Button>
             </div>
           ))}

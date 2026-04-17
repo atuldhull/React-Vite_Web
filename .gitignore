@@ -16,11 +16,9 @@ playwright/.cache/
 # not for public consumption.
 docs/
 
-# Internal development notes — same policy as docs/. These describe
-# the "how" + "history" + design rationale; not for public viewers
-# of the repo. Files stay on the local disk.
-/PROGRESS.md
-/PROJECT_BRIEF.md
-/PROJECT_CONFIG.md
-/PRODUCTION_CHECKLIST.md
-/VISUAL_THEME_SYSTEM.md
+# Internal development notes. Rule: any root-level .md file is
+# gitignored UNLESS it's README.md. This protects against future
+# "quick doc I wrote about the architecture" files accidentally
+# ending up on GitHub. Same policy as the docs/ folder.
+/*.md
+!/README.md

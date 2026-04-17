@@ -17,9 +17,10 @@
 
 // @ts-check
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useIdentityStore } from "@/store/identity-store";
+import { useUiStore } from "@/store/ui-store";
 import IdentityGlyph from "@/components/identity/IdentityGlyph";
 import Button from "@/components/ui/Button";
 
@@ -34,9 +35,30 @@ export default function IdentityCeremonyModal({ onRestoreRequest }) {
   const startCeremony   = useIdentityStore((s) => s.startCeremony);
   const confirmCeremony = useIdentityStore((s) => s.confirmCeremony);
   const cancelCeremony  = useIdentityStore((s) => s.cancelCeremony);
+  const closeChat       = useUiStore((s) => s.closeChat);
 
   const [acknowledged, setAcknowledged] = useState(false);
   const [copied, setCopied] = useState(false);
+
+  // "Not now" / ESC / click-outside all do the same thing:
+  // reset ceremony state AND close the chat panel. Without closing
+  // the panel, the IdentityModalsRoot gate keeps the modal open
+  // because status=missing + chatPanelOpen=true still matches its
+  // show condition — user would be stuck.
+  const dismiss = () => {
+    cancelCeremony();
+    closeChat();
+  };
+
+  // ESC key dismissal.
+  useEffect(() => {
+    const onKey = (/** @type {KeyboardEvent} */ e) => {
+      if (e.key === "Escape") dismiss();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Only render when the store is explicitly in a forge-worthy state.
   // `missing` shows the intro, `forging` shows the phrase, `ready`
@@ -63,12 +85,27 @@ export default function IdentityCeremonyModal({ onRestoreRequest }) {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
+        // Click on the backdrop (anywhere outside the card) dismisses.
+        // The card itself stops propagation below.
+        onClick={dismiss}
       >
         <motion.div
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
-          className="w-full max-w-lg rounded-2xl border border-line/20 bg-panel/95 p-6 shadow-2xl"
+          onClick={(e) => e.stopPropagation()}
+          className="relative w-full max-w-lg rounded-2xl border border-line/20 bg-panel/95 p-6 shadow-2xl"
         >
+          {/* Close X — belts-and-suspenders dismiss path. */}
+          <button
+            type="button"
+            onClick={dismiss}
+            aria-label="Close"
+            className="absolute right-3 top-3 rounded-lg p-1.5 text-text-dim transition hover:bg-white/5 hover:text-white"
+          >
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
           {/* ── Intro — status=missing ── */}
           {status === "missing" && !pendingPhrase && (
             <>
@@ -96,7 +133,7 @@ export default function IdentityCeremonyModal({ onRestoreRequest }) {
               )}
               <div className="mt-6 flex items-center justify-between gap-3">
                 <div className="flex gap-3">
-                  <Button variant="ghost" size="sm" onClick={cancelCeremony}>
+                  <Button variant="ghost" size="sm" onClick={dismiss}>
                     Not now
                   </Button>
                   {onRestoreRequest && (
@@ -171,7 +208,7 @@ export default function IdentityCeremonyModal({ onRestoreRequest }) {
               )}
 
               <div className="mt-6 flex items-center justify-between gap-3">
-                <Button variant="ghost" size="sm" onClick={cancelCeremony}>
+                <Button variant="ghost" size="sm" onClick={dismiss}>
                   Cancel
                 </Button>
                 <Button size="sm" disabled={!acknowledged} onClick={confirmCeremony}>

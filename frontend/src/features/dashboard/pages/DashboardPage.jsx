@@ -26,11 +26,20 @@ function FriendsCard() {
   const [search, setSearch] = useState("");
   const [results, setResults] = useState([]);
   const [tab, setTab] = useState("friends"); // friends | pending | search
+  const [loadError, setLoadError] = useState(false);
 
-  useEffect(() => {
-    chat.getFriends().then((r) => setFriends(r.data || [])).catch(() => {});
-    chat.getPending().then((r) => setPending(r.data || [])).catch(() => {});
-  }, []);
+  const loadFriendsData = () => {
+    setLoadError(false);
+    // Launch both requests; any failure trips the error flag so the
+    // widget surfaces a small retry affordance. Success on either
+    // partially populates the UI — better than silent empty state.
+    let hadError = false;
+    const tripError = () => { if (!hadError) { hadError = true; setLoadError(true); } };
+    chat.getFriends().then((r) => setFriends(r.data || [])).catch(tripError);
+    chat.getPending().then((r) => setPending(r.data || [])).catch(tripError);
+  };
+
+  useEffect(loadFriendsData, []);
 
   const handleSearch = async (q) => {
     setSearch(q);
@@ -48,6 +57,12 @@ function FriendsCard() {
           <span className="rounded-full bg-primary px-2 py-0.5 text-[10px] font-bold text-white">{pending.length} new</span>
         )}
       </div>
+      {loadError && (
+        <p className="mt-2 text-xs text-text-dim">
+          Couldn&apos;t load friends.{" "}
+          <button onClick={loadFriendsData} className="text-primary hover:underline">Retry</button>
+        </p>
+      )}
 
       {/* Tabs */}
       <div className="mt-3 flex gap-1 rounded-lg bg-white/[0.03] p-0.5">

@@ -287,11 +287,11 @@ export default function ChatPanel({ open, onClose, initialPeerUserId = null, onT
   return (
     <AnimatePresence>
       <motion.div
-        initial={{ x: "100%" }}
+        initial={{ x: "-100%" }}
         animate={{ x: 0 }}
-        exit={{ x: "100%" }}
+        exit={{ x: "-100%" }}
         transition={{ type: "spring", damping: 25, stiffness: 250 }}
-        className="fixed right-0 top-0 z-[60] flex h-full w-full flex-col border-l border-line/10 bg-surface/95 backdrop-blur-2xl sm:w-[400px]"
+        className="fixed left-0 top-0 z-[60] flex h-full w-full flex-col border-r border-line/10 bg-surface/95 backdrop-blur-2xl sm:w-[400px]"
       >
         {/* ── Header ── */}
         <div className="flex items-center justify-between border-b border-line/10 px-4 py-3">

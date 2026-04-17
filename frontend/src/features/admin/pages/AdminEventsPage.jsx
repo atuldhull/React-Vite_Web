@@ -231,11 +231,13 @@ export default function AdminEventsPage() {
 
   const handleDelete = async (id) => {
     if (!confirm("Delete this event?")) return;
-    await eventsApi.remove(id).catch(() => {}); showMsg("Event deleted"); fetchEvents();
+    try { await eventsApi.remove(id); showMsg("Event deleted"); fetchEvents(); }
+    catch (err) { showMsg(err.response?.data?.error || "Delete failed"); }
   };
 
   const handleToggleReg = async (id) => {
-    await eventsApi.toggleReg(id).catch(() => {}); fetchEvents();
+    try { await eventsApi.toggleReg(id); fetchEvents(); }
+    catch (err) { showMsg(err.response?.data?.error || "Could not toggle registration"); }
   };
 
   const viewRegistrations = async (eventId) => {
