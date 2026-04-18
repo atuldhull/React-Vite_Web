@@ -50,6 +50,13 @@ export default defineConfig({
         "backend/lib/**",
         "backend/controllers/authController.js",
         "backend/controllers/healthController.js",
+        // Pure helpers inside controllers. Full controller bodies
+        // aren't in this list (they need heavier integration-test
+        // scaffolding); the pure exported functions have their own
+        // unit tests and are fair to gate on.
+        "backend/controllers/userController.js",
+        "backend/controllers/event/eventHelpers.js",
+        "backend/controllers/payment/config.js",
         // Validators — each of these gates a mutating API surface.
         // All tested in tests/unit/*-validators.test.js +
         // tests/unit/all-validators.test.js.
