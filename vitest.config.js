@@ -56,10 +56,12 @@ export default defineConfig({
         "backend/validators/events.js",
         "backend/validators/payment.js",
         "backend/validators/messaging.js",
-        // Socket layer — chat.js is the E2EE relay; tested in
-        // tests/unit/socket-chat.test.js. The rest of backend/socket
-        // still needs tests and is deliberately left out here.
+        // Socket layer — chat.js is the E2EE relay, presence.js is
+        // the live-users tracker, notifications.js is the push fan-out.
+        // quiz.js still needs its own tests and is left out here.
         "backend/socket/chat.js",
+        "backend/socket/presence.js",
+        "backend/socket/notifications.js",
         // Frontend — keep this list small + explicit. Extend as
         // tests land for new files.
         "frontend/src/store/auth-store.js",
