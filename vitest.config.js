@@ -50,6 +50,16 @@ export default defineConfig({
         "backend/lib/**",
         "backend/controllers/authController.js",
         "backend/controllers/healthController.js",
+        // Validators — each of these gates a mutating API surface.
+        // All four have dedicated unit test files under tests/unit.
+        "backend/validators/auth.js",
+        "backend/validators/events.js",
+        "backend/validators/payment.js",
+        "backend/validators/messaging.js",
+        // Socket layer — chat.js is the E2EE relay; tested in
+        // tests/unit/socket-chat.test.js. The rest of backend/socket
+        // still needs tests and is deliberately left out here.
+        "backend/socket/chat.js",
         // Frontend — keep this list small + explicit. Extend as
         // tests land for new files.
         "frontend/src/store/auth-store.js",
