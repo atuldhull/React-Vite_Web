@@ -70,6 +70,10 @@ export default function ChatPanel({ open, onClose, initialPeerUserId = null, onT
   const [pendingRequests, setPendingRequests] = useState([]);
   const [typing, setTyping] = useState(null);
   const [peerKey, setPeerKey] = useState(null);
+  // User-facing error for the active conversation (peer has no key,
+  // encryption failed, send failed, etc.). Cleared when the user
+  // switches conversations or types something new.
+  const [chatError, setChatError] = useState(null);
   const scrollRef = useRef(null);
   const socketRef = useRef(null);
   const typingTimeout = useRef(null);
@@ -176,12 +180,26 @@ export default function ChatPanel({ open, onClose, initialPeerUserId = null, onT
 
   // ── Load messages for active conversation ──
   const loadMessages = useCallback(async (conv) => {
+    setChatError(null);
     try {
       const { data: msgs } = await chat.getMessages(conv.id);
       const otherId = conv.participant_a === user.id ? conv.participant_b : conv.participant_a;
 
-      // Get peer's public key for decryption
-      const { data: keyData } = await chat.getKey(otherId);
+      // Get peer's public key for decryption. 404 here means the peer
+      // hasn't forged an identity yet — we surface that explicitly
+      // because otherwise the send button silently refuses to work.
+      let keyData;
+      try {
+        ({ data: keyData } = await chat.getKey(otherId));
+      } catch (err) {
+        if (err?.response?.status === 404) {
+          setChatError("This user hasn't set up end-to-end encryption yet — ask them to open chat at least once.");
+          setPeerKey(null);
+          setMessages([]);
+          return;
+        }
+        throw err;
+      }
       setPeerKey(keyData.publicKey);
 
       // Decrypt messages. Requires the identity store to be "ready"
@@ -203,7 +221,9 @@ export default function ChatPanel({ open, onClose, initialPeerUserId = null, onT
 
       setMessages(decrypted);
       chat.markAsRead(conv.id).catch(() => {});
-    } catch { /* ignore */ }
+    } catch (err) {
+      setChatError(err?.response?.data?.error || "Couldn't load messages — check your connection.");
+    }
   }, [user?.id, myPrivateKey]);
 
   // ── Open a conversation ──
@@ -218,8 +238,16 @@ export default function ChatPanel({ open, onClose, initialPeerUserId = null, onT
 
   // ── Send message ──
   const handleSend = async () => {
-    if (!input.trim() || !activeConv || !peerKey || sending) return;
-    if (!myPrivateKey) return; // gated by IdentityModalsRoot upstream
+    if (!input.trim() || !activeConv || sending) return;
+    if (!peerKey) {
+      setChatError("This user hasn't set up end-to-end encryption yet.");
+      return;
+    }
+    if (!myPrivateKey) {
+      setChatError("Forge your identity first (open chat, click Forge My Identity).");
+      return;
+    }
+    setChatError(null);
     setSending(true);
     const text = input.trim();
     setInput("");
@@ -251,8 +279,9 @@ export default function ChatPanel({ open, onClose, initialPeerUserId = null, onT
       setTimeout(() => {
         if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
       }, 50);
-    } catch {
+    } catch (err) {
       setInput(text); // restore input on failure
+      setChatError(err?.response?.data?.error || "Couldn't send — try again.");
     }
     setSending(false);
   };
@@ -260,6 +289,7 @@ export default function ChatPanel({ open, onClose, initialPeerUserId = null, onT
   // ── Typing indicator ──
   const handleInputChange = (e) => {
     setInput(e.target.value);
+    if (chatError) setChatError(null);
     if (activeConv && socketRef.current) {
       const otherId = activeConv.participant_a === user.id ? activeConv.participant_b : activeConv.participant_a;
       socketRef.current.emit("chat:typing", { conversationId: activeConv.id, recipientId: otherId });
@@ -434,6 +464,16 @@ export default function ChatPanel({ open, onClose, initialPeerUserId = null, onT
               })}
               {typing && <p className="text-xs text-text-dim italic">typing...</p>}
             </div>
+
+            {/* Error banner — shown when peer has no key, send fails, etc. */}
+            {chatError && (
+              <div className="border-t border-danger/25 bg-danger/10 px-4 py-2 text-[11px] text-danger">
+                <div className="flex items-start justify-between gap-2">
+                  <span>{chatError}</span>
+                  <button onClick={() => setChatError(null)} className="shrink-0 text-danger/70 hover:text-danger" aria-label="Dismiss">×</button>
+                </div>
+              </div>
+            )}
 
             {/* Input */}
             <div className="border-t border-line/10 px-3 py-2">

@@ -53,6 +53,7 @@ SPA served by Express.
 | Identity | Deterministic keypair + visual math sigils from a custom 2048-word wordlist |
 | Social | Rich profile pages with hovercards, FriendButton state machine, privacy tiers |
 | Monitoring | UptimeRobot (liveness) + Sentry (errors — optional, feature-gated) |
+| Media | Cloudinary (hero video frame extraction via `so_<time>` transforms) |
 | Fonts | Space Grotesk, JetBrains Mono, Outfit |
 
 ---
