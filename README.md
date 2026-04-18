@@ -14,35 +14,6 @@ visual system.
 
 ---
 
-## Screenshots
-
-<p align="center">
-  <img src="docs/screenshots/hero.png" alt="Homepage with Earth-zoom hero video" width="100%" />
-</p>
-
-<table>
-  <tr>
-    <td><img src="docs/screenshots/arena.png" alt="Challenge arena" /></td>
-    <td><img src="docs/screenshots/leaderboard.png" alt="Weekly leaderboard" /></td>
-  </tr>
-  <tr>
-    <td><img src="docs/screenshots/chat.png" alt="E2EE chat with identity glyph" /></td>
-    <td><img src="docs/screenshots/identity-ceremony.png" alt="Identity ceremony" /></td>
-  </tr>
-  <tr>
-    <td><img src="docs/screenshots/admin-dashboard.png" alt="Admin overview" /></td>
-    <td><img src="docs/screenshots/certificate.png" alt="Issued certificate with QR verification" /></td>
-  </tr>
-  <tr>
-    <td colspan="2"><img src="docs/screenshots/live-quiz.png" alt="Live quiz in progress" width="100%" /></td>
-  </tr>
-</table>
-
-> Missing images? They get dropped into `docs/screenshots/` — see the README
-> in that folder for spec, dimensions, and what to capture.
-
----
-
 ## Quick Start
 
 ```bash

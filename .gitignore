@@ -13,12 +13,8 @@ playwright-report/
 playwright/.cache/
 
 # Project notes / runbooks / API spec — kept locally only,
-# not for public consumption. Exception: docs/screenshots ships
-# with the repo so the README gallery renders on GitHub.
-# Using docs/* (not docs/) so git still descends into the dir and
-# picks up the re-included screenshots subtree.
-docs/*
-!docs/screenshots/
+# not for public consumption.
+docs/
 
 # Internal development notes. Rule: any root-level .md file is
 # gitignored UNLESS it's README.md. This protects against future
