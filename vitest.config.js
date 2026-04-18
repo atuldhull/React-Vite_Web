@@ -51,17 +51,26 @@ export default defineConfig({
         "backend/controllers/authController.js",
         "backend/controllers/healthController.js",
         // Validators — each of these gates a mutating API surface.
-        // All four have dedicated unit test files under tests/unit.
+        // All tested in tests/unit/*-validators.test.js +
+        // tests/unit/all-validators.test.js.
         "backend/validators/auth.js",
         "backend/validators/events.js",
         "backend/validators/payment.js",
         "backend/validators/messaging.js",
-        // Socket layer — chat.js is the E2EE relay, presence.js is
-        // the live-users tracker, notifications.js is the push fan-out.
-        // quiz.js still needs its own tests and is left out here.
+        "backend/validators/challenges.js",
+        "backend/validators/certificates.js",
+        "backend/validators/admin.js",
+        "backend/validators/contact.js",
+        "backend/validators/projects.js",
+        "backend/validators/announcements.js",
+        // Socket layer — entire backend/socket/* now covered.
+        // chat.js is the E2EE relay, presence.js the live-users
+        // tracker, notifications.js the push fan-out, quiz.js the
+        // live-quiz state machine.
         "backend/socket/chat.js",
         "backend/socket/presence.js",
         "backend/socket/notifications.js",
+        "backend/socket/quiz.js",
         // Frontend — keep this list small + explicit. Extend as
         // tests land for new files.
         "frontend/src/store/auth-store.js",

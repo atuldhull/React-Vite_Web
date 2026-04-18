@@ -10,7 +10,7 @@ visual system.
 🔗 **Live:** <https://math-collective.onrender.com>
 🟢 **Status:** <https://stats.uptimerobot.com/IT3HelUX4q>
 
-> **Status:** 665 tests passing · 0 ESLint issues · production build < 15s
+> **Status:** 741 tests passing · 0 ESLint issues · production build < 15s
 
 ---
 
@@ -230,7 +230,7 @@ npm run dev            # concurrently — backend (nodemon) + frontend (vite)
 npm run build          # Production frontend build → public/app/
 npm run lint           # ESLint check
 npm run typecheck      # TypeScript check (JSDoc + checkJs — no compile)
-npm test               # Vitest run — 665 tests
+npm test               # Vitest run — 741 tests
 npm run test:coverage  # Vitest with coverage gate (CI)
 npm run e2e            # Playwright E2E smoke tests
 ```
@@ -239,7 +239,7 @@ npm run e2e            # Playwright E2E smoke tests
 
 ## Testing
 
-**665 tests across 60 files**:
+**741 tests across 62 files**:
 
 | Layer | What it covers |
 |-------|----------------|
