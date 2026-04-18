@@ -124,7 +124,7 @@ export default function HomePage() {
     <div style={{ width: "100vw", marginLeft: "calc(-50vw + 50%)" }}>
 
       {/* ── FULL-SCREEN VIDEO (scroll-synced, the ENTIRE experience) ── */}
-      <MonumentVideo progress={progressRef.current} />
+      <MonumentVideo />
 
       {/* ── HERO OVERLAY (title + scroll hint) ── */}
       {showTitle && (

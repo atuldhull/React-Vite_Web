@@ -89,15 +89,28 @@ export default function ChatPanel({ open, onClose, initialPeerUserId = null, onT
     socket.on("connect", () => socket.emit("register_user", user.id));
 
     socket.on("chat:receive", async (msg) => {
-      if (msg.conversationId === activeConv?.id) {
+      // Normalise socket payload (camelCase) to the snake_case shape
+      // the rest of this component + the DB use. Without this the
+      // renderer reads `msg.sender_id` / `msg.created_at` off a
+      // spread that only has `senderId` / `createdAt` → alignment
+      // breaks and timestamps render as "Invalid Date".
+      const normalised = {
+        conversation_id:   msg.conversationId,
+        sender_id:         msg.senderId,
+        encrypted_content: msg.encryptedContent,
+        iv:                msg.iv,
+        message_type:      msg.messageType,
+        created_at:        msg.createdAt,
+      };
+      if (normalised.conversation_id === activeConv?.id) {
         try {
           if (!myPrivateKey) throw new Error("identity not ready");
-          const senderKey = await chat.getKey(msg.senderId);
-          const decrypted = await decryptMessage(msg.encryptedContent, msg.iv, senderKey.data.publicKey, myPrivateKey);
-          setMessages((prev) => [...prev, { ...msg, content: decrypted, decrypted: true }]);
-          chat.markAsRead(msg.conversationId).catch(() => {});
+          const senderKey = await chat.getKey(normalised.sender_id);
+          const decrypted = await decryptMessage(normalised.encrypted_content, normalised.iv, senderKey.data.publicKey, myPrivateKey);
+          setMessages((prev) => [...prev, { ...normalised, content: decrypted, decrypted: true }]);
+          chat.markAsRead(normalised.conversation_id).catch(() => {});
         } catch {
-          setMessages((prev) => [...prev, { ...msg, content: "[Encrypted]", decrypted: false }]);
+          setMessages((prev) => [...prev, { ...normalised, content: "[Encrypted]", decrypted: false }]);
         }
       }
       loadConversations();

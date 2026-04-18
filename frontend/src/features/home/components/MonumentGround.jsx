@@ -1,31 +1,28 @@
 /**
  * MonumentVideo.jsx — Scroll-synced cinematic backdrop.
  *
- * Preloads a series of still frames from Cloudinary's video via the
- * `so_<time>` trick, then draws the correct frame to a full-screen
- * canvas based on scroll progress. Produces silkier scrubbing than
- * seeking an HTMLVideoElement (which stutters on most browsers) and
- * gets crisper output because each frame is served as a sharpened,
- * f_auto (WebP/AVIF) JPEG tuned to the viewport width.
+ * Two-layer render with no loading screen:
+ *
+ *   1. An <img> at the first frame URL shows instantly (~200ms
+ *      from cold) — anyone opening the page sees the Earth
+ *      immediately, never a black screen.
+ *   2. A <canvas> on top, transparent until the draw loop has
+ *      something to paint. Every requestAnimationFrame it reads
+ *      window.scrollY directly, picks the nearest loaded frame,
+ *      and covers the <img>. Frames keep preloading + decoding
+ *      in the background so by the time the user scrolls past
+ *      the hero, the entire sequence is cached and scrub-ready.
  */
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 
 const CLOUD_BASE    = "https://res.cloudinary.com/dvwrdexxh/video/upload";
 const PUBLIC_PATH   = "/v1776451998/Cinematic_Zoom_Earth_to_Snowy_Kingdom_koczaz.jpg";
 const VIDEO_URL     = "https://res.cloudinary.com/dvwrdexxh/video/upload/v1776451998/Cinematic_Zoom_Earth_to_Snowy_Kingdom_koczaz.mp4";
 const FRAME_FPS     = 30;
-const MAX_FRAMES    = 240;
-const FRAME_QUALITY = 85;
-const SHARPEN       = 100;
-
-// Start showing the video once we've got this fraction of frames
-// cached — enough that most scroll velocities will never outrun the
-// buffer. The rest keep loading in the background.
-const REVEAL_THRESHOLD = 0.35;
-// Safety net: if the CDN is genuinely slow, reveal anyway after this
-// long so the user never stares at a black page.
-const MAX_BLACK_MS     = 7000;
+const MAX_FRAMES    = 180;
+const FRAME_QUALITY = 82;
+const SHARPEN       = 80;
 
 function probeDuration() {
   return new Promise((resolve) => {
@@ -51,32 +48,52 @@ function frameUrl(t, w) {
   return `${CLOUD_BASE}/${transforms}${PUBLIC_PATH}`;
 }
 
-export default function MonumentVideo({ progress = 0 }) {
+// Scroll distance (px) that drives progress 0→1. Matches the
+// 500vh scroll spacer in HomePage.jsx.
+function scrollSpan() {
+  return window.innerHeight * 5;
+}
+
+// First-frame URL used as the instant-paint fallback. Computed at
+// module scope so the browser can start fetching it as soon as the
+// component imports — no render needed.
+function firstFrameFallbackUrl() {
+  const dpr = (typeof window !== "undefined" && Math.min(window.devicePixelRatio || 1, 2)) || 1;
+  const w   = Math.min(2560, Math.max(1600, Math.ceil((typeof window !== "undefined" ? window.innerWidth : 1920) * dpr)));
+  return frameUrl(0, w);
+}
+
+export default function MonumentVideo() {
   const canvasRef   = useRef(null);
   const ctxRef      = useRef(null);
   const imagesRef   = useRef([]);
+  const drawGeomRef = useRef({ W: 0, H: 0 });
   const lastIdx     = useRef(-1);
   const rafRef      = useRef(null);
-  const progressRef = useRef(progress);
-  const [ready, setReady] = useState(false);
-
-  useEffect(() => { progressRef.current = progress; }, [progress]);
 
   // ── Canvas sizing (HiDPI + cover-fit) ──
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    ctxRef.current = canvas.getContext("2d");
+    // alpha:true — un-drawn regions stay transparent so the <img>
+    // underneath shows through until the canvas has real content.
+    ctxRef.current = canvas.getContext("2d", { alpha: true });
     function resize() {
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
-      canvas.width  = Math.floor(window.innerWidth  * dpr);
-      canvas.height = Math.floor(window.innerHeight * dpr);
-      canvas.style.width  = window.innerWidth  + "px";
-      canvas.style.height = window.innerHeight + "px";
+      const W = window.innerWidth;
+      const H = window.innerHeight;
+      canvas.width  = Math.floor(W * dpr);
+      canvas.height = Math.floor(H * dpr);
+      canvas.style.width  = W + "px";
+      canvas.style.height = H + "px";
       const ctx = ctxRef.current;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      // Cheap resampling — the source frame is already at viewport
+      // width, so "low" is indistinguishable from "high" visually
+      // and dramatically faster on the hot path.
       ctx.imageSmoothingEnabled = true;
-      ctx.imageSmoothingQuality = "high";
+      ctx.imageSmoothingQuality = "low";
+      drawGeomRef.current = { W, H };
       lastIdx.current = -1;
     }
     resize();
@@ -84,19 +101,9 @@ export default function MonumentVideo({ progress = 0 }) {
     return () => window.removeEventListener("resize", resize);
   }, []);
 
-  // ── Preload frames ──
+  // ── Preload + pre-decode every frame in the background ──
   useEffect(() => {
-    let cancelled  = false;
-    let revealed   = false;
-    let loaded     = 0;
-    let failed     = 0;
-
-    const revealTimer = setTimeout(() => {
-      if (!cancelled && !revealed && loaded > 0) {
-        revealed = true;
-        setReady(true);
-      }
-    }, MAX_BLACK_MS);
+    let cancelled = false;
 
     (async () => {
       const duration = await probeDuration();
@@ -104,58 +111,39 @@ export default function MonumentVideo({ progress = 0 }) {
 
       const dpr       = Math.min(window.devicePixelRatio || 1, 2);
       const physicalW = Math.ceil(window.innerWidth * dpr);
-      const frameW    = Math.min(2560, Math.max(1440, physicalW));
+      const frameW    = Math.min(2560, Math.max(1600, physicalW));
       const count     = Math.min(MAX_FRAMES, Math.max(40, Math.ceil(duration * FRAME_FPS)));
       const step      = duration / (count - 1);
-      const revealAt  = Math.max(1, Math.floor(count * REVEAL_THRESHOLD));
 
       imagesRef.current = new Array(count);
-
-      const maybeReveal = () => {
-        if (revealed || cancelled) return;
-        if (loaded >= revealAt) {
-          revealed = true;
-          setReady(true);
-        }
-      };
 
       for (let i = 0; i < count; i++) {
         const t   = Math.min(duration - 0.01, i * step);
         const img = new window.Image();
-        // No crossOrigin — we only drawImage (never read pixels back),
-        // and omitting it avoids spurious CORS-related onerror firing
-        // when the CDN response lacks the ACAO header.
         img.onload = () => {
           if (cancelled) return;
-          loaded++;
-          maybeReveal();
-        };
-        img.onerror = () => {
-          if (cancelled) return;
-          failed++;
-          // If an unreasonable number fail, reveal anyway so we show
-          // whatever did load rather than blocking forever.
-          if (loaded > 0 && (loaded + failed) === count) maybeReveal();
+          // Pre-decode so the first drawImage() doesn't pay the decode
+          // cost on the main thread — biggest single source of
+          // first-scrub stutter.
+          if (img.decode) img.decode().catch(() => {});
         };
         imagesRef.current[i] = img;
         img.src = frameUrl(t, frameW);
       }
     })();
 
-    return () => {
-      cancelled = true;
-      clearTimeout(revealTimer);
-    };
+    return () => { cancelled = true; };
   }, []);
 
-  // ── rAF draw loop driven by scroll progress ──
+  // ── rAF draw loop — reads scrollY directly every frame ──
   useEffect(() => {
     function tick() {
       const imgs = imagesRef.current;
       if (imgs.length) {
-        const last   = imgs.length - 1;
-        const target = Math.max(0, Math.min(last, Math.round(progressRef.current * last)));
-        drawIndex(target);
+        const span = scrollSpan();
+        const p = span > 0 ? Math.max(0, Math.min(1, window.scrollY / span)) : 0;
+        const last = imgs.length - 1;
+        drawIndex(Math.round(p * last));
       }
       rafRef.current = requestAnimationFrame(tick);
     }
@@ -163,37 +151,56 @@ export default function MonumentVideo({ progress = 0 }) {
     return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
   }, []);
 
-  // Finds the nearest loaded frame to `idx` (searching outward in both
-  // directions), then draws it cover-fit. A fast-scrolling user on a
-  // slow network sees a near-match, never a black gap.
   function drawIndex(idx) {
     const imgs = imagesRef.current;
     const ctx  = ctxRef.current;
     if (!ctx || !imgs.length) return;
 
+    // Find nearest loaded + decoded frame (both directions). Until
+    // any frame is ready the canvas stays transparent and the <img>
+    // fallback shows through.
     const last = imgs.length - 1;
     let use = -1;
     for (let d = 0; d <= last; d++) {
       const a = idx - d, b = idx + d;
-      if (a >= 0 && imgs[a] && imgs[a].naturalWidth) { use = a; break; }
+      if (a >= 0 && imgs[a] && imgs[a].naturalWidth)   { use = a; break; }
       if (b <= last && imgs[b] && imgs[b].naturalWidth) { use = b; break; }
     }
-    if (use < 0) return;
-    if (use === lastIdx.current) return;
+    if (use < 0 || use === lastIdx.current) return;
 
     const img = imgs[use];
-    const W = window.innerWidth, H = window.innerHeight;
-    ctx.fillStyle = "#000";
-    ctx.fillRect(0, 0, W, H);
+    const { W, H } = drawGeomRef.current;
     const scale = Math.max(W / img.naturalWidth, H / img.naturalHeight);
     const dw = img.naturalWidth * scale;
     const dh = img.naturalHeight * scale;
+    // Canvas alpha is true, but every frame fully covers the viewport
+    // in cover-fit, so no clearRect is needed — drawImage replaces
+    // all pixels.
     ctx.drawImage(img, (W - dw) / 2, (H - dh) / 2, dw, dh);
     lastIdx.current = use;
   }
 
   return (
     <>
+      {/* Static first-frame — instant paint on cold load so the hero
+          never appears as a black screen. Hidden beneath the canvas;
+          the canvas covers it once any real frame is drawn. */}
+      <img
+        src={firstFrameFallbackUrl()}
+        alt=""
+        aria-hidden
+        style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          width: "100vw",
+          height: "100vh",
+          objectFit: "cover",
+          zIndex: 0,
+          pointerEvents: "none",
+          userSelect: "none",
+        }}
+      />
       <canvas
         ref={canvasRef}
         style={{
@@ -202,21 +209,8 @@ export default function MonumentVideo({ progress = 0 }) {
           left: 0,
           width: "100vw",
           height: "100vh",
-          zIndex: 0,
-          background: "#000",
+          zIndex: 1,
           pointerEvents: "none",
-        }}
-      />
-      <div
-        aria-hidden
-        style={{
-          position: "fixed",
-          inset: 0,
-          zIndex: 40,
-          background: "#000",
-          opacity: ready ? 0 : 1,
-          pointerEvents: ready ? "none" : "auto",
-          transition: "opacity 900ms ease",
         }}
       />
     </>
