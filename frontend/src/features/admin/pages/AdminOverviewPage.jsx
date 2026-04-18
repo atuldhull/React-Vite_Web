@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import Card from "@/components/ui/Card";
 import Loader from "@/components/ui/Loader";
+import Button from "@/components/ui/Button";
 import { admin, leaderboard } from "@/lib/api";
 import MonumentBackground from "@/components/backgrounds/MonumentBackground";
 import { useMonument } from "@/hooks/useMonument";
@@ -16,6 +17,24 @@ export default function AdminOverviewPage() {
   const [weekInfo, setWeekInfo] = useState(null);
   const [activeUsers, setActiveUsers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [resetting, setResetting] = useState(false);
+  const [resetMsg, setResetMsg] = useState(null);
+
+  const renewWeek = async () => {
+    if (!confirm("Start a new leaderboard week? Current standings get archived as winners.")) return;
+    setResetting(true);
+    try {
+      const { data } = await admin.resetWeek();
+      setResetMsg(data.message || "Week reset — fresh rankings live.");
+      const fresh = await leaderboard.weekInfo().catch(() => ({ data: null }));
+      setWeekInfo(fresh.data);
+      setTimeout(() => setResetMsg(null), 5000);
+    } catch (err) {
+      setResetMsg(err?.response?.data?.error || "Reset failed — try again.");
+      setTimeout(() => setResetMsg(null), 5000);
+    }
+    setResetting(false);
+  };
 
   useEffect(() => {
     Promise.all([
@@ -58,18 +77,43 @@ export default function AdminOverviewPage() {
       <div className="grid gap-6 xl:grid-cols-2">
         {/* Week countdown */}
         <motion.div custom={4} variants={fadeUp}>
-          <Card variant="glow">
-            <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-glow">Leaderboard Cycle</p>
+          <Card variant={weekInfo?.expired ? "solid" : "glow"} className={weekInfo?.expired ? "border-warning/35" : ""}>
+            <div className="flex items-center justify-between">
+              <p className={`font-mono text-[11px] uppercase tracking-[0.3em] ${weekInfo?.expired ? "text-warning" : "text-glow"}`}>
+                Leaderboard Cycle
+              </p>
+              {weekInfo?.expired && (
+                <span className="rounded-full border border-warning/40 bg-warning/10 px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider text-warning">
+                  Expired
+                </span>
+              )}
+            </div>
             <div className="mt-4 flex items-center justify-between">
               <div>
-                <p className="font-display text-3xl font-bold text-white">{weekInfo?.timeLeftStr || "—"}</p>
-                <p className="mt-1 text-xs text-text-dim">until weekly reset</p>
+                <p className={`font-display text-3xl font-bold ${weekInfo?.expired ? "text-warning" : "text-white"}`}>
+                  {weekInfo?.timeLeftStr || "—"}
+                </p>
+                <p className="mt-1 text-xs text-text-dim">
+                  {weekInfo?.expired ? "Admin action required" : "until weekly reset"}
+                </p>
               </div>
               <div className="text-right text-xs text-text-dim">
                 <p>Started: {weekInfo?.weekStart ? new Date(weekInfo.weekStart).toLocaleDateString() : "—"}</p>
                 <p>Ends: {weekInfo?.weekEnd ? new Date(weekInfo.weekEnd).toLocaleDateString() : "—"}</p>
               </div>
             </div>
+            {weekInfo?.expired && (
+              <div className="mt-4 border-t border-line/10 pt-3">
+                <Button size="sm" variant="primary" loading={resetting} onClick={renewWeek} className="w-full">
+                  🔄 Start New Week
+                </Button>
+              </div>
+            )}
+            {resetMsg && (
+              <p className="mt-3 rounded-lg border border-success/30 bg-success/10 px-3 py-2 text-xs text-success">
+                {resetMsg}
+              </p>
+            )}
           </Card>
         </motion.div>
 

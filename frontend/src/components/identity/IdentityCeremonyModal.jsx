@@ -153,6 +153,19 @@ export default function IdentityCeremonyModal({ onRestoreRequest }) {
             </>
           )}
 
+          {/* ── Forging in progress (PBKDF2 + key derivation ~1-2s) ── */}
+          {status === "forging" && !pendingPhrase && (
+            <div className="flex flex-col items-center justify-center py-8 text-center">
+              <div className="h-10 w-10 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
+              <p className="mt-4 font-mono text-[10px] uppercase tracking-[0.3em] text-primary">
+                Deriving your identity
+              </p>
+              <p className="mt-1 text-xs text-text-muted">
+                Stretching entropy through 100,000 iterations of PBKDF2…
+              </p>
+            </div>
+          )}
+
           {/* ── Phrase reveal — status=forging ── */}
           {status === "forging" && pendingPhrase && (
             <>

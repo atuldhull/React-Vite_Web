@@ -79,16 +79,29 @@ export const getWeekInfo = async (req, res) => {
     const weekStart = data?.week_start ? new Date(data.week_start) : new Date();
     const weekEnd   = new Date(weekStart.getTime() + 7 * 24 * 60 * 60 * 1000);
     const now       = new Date();
-    const msLeft    = Math.max(0, weekEnd - now);
-    const daysLeft  = Math.floor(msLeft / (1000 * 60 * 60 * 24));
-    const hoursLeft = Math.floor((msLeft % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const msLeft    = weekEnd - now;
+    const expired   = msLeft <= 0;
+    const daysLeft  = expired ? 0 : Math.floor(msLeft / (1000 * 60 * 60 * 24));
+    const hoursLeft = expired ? 0 : Math.floor((msLeft % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const daysOverdue = expired ? Math.floor(-msLeft / (1000 * 60 * 60 * 24)) : 0;
+
+    let timeLeftStr;
+    if (expired) {
+      timeLeftStr = daysOverdue > 0
+        ? `Ended ${daysOverdue}d ago — reset needed`
+        : "Week ended — reset needed";
+    } else {
+      timeLeftStr = daysLeft > 0 ? `${daysLeft}d ${hoursLeft}h left` : `${hoursLeft}h left`;
+    }
 
     return res.json({
       weekStart:   weekStart.toISOString(),
       weekEnd:     weekEnd.toISOString(),
       daysLeft,
       hoursLeft,
-      timeLeftStr: daysLeft > 0 ? `${daysLeft}d ${hoursLeft}h left` : `${hoursLeft}h left`,
+      expired,
+      daysOverdue,
+      timeLeftStr,
     });
   } catch {
     return res.status(500).json({ error: "Failed" });
