@@ -7,6 +7,9 @@ Socket.IO for live quiz + real-time chat. AI-assisted challenges via OpenRouter,
 gamification, end-to-end encrypted messaging, rich profile pages, and a monument-themed
 visual system.
 
+🔗 **Live:** <https://math-collective.onrender.com>
+🎓 **Verify a certificate:** <https://math-collective.onrender.com/verify?token=…>
+
 > **Status:** 571 tests passing · 0 ESLint issues · production build < 15s
 
 ---
@@ -155,6 +158,67 @@ Express 5 server (:3000)
   ├── Row Level Security: default-deny on every tenant table
   └── Service-role key for backend writes (service-role bypasses RLS by design)
 ```
+
+---
+
+## Database
+
+All schema lives in `backend/migrations/` as hand-written, idempotent SQL
+files, numbered in the order they must run. Each file is self-contained —
+`CREATE TABLE IF NOT EXISTS`, `ALTER TABLE … ADD COLUMN IF NOT EXISTS`, etc.
+— so re-running them is a safe no-op.
+
+| File | What it establishes |
+|------|---------------------|
+| `01_base_tables.sql` | Core: `students`, `challenges`, `attempts`, `leaderboard_weekly_winners` |
+| `02_extended_columns.sql` | Profile extras — title, avatar, streaks, XP |
+| `03_events_site_settings.sql` | `events`, `event_registrations`, `site_settings` |
+| `04_notifications_certificates.sql` | `notifications`, `certificate_batches`, `certificates` |
+| `05_profile_avatar.sql` | `avatar_config` JSON + auto-colour |
+| `06_features_orgs_plans.sql` | `organisations`, `subscription_plans`, `feature_flags` |
+| `07_payment_subscriptions.sql` | Razorpay subscriptions + invoices |
+| `08_messaging_friendships.sql` | `friendships`, `conversations`, `messages`, `user_public_keys` |
+| `09_referral_system.sql` | Referral codes + attribution |
+| `10_events_upgrade.sql` | Events v2 — capacity, cover_image, categories |
+| `11_notification_types.sql` | Notification category enum + filters |
+| `12_qr_checkin.sql` | Event QR check-in table |
+| `13_push_subscriptions.sql` | Web-push subscription rows (VAPID) |
+| `14_multitenant_org_columns.sql` | `org_id NOT NULL` across tenant tables |
+| `16_session_store.sql` | Postgres-backed express-session table |
+| `17_rls_policies.sql` | Row-level-security default-deny on tenant tables |
+| `18_idempotency_keys.sql` | Idempotency for payment webhooks |
+| `19_paid_events.sql` | UPI/QR manual payment flow |
+| `20_profile_visibility.sql` | Per-user privacy tiers for profile pages |
+
+### Applying migrations
+
+Supabase doesn't ship a CLI migration runner by default. Two ways to apply:
+
+1. **Supabase SQL Editor (easiest):** dashboard → **SQL Editor** → paste the
+   contents of each file in order, click **Run**. Each file prints a trailing
+   `SELECT` that shows row counts so you can sanity-check the apply worked.
+2. **psql:** `psql "$SESSION_DB_URL" -f backend/migrations/01_base_tables.sql`
+   (and so on).
+
+The order matters — later files reference columns/tables added by earlier ones.
+
+### Row Level Security
+
+Every tenant table has RLS enabled + a default-deny policy (`17_rls_policies.sql`).
+Backend writes bypass RLS via the service-role key; the frontend never talks
+to Supabase directly, so no RLS policies need to account for unauthenticated
+reads. If you're extending the schema, add the same pattern:
+
+```sql
+ALTER TABLE your_new_table ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "default_deny" ON your_new_table FOR ALL USING (false);
+```
+
+### Seeding dev data
+
+No automated seed exists — if you want sample content for local
+development, create an organisation + students via the SQL editor or the
+admin UI after logging in for the first time.
 
 ---
 
