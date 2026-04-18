@@ -104,6 +104,17 @@ export function createApp() {
   applyRequestLogger(app);   // 400 on path-traversal / SQL-injection / scanner patterns
 
   /* ── PARSERS + SESSION ── */
+  // Block source-map files in production before static serves them.
+  // The Vite build emits *.js.map next to each minified bundle for
+  // local dev debugging; exposing them on the public origin lets an
+  // attacker reconstruct the un-minified source. Dev + test keep them
+  // available so the browser devtools stack traces stay readable.
+  if (process.env.NODE_ENV === "production") {
+    app.use((req, res, next) => {
+      if (req.path.endsWith(".map")) return res.status(404).end();
+      next();
+    });
+  }
   app.use(express.static(PUBLIC_DIR));
   app.use(express.urlencoded({ extended: true }));
   app.use(express.json({

@@ -34,12 +34,27 @@ import { logger } from "../config/logger.js";
    Prevents XSS, clickjacking, MIME sniffing.
 ══════════════════════════════════════════ */
 export function applyHelmet(app) {
+  const isProd = process.env.NODE_ENV === "production";
+
+  // Dev needs `unsafe-inline` and the CDN hosts because Swagger UI
+  // (mounted only in dev — see app.js `if (!isProd) mountSwaggerDocs`)
+  // loads its assets from cdn.jsdelivr and uses inline scripts for
+  // configuration. Vite HMR also injects a small inline client.
+  //
+  // In production both Swagger and HMR are gone, the SPA bundle is
+  // fully external and pre-hashed, so we can drop those allowances
+  // entirely — a tighter CSP that rejects any injected inline script.
+  const scriptSrcProd = ["'self'"];
+  const scriptSrcDev  = ["'self'", "'unsafe-inline'", "cdn.jsdelivr.net", "cdnjs.cloudflare.com", "unpkg.com", "esm.sh"];
+  const styleSrcProd  = ["'self'", "'unsafe-inline'", "fonts.googleapis.com"];
+  const styleSrcDev   = ["'self'", "'unsafe-inline'", "fonts.googleapis.com", "cdn.jsdelivr.net", "cdnjs.cloudflare.com"];
+
   app.use(helmet({
     contentSecurityPolicy: {
       directives: {
         defaultSrc:     ["'self'"],
-        scriptSrc:      ["'self'", "'unsafe-inline'", "cdn.jsdelivr.net", "cdnjs.cloudflare.com", "unpkg.com", "esm.sh"],
-        styleSrc:       ["'self'", "'unsafe-inline'", "fonts.googleapis.com", "cdn.jsdelivr.net", "cdnjs.cloudflare.com"],
+        scriptSrc:      isProd ? scriptSrcProd : scriptSrcDev,
+        styleSrc:       isProd ? styleSrcProd  : styleSrcDev,
         // `data:` allowed because the SPA bundle inlines a few small
         // icon-font glyphs as data URIs (caught by Playwright smoke
         // tests when CSP blocked them). Data-URI fonts aren't a

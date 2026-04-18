@@ -496,6 +496,7 @@ export default function EventsPage() {
                                   <img
                                     src={event.payment_qr_base64}
                                     alt="Payment QR"
+                                    loading="lazy"
                                     className="h-28 w-28 rounded-lg border border-line/15 bg-white p-1"
                                   />
                                 )}
