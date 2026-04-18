@@ -3,8 +3,15 @@ import axios   from "axios";
 import { requireAuth } from "../middleware/authMiddleware.js";
 import { aiLimiter } from "../middleware/rateLimiter.js";
 import { logger } from "../config/logger.js";
+import { PANDA_TOOLS, executeTool } from "../lib/pandaTools.js";
 
 const router = express.Router();
+
+// Max turns of the LLM ↔ tool loop per request. With 4 tools the
+// typical query resolves in 1-2 tool calls; 4 iterations gives
+// headroom for cross-referencing (arxiv → wikipedia → oeis etc.)
+// without risking an unbounded loop.
+const MAX_TOOL_ITERATIONS = 4;
 
 // aiLimiter: ΣBot chat hits OpenRouter on every message — 20/hr per
 // user prevents a runaway client loop from draining the API budget.
@@ -52,47 +59,10 @@ RESPONSE STRUCTURE (always follow this):
 3. Final answer highlighted with **Answer: [value]**
 4. A wild sign-off: fun fact, meme reference, or mathematician quote
 
-EXAMPLE RESPONSES:
-
-User: "what is d/dx of x^2?"
-ΣBot: "Oh you're starting with the classics 😌 respect.
-
-**Step 1:** Use the power rule — bring the exponent down and reduce it by 1.
-
-d/dx of x^n = n * x^(n-1)
-
-**Step 2:** Apply it:
-
-d/dx of x^2 = 2 * x^(2-1) = **2x**
-
-**Answer: 2x** ✅
-
-Fun fact: Newton and Leibniz both invented calculus independently and then spent years arguing about who did it first. Mathematicians were petty even in the 1600s. 💀"
-
-User: "explain eigenvalues"
-ΣBot: "Eigenvalues are lowkey one of the most powerful ideas in all of mathematics and I will DIE on that hill 🔥
-
-Okay so imagine you have a transformation (a matrix) that stretches or squishes space. **Eigenvectors** are the special directions that DON'T rotate — they only get scaled. The **eigenvalue** is HOW MUCH they get scaled.
-
-**Formally:**
-If A is your matrix and v is a non-zero vector:
-A * v = lambda * v
-
-where lambda (λ) is the eigenvalue.
-
-**How to find them:**
-1. Set up: det(A - lambda*I) = 0
-2. Solve the characteristic polynomial
-3. Each solution is an eigenvalue 🎯
-
-**Answer:** Eigenvalues tell you the scaling factors of a matrix along its special directions.
-
-Gauss would have found them in his sleep. You've got this 💪"
-
 TOPICS you OWN: Calculus | Linear Algebra | Differential Equations | Probability & Stats | Vector Calculus | Laplace Transforms | Fourier Series | Complex Numbers | Numerical Methods | Partial Derivatives | Number Theory | Topology | Graph Theory | Combinatorics | Algebra | Analysis | Geometry
 
 ALSO WELCOME — engage fully with any of these:
-- Research paper discussion, summaries, and recommendations (recall what you know from training)
+- Research paper discussion, summaries, and recommendations
 - History of mathematics and mathematicians
 - Famous unsolved problems (Riemann, P vs NP, Birch-Swinnerton-Dyer, etc.)
 - Olympiad / Putnam / Research-level problem solving
@@ -100,52 +70,82 @@ ALSO WELCOME — engage fully with any of these:
 - Applications of math in physics, CS, ML, cryptography, economics
 - Study roadmaps and reading recommendations
 
-HONESTY CLAUSE — you are NOT connected to the internet:
-Your training data has a cutoff, so you cannot list "the most recent" or "papers from this month/year" with certainty. When a student asks for current / recent / latest research, do this:
-1. Share what you DO know from your training — top authors, key venues, foundational recent work you remember.
-2. Be explicit: "My training data ends around [year], so I can't promise this is the freshest."
-3. Always point to these sources for current papers:
-   - **arXiv.org/list/math** — categorised daily preprints (math.AG, math.AP, math.NT etc.)
-   - **Google Scholar** — filter by "since [year]"
-   - **Semantic Scholar** — https://www.semanticscholar.org (API + modern ranking)
-   - **zbMATH Open** — https://zbmath.org (classical math abstracts)
-4. If you DO recall specific paper titles, give them verbatim with authors + year — the student can Google them.
-5. NEVER invent URLs. Only cite links you are certain of (arxiv.org, scholar.google.com, wikipedia.org). Fabricated URLs are a hard no.
+TOOLS — you have REAL internet access via these functions. Use them aggressively when the student asks for anything current, specific, or fact-sensitive:
+
+• search_arxiv(query, max_results) — LIVE list of recent arXiv preprints. Call this whenever the student asks "latest/recent/new papers on X". Sorted newest first.
+• search_semantic_scholar(query, limit) — RANKED academic search with citation counts. Call this for "most cited / most influential papers on X" or when Semantic Scholar would out-rank arXiv (older well-known work).
+• get_wikipedia_summary(title) — Authoritative summary for a concept, theorem, or mathematician. Call this BEFORE stating historical facts, dates, biographies, or formal theorem statements — your training data can be wrong, Wikipedia rarely is.
+• search_oeis(query) — Look up an integer sequence. Call this the moment a student pastes numbers like "1, 1, 2, 3, 5, 8" or asks about a named sequence.
+
+TOOL-USE RULES:
+1. When uncertain about a fact, especially "latest", "current year", "publication date", "who proved what when" — CALL A TOOL. Don't guess.
+2. After a tool returns, weave the real data into your answer with your usual personality and emoji style — don't just dump JSON.
+3. ALWAYS include the link field from the tool output so the student can verify.
+4. NEVER fabricate URLs. If a tool didn't return a link, say "search [X] on arxiv.org" instead of inventing one.
+5. One tool is usually enough. Cross-reference with a second only if it adds real value (e.g. arXiv for recency + Wikipedia for concept).
 
 OFF-TOPIC HANDLING:
-For questions that are obviously nothing to do with math or academics (celebrity gossip, dating advice, sports scores), gently redirect with humour. But if it's borderline math-adjacent — physics, CS, ML, philosophy of math, study habits, mathematician biographies — ENGAGE, don't refuse.` + challengeSection;
+For questions obviously unrelated to math or academics (celebrity gossip, dating advice, sports scores), gently redirect with humour. Borderline queries (physics, CS, ML, philosophy of math, study habits, mathematician bios) — ENGAGE, don't refuse.` + challengeSection;
+
+  // Conversation accumulator — initial messages + any tool round-trips.
+  const loopMessages = [
+    { role: "system", content: systemPrompt },
+    ...messages.slice(-10),
+  ];
 
   try {
-    const response = await axios.post(
-      "https://openrouter.ai/api/v1/chat/completions",
-      {
-        model:    "deepseek/deepseek-chat",
-        messages: [
-          { role: "system", content: systemPrompt },
-          ...messages.slice(-10),
-        ],
-        temperature: 0.7,
-        // Bumped from 900 so the bot can actually complete a long
-        // research-paper list or a rigorous step-by-step proof
-        // without being truncated mid-sentence.
-        max_tokens:  1800,
-      },
-      {
-        headers: {
-          "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY}`,
-          "Content-Type":  "application/json",
-          "HTTP-Referer":  "https://mathcollective.bmsit.in",
-          "X-Title": "Math Collective SigmaBot",
+    for (let iter = 0; iter < MAX_TOOL_ITERATIONS; iter++) {
+      const response = await axios.post(
+        "https://openrouter.ai/api/v1/chat/completions",
+        {
+          model:       "deepseek/deepseek-chat",
+          messages:    loopMessages,
+          tools:       PANDA_TOOLS,
+          tool_choice: "auto",
+          temperature: 0.7,
+          // 1800 tokens lets the model finish a long research-paper
+          // list or a multi-step proof without being cut off.
+          max_tokens:  1800,
         },
-        timeout: 30000,
+        {
+          headers: {
+            "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY}`,
+            "Content-Type":  "application/json",
+            "HTTP-Referer":  "https://mathcollective.bmsit.in",
+            "X-Title":       "Math Collective SigmaBot",
+          },
+          timeout: 45000,
+        },
+      );
+
+      const msg = response.data?.choices?.[0]?.message;
+      if (!msg) break;
+
+      // Done — model replied with final content, no more tool calls.
+      if (!msg.tool_calls || msg.tool_calls.length === 0) {
+        const reply = msg.content || "Bruh the AI servers are taking a nap 😴 try again in a sec!";
+        return res.json({ reply });
       }
-    );
 
-    const reply = response.data?.choices?.[0]?.message?.content
-      || "Bruh the AI servers are taking a nap 😴 try again in a sec!";
+      // Tool call loop — execute each requested tool, feed results back.
+      loopMessages.push(msg);
+      for (const call of msg.tool_calls) {
+        let args = {};
+        try { args = JSON.parse(call.function.arguments || "{}"); } catch { /* ignore — empty args */ }
+        logger.info({ tool: call.function.name, args }, "PANDA tool call");
+        const result = await executeTool(call.function.name, args);
+        loopMessages.push({
+          role:         "tool",
+          tool_call_id: call.id,
+          content:      result,
+        });
+      }
+    }
 
-    return res.json({ reply });
-
+    // Fallthrough — too many iterations; return a graceful message.
+    return res.json({
+      reply: "I went down a rabbit hole checking a bunch of sources and lost the thread 🐇 try rephrasing?",
+    });
   } catch (err) {
     logger.error({ err: err }, "ΣBot Error");
     return res.status(500).json({ error: "AI is on a coffee break ☕ try again shortly." });
