@@ -178,33 +178,6 @@ export default function HomePage() {
         </div>
       )}
 
-      {/* ── STATS BAR (bottom, visible at start) ── */}
-      {p < 0.25 && (
-        <div style={{
-          position: "fixed", bottom: "3%", left: "50%",
-          transform: "translateX(-50%)",
-          zIndex: 10, pointerEvents: "none",
-          display: "flex", gap: "2rem",
-          padding: "0.6rem 1.8rem",
-          background: "rgba(0,0,0,0.3)",
-          backdropFilter: "blur(16px)",
-          borderRadius: "2rem",
-          border: "1px solid rgba(255,255,255,0.06)",
-          opacity: p < 0.15 ? 1 : 1 - (p - 0.15) / 0.1,
-        }}>
-          {stats.map((stat) => (
-            <div key={stat.label} style={{ textAlign: "center" }}>
-              <span className="math-text" style={{ fontSize: "1rem", fontWeight: 700, color: "white", display: "block" }}>
-                {stat.value}
-              </span>
-              <span style={{ fontSize: "0.55rem", color: "rgba(255,255,255,0.35)", letterSpacing: "0.12em", textTransform: "uppercase", fontFamily: "'JetBrains Mono', monospace" }}>
-                {stat.label}
-              </span>
-            </div>
-          ))}
-        </div>
-      )}
-
       {/* ── SCROLL SPACER (drives video progress) ── */}
       <div style={{ height: "500vh", position: "relative", pointerEvents: "none" }} />
 

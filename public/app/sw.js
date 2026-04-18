@@ -12,7 +12,10 @@
  * Push notifications: Handles incoming push events for quiz invites, messages, etc.
  */
 
-const CACHE_NAME = "mc-v1";
+// Bump CACHE_NAME so the install handler pre-caches fresh with the
+// post-fix logic — otherwise every browser that has mc-v1 already
+// caches the old sw.js's broken responses.
+const CACHE_NAME = "mc-v2";
 const OFFLINE_URL = "/app/offline.html";
 
 // Static assets to pre-cache on install
@@ -80,9 +83,16 @@ self.addEventListener("fetch", (event) => {
           }
           return response;
         })
-        .catch(() => {
-          // Offline — try cache
-          return caches.match(event.request);
+        .catch(async () => {
+          // Offline — try cache; if nothing cached, synthesise a 503
+          // so respondWith() always gets a real Response (passing
+          // undefined crashes the SW with "Failed to convert value
+          // to 'Response'").
+          const cached = await caches.match(event.request);
+          return cached || new Response(JSON.stringify({ error: "offline" }), {
+            status: 503,
+            headers: { "Content-Type": "application/json" },
+          });
         }),
     );
     return;
@@ -113,7 +123,7 @@ self.addEventListener("fetch", (event) => {
   // ── HTML pages: Stale-while-revalidate ──
   if (event.request.headers.get("accept")?.includes("text/html")) {
     event.respondWith(
-      caches.match(event.request).then((cached) => {
+      caches.match(event.request).then(async (cached) => {
         const fetchPromise = fetch(event.request)
           .then((response) => {
             if (response.ok) {
@@ -122,9 +132,15 @@ self.addEventListener("fetch", (event) => {
             }
             return response;
           })
-          .catch(() => {
-            // Completely offline — show fallback page
-            return caches.match(OFFLINE_URL);
+          .catch(async () => {
+            // Completely offline — try to show fallback page; if even
+            // that isn't cached, synthesise a minimal offline page so
+            // respondWith() never receives undefined.
+            const offline = await caches.match(OFFLINE_URL);
+            return offline || new Response("<h1>Offline</h1>", {
+              status: 503,
+              headers: { "Content-Type": "text/html" },
+            });
           });
 
         return cached || fetchPromise;
@@ -135,7 +151,10 @@ self.addEventListener("fetch", (event) => {
 
   // ── Everything else: Network with cache fallback ──
   event.respondWith(
-    fetch(event.request).catch(() => caches.match(event.request)),
+    fetch(event.request).catch(async () => {
+      const cached = await caches.match(event.request);
+      return cached || new Response("", { status: 503 });
+    }),
   );
 });
 

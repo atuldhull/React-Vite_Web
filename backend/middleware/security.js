@@ -46,8 +46,9 @@ export function applyHelmet(app) {
         // meaningful XSS vector — CSP doesn't add real protection
         // here — and blocking them just degrades typography.
         fontSrc:        ["'self'", "data:", "fonts.gstatic.com", "cdn.jsdelivr.net"],
-        imgSrc:         ["'self'", "data:", "blob:", "api.dicebear.com", "*.supabase.co"],
-        connectSrc:     ["'self'", "*.supabase.co", "api.openrouter.ai", "api.dicebear.com", "openrouter.ai"],
+        imgSrc:         ["'self'", "data:", "blob:", "api.dicebear.com", "*.supabase.co", "res.cloudinary.com"],
+        mediaSrc:       ["'self'", "blob:", "res.cloudinary.com"],
+        connectSrc:     ["'self'", "*.supabase.co", "api.openrouter.ai", "api.dicebear.com", "openrouter.ai", "res.cloudinary.com"],
         frameSrc:       ["'none'"],
         objectSrc:      ["'none'"],
         upgradeInsecureRequests: process.env.NODE_ENV === "production" ? [] : null,

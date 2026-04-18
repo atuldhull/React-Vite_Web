@@ -95,14 +95,20 @@ describe("mnemonic ↔ entropy", () => {
   it("rejects phrases that fail the checksum (subtle typo)", async () => {
     const { phrase } = await generateMnemonic();
     const words = phrase.split(" ");
-    // Swap one word for a different valid word — passes wordlist
-    // validation but will fail the checksum.
-    const firstWord = words[0];
-    const substitute = WORDLIST.find((w) => w !== firstWord);
-    if (!substitute) throw new Error("unreachable");
-    words[0] = substitute;
-    await expect(phraseToEntropy(words.join(" ")))
-      .rejects.toThrow(/Checksum mismatch/);
+    // Swap the first word for a different valid word — passes wordlist
+    // validation but should fail the checksum. The checksum is 4 bits
+    // so ~1/16 random substitutions coincidentally still validate;
+    // iterate candidates until we find one that does flag the typo.
+    let sawChecksumError = false;
+    for (const candidate of WORDLIST) {
+      if (candidate === words[0]) continue;
+      try {
+        await phraseToEntropy([candidate, ...words.slice(1)].join(" "));
+      } catch (e) {
+        if (/Checksum mismatch/.test(e.message)) { sawChecksumError = true; break; }
+      }
+    }
+    expect(sawChecksumError).toBe(true);
   });
 
   it("is case-insensitive on restore", async () => {
