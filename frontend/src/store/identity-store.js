@@ -51,6 +51,15 @@ export const useIdentityStore = create((set, get) => ({
   error: null,
 
   /**
+   * Set when the public key failed to sync to the server (hydrate-time
+   * republish). Local identity still works — only inbound messaging
+   * is affected, because nobody else can fetch our key to encrypt to.
+   * ChatPanel shows a banner + manual retry when this is populated.
+   * @type {string | null}
+   */
+  serverSyncError: null,
+
+  /**
    * Called once on app boot (after the user is authenticated).
    * Reads IndexedDB → hydrates the store → status becomes ready/missing.
    */
@@ -64,11 +73,23 @@ export const useIdentityStore = create((set, get) => ({
       }
       const { privateKey, publicKeyJwk } = await buildKeypairFromScalar(blob.privateScalar);
       const sigil = await deriveSigil(publicKeyJwk);
-      set({ status: "ready", privateKey, publicKeyJwk, sigil });
-      // Best-effort republish public key to server (in case the user
-      // switched devices; the new copy still points at the same key
-      // because the derivation is deterministic).
-      chatApi.registerKey(publicKeyJwk).catch(() => {});
+      set({ status: "ready", privateKey, publicKeyJwk, sigil, serverSyncError: null });
+      // Self-heal the "key saved locally but never reached the server"
+      // case (happens when the original confirmCeremony succeeded on
+      // IndexedDB but the subsequent registerKey call lost the network
+      // race). The endpoint is an idempotent upsert, so the worst case
+      // on a healthy system is one redundant write per boot. Failure
+      // is surfaced in `serverSyncError` so the UI can show a banner
+      // — local decryption keeps working, only SENDING (which needs
+      // the recipient to be able to fetch our key) is affected.
+      chatApi.registerKey(publicKeyJwk).then(
+        () => set({ serverSyncError: null }),
+        (err) => {
+          const msg = err?.message || "Could not sync key to server";
+          console.warn("[identity] server key republish failed:", msg);
+          set({ serverSyncError: msg });
+        },
+      );
     } catch (err) {
       set({ status: "missing", error: err instanceof Error ? err.message : "Hydration failed" });
     }
@@ -191,4 +212,20 @@ export const useIdentityStore = create((set, get) => ({
 
   /** Manually clear the error banner. */
   clearError: () => set({ error: null }),
+
+  /**
+   * Retry the server-side public-key upload after a hydrate-time
+   * failure. Called from the ChatPanel banner when serverSyncError
+   * is set.
+   */
+  retryServerSync: async () => {
+    const s = get();
+    if (!s.publicKeyJwk) return;
+    try {
+      await chatApi.registerKey(s.publicKeyJwk);
+      set({ serverSyncError: null });
+    } catch (err) {
+      set({ serverSyncError: err?.message || "Could not sync key to server" });
+    }
+  },
 }));

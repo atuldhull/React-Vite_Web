@@ -57,6 +57,8 @@ export default function ChatPanel({ open, onClose, initialPeerUserId = null, onT
   const identityStatus     = useIdentityStore((s) => s.status);
   const myPrivateKey       = useIdentityStore((s) => s.privateKey);
   const mySigil            = useIdentityStore((s) => s.sigil);
+  const serverSyncError    = useIdentityStore((s) => s.serverSyncError);
+  const retryServerSync    = useIdentityStore((s) => s.retryServerSync);
   const [view, setView] = useState(VIEW.LIST);
   const [conversations, setConversations] = useState([]);
   const [activeConv, setActiveConv] = useState(null);
@@ -347,6 +349,21 @@ export default function ChatPanel({ open, onClose, initialPeerUserId = null, onT
             </button>
           </div>
         </div>
+
+        {/* ── Server sync banner ── */}
+        {identityStatus === "ready" && serverSyncError && (
+          <div className="border-b border-warning/20 bg-warning/10 px-4 py-2 text-[11px] text-warning">
+            <div className="flex items-center justify-between gap-2">
+              <span>Key not synced to server — others can&apos;t message you until this succeeds.</span>
+              <button
+                onClick={() => retryServerSync()}
+                className="rounded border border-warning/40 px-2 py-0.5 text-[10px] uppercase tracking-wider hover:bg-warning/20"
+              >
+                Retry
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* ── Conversation List ── */}
         {view === VIEW.LIST && (
