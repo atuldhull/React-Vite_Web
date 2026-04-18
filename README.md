@@ -8,7 +8,6 @@ gamification, end-to-end encrypted messaging, rich profile pages, and a monument
 visual system.
 
 🔗 **Live:** <https://math-collective.onrender.com>
-🎓 **Verify a certificate:** <https://math-collective.onrender.com/verify?token=…>
 
 > **Status:** 571 tests passing · 0 ESLint issues · production build < 15s
 
