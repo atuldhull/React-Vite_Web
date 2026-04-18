@@ -15,7 +15,7 @@
 // Bump CACHE_NAME so the install handler pre-caches fresh with the
 // post-fix logic — otherwise every browser that has mc-v1 already
 // caches the old sw.js's broken responses.
-const CACHE_NAME = "mc-v2";
+const CACHE_NAME = "mc-v3";
 const OFFLINE_URL = "/app/offline.html";
 
 // Static assets to pre-cache on install
@@ -70,6 +70,13 @@ self.addEventListener("fetch", (event) => {
 
   // Skip WebSocket and Socket.IO
   if (url.pathname.startsWith("/socket.io")) return;
+
+  // Skip cross-origin — browsers treat SW-proxied fetches as connect-src
+  // CSP operations, so every third-party origin would need to be listed
+  // in connect-src (Google Fonts, Cloudinary, etc.). Far cleaner to let
+  // the browser make those requests directly without our caching logic
+  // in the way.
+  if (url.origin !== self.location.origin) return;
 
   // ── API calls: Network-first with cache fallback ──
   if (url.pathname.startsWith("/api/")) {
