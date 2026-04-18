@@ -87,6 +87,11 @@ export default defineConfig({
         "frontend/src/components/RouteErrorBoundary.jsx",
         "frontend/src/components/auth/ProtectedRoute.jsx",
         "frontend/src/components/auth/GuestOnlyRoute.jsx",
+        // UI primitives used everywhere; pinned so regressions on
+        // prop-driven branching are caught in CI.
+        "frontend/src/components/ui/Button.jsx",
+        "frontend/src/components/ui/CapacityBar.jsx",
+        "frontend/src/components/ui/EventStatusBadge.jsx",
       ],
       exclude: [
         "backend/scripts/**",
