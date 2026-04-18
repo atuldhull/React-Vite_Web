@@ -1,4 +1,9 @@
-import { buildCertificate } from "./latex.js";
+// Swapped away from the old xelatex-based generator (required
+// TexLive on the host, which Render's free tier doesn't have —
+// certs silently failed in prod). The new pdfkit-based generator
+// has the same signature plus a `template` and `downloadToken`
+// prop.
+import { buildCertificate } from "./pdf.js";
 import { ASSET_DIR }        from "./helpers.js";
 
 // Tenant scoping: every DB call below uses req.db.from(...) which is
@@ -37,7 +42,7 @@ export const previewCertificate = async (req, res) => {
       eventName, certType, organiserLine,
       bodyText, eventDate, issuedBy,
       logoPaths, signatories: sigWithPaths,
-      useAI: true,
+      template: req.body.template || "classic",
     });
 
     res.setHeader("Content-Type",        "application/pdf");
@@ -58,13 +63,22 @@ export const downloadCertificate = async (req, res) => {
       .select("*,certificate_batches(*)").eq("id",req.params.id).maybeSingle();
     if (error||!cert) return res.status(404).json({ error: "Not found" });
     const b = cert.certificate_batches;
+    // Reconstruct the logo + signature absolute paths from the
+    // batch record so the rendered cert matches what the admin
+    // designed when they created the batch.
+    const logoPaths = b.template_image
+      ? [path.join(ASSET_DIR, b.template_image.replace(/^.*\/cert-assets\//, ""))]
+      : [];
     const pdfBuf = await buildCertificate({
       recipientName: cert.recipient_name,
       eventName:     cert.event_name,
       eventDate:     b.event_date  || "",
       issuedBy:      b.issued_by   || "",
+      certType:      b.cert_type   || "PARTICIPATION",
+      template:      b.template_variant || "classic",
+      logoPaths,
       signatories:   b.signatory_name ? [{ name: b.signatory_name, title: b.signatory_title }] : [],
-      useAI:         false, // use fast fallback for re-downloads
+      downloadToken: cert.download_token,
     });
     res.setHeader("Content-Type",        "application/pdf");
     res.setHeader("Content-Disposition", `attachment; filename="Certificate_${cert.recipient_name.replace(/\s+/g,"_")}.pdf"`);
@@ -86,12 +100,18 @@ export const downloadBatchZip = async (req, res) => {
     res.setHeader("Content-Disposition",`attachment; filename="Certificates_${batch.event_name.replace(/\s+/g,"_")}.zip"`);
     const archive = archiver("zip",{ zlib:{ level:6 } });
     archive.pipe(res);
+    const batchLogo = batch.template_image
+      ? [path.join(ASSET_DIR, batch.template_image.replace(/^.*\/cert-assets\//, ""))]
+      : [];
     for (const cert of (certs||[])) {
       const pdfBuf = await buildCertificate({
         recipientName: cert.recipient_name, eventName: cert.event_name,
         eventDate: batch.event_date||"", issuedBy: batch.issued_by||"",
+        certType:  batch.cert_type || "PARTICIPATION",
+        template:  batch.template_variant || "classic",
+        logoPaths: batchLogo,
         signatories: batch.signatory_name?[{name:batch.signatory_name,title:batch.signatory_title}]:[],
-        useAI: false,
+        downloadToken: cert.download_token,
       });
       archive.append(pdfBuf,{ name:`${cert.recipient_name.replace(/\s+/g,"_")}.pdf` });
     }

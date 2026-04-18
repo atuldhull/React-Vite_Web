@@ -75,6 +75,10 @@ const ALLOWLIST = [
     why:  "GET /api/ready readiness probe — system connectivity check, not a user-facing data read",
   },
   {
+    file: "backend/controllers/certificate/verify.js",
+    why:  "GET /api/certificates/verify/:token — public certificate verification, no auth, intentionally cross-tenant (a prospective employer scanning the QR doesn't know which org issued the cert). Exposes only display-safe fields (recipient name, event, date, issuer) — never email or batch metadata.",
+  },
+  {
     file: "backend/controllers/event/achievementController.js",
     why:  "checkEventAchievements/checkWinAchievements helpers take only userId (no req); user_id comes from auth.users which is unique across orgs, so user_id-filtered student updates are safe without org_id scoping",
   },

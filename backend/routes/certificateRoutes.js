@@ -12,6 +12,7 @@ import {
   getBatches,
   getMyCertificates,
   deleteBatch,
+  verifyCertificate,
 } from "../controllers/certificateController.js";
 import { requireAuth, requireTeacher, checkFeatureFlag } from "../middleware/authMiddleware.js";
 import { validateBody } from "../validators/common.js";
@@ -64,5 +65,11 @@ router.get("/batch/:batchId/zip", requireTeacher, downloadBatchZip);
 // Student endpoints
 router.get("/download/:id",       requireAuth,    downloadCertificate);
 router.get("/mine",               requireAuth,    getMyCertificates);
+
+// Public verification — no auth. Anyone with the token (e.g.
+// scanning the QR on a cert) can confirm it's genuine. Returns
+// only display-safe fields (name, event, date, issuer) — never
+// email or batch data that could be used for phishing.
+router.get("/verify/:token",      verifyCertificate);
 
 export default router;

@@ -13,6 +13,7 @@ const HomePage        = lazy(() => import("@/features/home/pages/HomePage"));
 const LeaderboardPage = lazy(() => import("@/features/public/pages/LeaderboardPage"));
 const GalleryPage     = lazy(() => import("@/features/public/pages/GalleryPage"));
 const ContactPage     = lazy(() => import("@/features/public/pages/ContactPage"));
+const VerifyCertificatePage = lazy(() => import("@/features/public/pages/VerifyCertificatePage"));
 
 // Student pages (MainLayout, auth required)
 const ArenaPage          = lazy(() => import("@/features/arena/pages/ArenaPage"));
@@ -50,6 +51,10 @@ export const publicRoutes = (
     <Route path="events" element={<EventsPage />} />
     <Route path="gallery" element={<GalleryPage />} />
     <Route path="contact" element={<ContactPage />} />
+    {/* Public certificate verification — no auth, anyone with the
+        token (scanned from QR on a printed cert) can confirm it's
+        genuine. The token is in ?token=... query param. */}
+    <Route path="verify" element={<VerifyCertificatePage />} />
 
     {/* ── Student routes (auth required) ── */}
     <Route path="arena"         element={<ProtectedRoute><ArenaPage /></ProtectedRoute>} />

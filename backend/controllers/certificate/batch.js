@@ -2,7 +2,7 @@ import nodemailer            from "nodemailer";
 import path                  from "path";
 import fs                    from "fs";
 import { sendNotification }  from "../notificationController.js";
-import { buildCertificate }  from "./latex.js";
+import { buildCertificate }  from "./pdf.js";
 import { ASSET_DIR }         from "./helpers.js";
 import { logger } from "../../config/logger.js";
 
@@ -52,6 +52,7 @@ export const createCertificateBatch = async (req, res) => {
       certType = "PARTICIPATION", organiserLine = "", bodyText = "",
       logoFilenames = [], signatories = [],
       recipients, sendEmail,
+      template = "classic",
     } = req.body;
 
     if (!title || !eventName || !recipients?.length)
@@ -67,7 +68,7 @@ export const createCertificateBatch = async (req, res) => {
     const { data: batch, error: batchErr } = await req.db
       .from("certificate_batches").insert({
         title, event_name: eventName, event_date: eventDate,
-        issued_by: issuedBy, template_type: "ai-latex",
+        issued_by: issuedBy, template_type: "pdfkit",
         template_image: logoFilenames[0] ? `/uploads/cert-assets/${logoFilenames[0]}` : null,
         recipients, created_by: userId,
         signatory_name:  signatories[0]?.name  || null,
@@ -76,25 +77,41 @@ export const createCertificateBatch = async (req, res) => {
 
     if (batchErr) return res.status(500).json({ error: batchErr.message });
 
-    await req.db.from("certificates").insert(
-      recipients.map(r => ({
+    // Insert each recipient row and SELECT them back so we have the
+    // auto-generated download_token for every cert — needed by the
+    // PDF generator to encode the per-cert verify URL + QR.
+    const { data: certRows, error: certsErr } = await req.db
+      .from("certificates")
+      .insert(recipients.map(r => ({
         batch_id: batch.id, user_id: r.userId||null,
         recipient_name: r.name, recipient_email: r.email||null, event_name: eventName,
-      }))
-    );
+      })))
+      .select("id,recipient_email,recipient_name,download_token");
+
+    if (certsErr) return res.status(500).json({ error: certsErr.message });
+    // Map recipient email -> download_token for the email loop below.
+    const tokenByEmail = {};
+    (certRows || []).forEach(r => {
+      if (r.recipient_email) tokenByEmail[r.recipient_email.toLowerCase()] = r.download_token;
+    });
 
     const certBase = {
       eventName, certType, organiserLine, bodyText, eventDate, issuedBy,
-      logoPaths, signatories: sigWithPaths,
+      logoPaths, signatories: sigWithPaths, template,
     };
 
     let emailsSent = 0;
+    let emailFailed = 0;
     if (sendEmail && process.env.CONTACT_EMAIL) {
       const transporter = getTransporter();
       for (const r of recipients) {
         if (!r.email) continue;
         try {
-          const pdfBuf = await buildCertificate({ recipientName: r.name, ...certBase, useAI: true });
+          const pdfBuf = await buildCertificate({
+            recipientName: r.name,
+            ...certBase,
+            downloadToken: tokenByEmail[r.email.toLowerCase()],
+          });
           await transporter.sendMail({
             from: `"Math Collective" <${process.env.CONTACT_EMAIL}>`,
             to: r.email,
@@ -118,7 +135,10 @@ export const createCertificateBatch = async (req, res) => {
             body:    `Your certificate for "${eventName}" has been issued.`,
             type:    "certificate", link: "/dashboard",
           });
-        } catch (e) { console.error("[cert email]", r.email, e.message); }
+        } catch (e) {
+          emailFailed++;
+          logger.error({ err: e, recipient: r.email }, "cert email send failed");
+        }
       }
     } else {
       const uids = recipients.filter(r=>r.userId).map(r=>r.userId);
@@ -132,8 +152,11 @@ export const createCertificateBatch = async (req, res) => {
 
     return res.json({
       success: true, batchId: batch.id,
-      total: recipients.length, emailsSent,
+      total: recipients.length, emailsSent, emailFailed,
       linked: recipients.filter(r=>r.userId).length,
+      emailSkipped: sendEmail && !process.env.CONTACT_EMAIL
+        ? "CONTACT_EMAIL env var not set — configure Gmail app password in Render to enable email delivery"
+        : undefined,
     });
   } catch (err) {
     logger.error({ err: err }, "cert create");

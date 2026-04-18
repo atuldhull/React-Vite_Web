@@ -172,6 +172,7 @@
       "src/features/public/pages/LeaderboardPage.jsx",
       "src/features/public/pages/GalleryPage.jsx",
       "src/features/public/pages/ContactPage.jsx",
+      "src/features/public/pages/VerifyCertificatePage.jsx",
       "src/features/arena/pages/ArenaPage.jsx",
       "src/features/dashboard/pages/DashboardPage.jsx",
       "src/features/events/pages/EventsPage.jsx",
@@ -454,6 +455,16 @@
       "_useMonument.js",
       "_Card.js",
       "_use-scroll.js"
+    ]
+  },
+  "src/features/public/pages/VerifyCertificatePage.jsx": {
+    "file": "assets/VerifyCertificatePage.js",
+    "name": "VerifyCertificatePage",
+    "src": "src/features/public/pages/VerifyCertificatePage.jsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "index.html",
+      "_useMonument.js"
     ]
   },
   "src/features/student/pages/BillingPage.jsx": {

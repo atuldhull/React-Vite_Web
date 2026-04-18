@@ -16,3 +16,4 @@ export { matchStudents,
          getBatches,
          getMyCertificates,
          deleteBatch }             from "./certificate/batch.js";
+export { verifyCertificate }       from "./certificate/verify.js";

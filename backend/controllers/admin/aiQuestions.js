@@ -105,7 +105,11 @@ export const saveAIQuestion = async (req, res) => {
 
     if (error) return res.status(500).json({ error: error.message });
     return res.status(201).json({ success: true, challenge: data });
-  } catch {
-    return res.status(500).json({ error: "Failed to save question" });
+  } catch (err) {
+    // Previously an anonymous `catch {}` — swallowing err here hid
+    // real bugs (e.g. RLS surprise, validation failures) during the
+    // long debug cycle earlier this week. Log and surface.
+    logger.error({ err, title: req.body?.title }, "admin save AI question failed");
+    return res.status(500).json({ error: err?.message || "Failed to save question" });
   }
 };
