@@ -59,10 +59,16 @@ const FEATURE_GATES = [
     docs:       "docs/PWA_AND_PUSH.md",
   },
   {
-    feature:    "PANDA AI bot",
+    feature:    "PANDA AI bot (Gemini primary)",
+    vars:       ["GEMINI_API_KEY"],
+    optionalAlongsideRequired: [],
+    docs:       "Get a free key from https://aistudio.google.com/apikey",
+  },
+  {
+    feature:    "PANDA AI bot (OpenRouter fallback)",
     vars:       ["OPENROUTER_API_KEY"],
     optionalAlongsideRequired: [],
-    docs:       "(no doc — set OPENROUTER_API_KEY in .env.local)",
+    docs:       "Fallback when Gemini is rate-limited/down; optional if GEMINI_API_KEY is set",
   },
   {
     feature:    "Contact form email + invoices",

@@ -2,7 +2,7 @@ import express  from "express";
 import multer   from "multer";
 import { requireTeacher, requireAuth } from "../middleware/authMiddleware.js";
 import supabase  from "../config/supabase.js";
-import axios     from "axios";
+import { callLLM, listProviders } from "../lib/llm.js";
 
 const router  = express.Router();
 const upload  = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
@@ -39,8 +39,13 @@ router.post("/ai-generate-bulk", requireTeacher, async (req, res) => {
   if (!topics.length) return res.status(400).json({ error: "At least one topic required" });
   if (count < 1 || count > 30) return res.status(400).json({ error: "count must be 1–30" });
 
-  const apiKey = process.env.OPENROUTER_API_KEY;
-  if (!apiKey) return res.status(500).json({ error: "AI not configured (OPENROUTER_API_KEY missing)" });
+  // At least one LLM provider must be configured. Previously this hard-
+  // coded OPENROUTER_API_KEY; now we accept either Gemini or OpenRouter
+  // and the helper picks whichever is available (Gemini first).
+  const providers = listProviders().filter((p) => p.hasKey);
+  if (providers.length === 0) {
+    return res.status(500).json({ error: "AI not configured (set GEMINI_API_KEY or OPENROUTER_API_KEY)" });
+  }
 
   // Distribute questions across topics (round-robin)
   const assignments = [];
@@ -55,7 +60,7 @@ router.post("/ai-generate-bulk", requireTeacher, async (req, res) => {
   const BATCH = 5;
   for (let b = 0; b < assignments.length; b += BATCH) {
     const batch = assignments.slice(b, b + BATCH);
-    const promises = batch.map(topic => generateOne(topic, difficulty, apiKey));
+    const promises = batch.map(topic => generateOne(topic, difficulty));
     const settled  = await Promise.allSettled(promises);
     settled.forEach((r, i) => {
       if (r.status === "fulfilled") results.push(r.value);
@@ -91,12 +96,18 @@ router.post("/ai-generate-bulk", requireTeacher, async (req, res) => {
   });
 });
 
-/* helper — call OpenRouter for one question */
-async function generateOne(topic, difficulty, apiKey) {
-  const pts = difficulty === "easy" ? 20 : difficulty === "hard" ? 100 : 50;
+/* helper — call LLM (Gemini primary, OpenRouter fallback) for one question */
+async function generateOne(topic, difficulty) {
+  // Normalize to lowercase so "Easy"/"Extreme" from the frontend land
+  // on the right points tier. The three-branch pts ternary only knew
+  // lowercase, so capitalized "Extreme" silently landed on 50 points.
+  const raw = (difficulty || "medium").toString().toLowerCase();
+  const ALLOWED = ["easy", "medium", "hard", "extreme"];
+  const safeDifficulty = ALLOWED.includes(raw) ? raw : "medium";
+  const pts = { easy: 20, medium: 50, hard: 100, extreme: 200 }[safeDifficulty];
   const prompt = `Generate ONE engineering mathematics MCQ for university students.
 Topic: ${topic}
-Difficulty: ${difficulty}
+Difficulty: ${safeDifficulty}
 
 Return ONLY this JSON (no markdown, no extra text):
 {
@@ -104,31 +115,25 @@ Return ONLY this JSON (no markdown, no extra text):
   "question": "full question text",
   "options": ["option A", "option B", "option C", "option D"],
   "correct_index": 0,
-  "difficulty": "${difficulty}",
+  "difficulty": "${safeDifficulty}",
   "points": ${pts},
   "solution": "brief explanation of the correct answer"
 }`;
 
-  const response = await axios.post(
-    "https://openrouter.ai/api/v1/chat/completions",
-    {
-      model:    "deepseek/deepseek-chat",
-      messages: [
-        { role: "system", content: "You output only valid JSON. No markdown. No explanation outside JSON." },
-        { role: "user",   content: prompt },
-      ],
-      temperature: 0.4,
-      max_tokens:  700,
-    },
-    {
-      headers: {
-        "Authorization": `Bearer ${apiKey}`,
-        "Content-Type":  "application/json",
-        "HTTP-Referer":  "https://mathcollective.bmsit.in",
-      },
-      timeout: 30000,
-    }
-  );
+  // "oneshot" mode: helper picks the non-thinking Gemini variant so
+  // the full max_tokens budget lands on the JSON, not on invisible
+  // reasoning. Same 700 cap as before; bumped to 900 on extreme to
+  // accommodate longer solutions.
+  const { response } = await callLLM({
+    messages: [
+      { role: "system", content: "You output only valid JSON. No markdown. No explanation outside JSON." },
+      { role: "user",   content: prompt },
+    ],
+    temperature: 0.4,
+    maxTokens:  safeDifficulty === "extreme" ? 900 : 700,
+    mode:       "oneshot",
+    timeoutMs:  30000,
+  });
 
   let text = response.data?.choices?.[0]?.message?.content || "";
   text = text.replace(/```json/gi, "").replace(/```/g, "").trim();

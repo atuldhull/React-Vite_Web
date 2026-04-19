@@ -210,6 +210,7 @@ describe("validateEnv — feature gates", () => {
     process.env.RAZORPAY_KEY_SECRET  = "secret";
     process.env.VAPID_PUBLIC_KEY     = "pub";
     process.env.VAPID_PRIVATE_KEY    = "priv";
+    process.env.GEMINI_API_KEY       = "g-key";
     process.env.OPENROUTER_API_KEY   = "or-key";
     process.env.CONTACT_EMAIL        = "a@b.co";
     process.env.CONTACT_APP_PASSWORD = "p";
@@ -217,7 +218,10 @@ describe("validateEnv — feature gates", () => {
 
     const validateEnv = await loadValidator();
     const env = validateEnv();
-    expect(env.enabledFeatures.length).toBe(5);
+    // 6 feature gates: Razorpay, Push, PANDA (Gemini primary),
+    // PANDA (OpenRouter fallback), Contact email, Sentry. The two
+    // PANDA rows were split when Gemini became the primary provider.
+    expect(env.enabledFeatures.length).toBe(6);
     expect(env.disabledFeatures.length).toBe(0);
     expect(warnSpy).not.toHaveBeenCalled();
   });
@@ -247,6 +251,7 @@ describe("validateEnv — feature gates", () => {
     delete process.env.RAZORPAY_KEY_SECRET;
     delete process.env.VAPID_PUBLIC_KEY;
     delete process.env.VAPID_PRIVATE_KEY;
+    delete process.env.GEMINI_API_KEY;
     delete process.env.OPENROUTER_API_KEY;
     delete process.env.CONTACT_EMAIL;
     delete process.env.CONTACT_APP_PASSWORD;
@@ -254,7 +259,8 @@ describe("validateEnv — feature gates", () => {
 
     const validateEnv = await loadValidator();
     const env = validateEnv();
-    expect(env.disabledFeatures.length).toBe(5);
+    // 6 feature gates total (Gemini + OpenRouter are now separate rows).
+    expect(env.disabledFeatures.length).toBe(6);
     expect(exitSpy).not.toHaveBeenCalled();
   });
 });
