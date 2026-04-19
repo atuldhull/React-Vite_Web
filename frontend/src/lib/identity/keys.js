@@ -87,7 +87,7 @@ async function deriveScalar(entropy) {
       key, 256,
     );
     const scalar = new Uint8Array(bits);
-    if (p256.utils.isValidPrivateKey(scalar)) return scalar;
+    if (p256.utils.isValidSecretKey(scalar)) return scalar;
     counter++; // astronomically unlikely retry path
     if (counter > 255) throw new Error("unable to derive valid scalar"); // unreachable
   }
@@ -127,7 +127,7 @@ export async function deriveKeypairFromEntropy(entropy) {
  */
 export async function buildKeypairFromScalar(privateScalar) {
   if (privateScalar.length !== 32) throw new Error("private scalar must be 32 bytes");
-  if (!p256.utils.isValidPrivateKey(privateScalar)) {
+  if (!p256.utils.isValidSecretKey(privateScalar)) {
     throw new Error("private scalar out of P-256 range");
   }
 
