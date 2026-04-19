@@ -87,6 +87,10 @@ const ALLOWLIST = [
     why:  "POST /api/teacher/save-question writes to `challenges` via raw supabase with explicit org_id. Same rationale as certificate/batch.js — the proxy's intermittent null-org_id on inserts was 500'ing Extreme-difficulty saves in prod. Read paths (getStats, getChallenges, etc.) still use req.db for org scoping.",
   },
   {
+    file: "backend/controllers/challengeController.js",
+    why:  "POST /api/challenge (createChallenge, admin-only) writes to `challenges` via raw supabase with explicit org_id for the same reason as teacherController.js — admin bank saves from AdminChallengesPage were failing with 500s when the proxy's org_id injection dropped. All read / update / delete paths in the file still use req.db.",
+  },
+  {
     file: "backend/controllers/event/achievementController.js",
     why:  "checkEventAchievements/checkWinAchievements helpers take only userId (no req); user_id comes from auth.users which is unique across orgs, so user_id-filtered student updates are safe without org_id scoping",
   },

@@ -1,10 +1,11 @@
+import supabase from "../config/supabase.js";
 import { logger } from "../config/logger.js";
-// Tenant scoping: every DB call below uses req.db.from(...). The
-// Proxy chains eq("org_id", req.orgId) on reads/updates/deletes and
-// stomps org_id onto inserts. So a teacher in org A creating a
-// challenge can't accidentally tag it to org B, and the leaderboard
-// ("get next challenge for user") is now naturally scoped to the
-// caller's org. The raw `supabase` import is intentionally absent.
+// Tenant scoping: reads go through req.db.from(...) for auto org_id
+// filtering. The manual-create admin path (createChallenge) bypasses
+// the proxy and uses the raw supabase client with an explicit org_id —
+// same rationale as teacherSaveQuestion and certificate/batch.js: the
+// proxy's intermittent null-org_id injection on inserts was leaking
+// NULLs into NOT NULL columns and producing a bare 500.
 
 /* GET CURRENT ACTIVE CHALLENGE — GET /api/challenge/current */
 export const getCurrentChallenge = async (req, res) => {
@@ -95,18 +96,45 @@ export const createChallenge = async (req, res) => {
     if (!Array.isArray(options) || options.length !== 4)
       return res.status(400).json({ error: "options must be array of 4" });
 
-    const { data, error } = await req.db.from("challenges").insert({
+    // Resolve org_id explicitly — the tenant proxy was silently
+    // dropping it on some inserts, leaving org_id NULL which hit the
+    // NOT NULL constraint and surfaced as a generic 500. Admin bank
+    // saves from AdminChallengesPage were failing for the same reason.
+    const orgIdForInsert = req.orgId || req.session?.user?.org_id;
+    if (!orgIdForInsert) {
+      logger.error({ userId: req.session?.user?.id }, "createChallenge: no org_id on session");
+      return res.status(400).json({
+        error: "No organisation context on your session. Log out and log back in.",
+      });
+    }
+
+    // Normalise difficulty + default points so "Extreme" stops tripping
+    // the NOT NULL / CHECK constraints the older three-tier ladder
+    // assumed.
+    const rawDiff = (difficulty || "medium").toString().toLowerCase();
+    const ALLOWED = ["easy", "medium", "hard", "extreme"];
+    const safeDifficulty = ALLOWED.includes(rawDiff) ? rawDiff : "medium";
+    const defaultPoints = { easy: 20, medium: 50, hard: 100, extreme: 200 }[safeDifficulty];
+
+    const { data, error } = await supabase.from("challenges").insert({
+      org_id:        orgIdForInsert,
       title, question, options,
       correct_index: Number(correct_index),
-      difficulty:    (difficulty || "medium").toLowerCase(),
-      points:        Number(points) || 50,
+      difficulty:    safeDifficulty,
+      points:        Number(points) || defaultPoints,
       solution:      solution || null,
       is_active:     true,
     }).select().single();
 
-    if (error) return res.status(500).json({ error: error.message });
+    if (error) {
+      logger.error({ err: error, orgId: orgIdForInsert, difficulty: safeDifficulty }, "createChallenge insert failed");
+      return res.status(500).json({ error: error.message });
+    }
     return res.status(201).json({ success: true, challenge: data });
-  } catch { return res.status(500).json({ error: "Failed to create" }); }
+  } catch (err) {
+    logger.error({ err }, "createChallenge");
+    return res.status(500).json({ error: "Failed to create" });
+  }
 };
 
 /* UPDATE — PATCH /api/challenge/:id */

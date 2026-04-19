@@ -191,11 +191,17 @@ export default function LiveAIPanel({
                 const toSave = aiResult.questions.filter((q) => q._selected);
                 if (toSave.length === 0) { setError("Select at least one question to save"); return; }
                 setAiGenerating(true);
+                // Route to the teacher endpoint (accessible to both
+                // teacher AND admin roles per requireTeacher) instead
+                // of challenges.create which is admin-only and 403s
+                // for teachers — the root of every teacher hitting
+                // "Saved 0/1 questions to bank" on this page.
+                const { teacher } = await import("@/lib/api");
                 let saved = 0;
+                let firstErr = null;
                 for (const q of toSave) {
                   try {
-                    const { challenges } = await import("@/lib/api");
-                    await challenges.create({
+                    await teacher.saveQuestion({
                       title: q.title,
                       question: q.question,
                       options: q.options,
@@ -205,9 +211,25 @@ export default function LiveAIPanel({
                       solution: q.solution || "",
                     });
                     saved++;
-                  } catch { /* skip failed */ }
+                  } catch (err) {
+                    // Capture the first failure reason so we can show
+                    // it to the admin instead of the silent "0/1" that
+                    // left them staring at a broken form with no clue.
+                    if (!firstErr) {
+                      firstErr = err?.response?.data?.error
+                        || err?.response?.data?.message
+                        || err?.message
+                        || "Save failed";
+                    }
+                  }
                 }
-                setSuccess(`Saved ${saved}/${toSave.length} questions to bank`);
+                if (saved === toSave.length) {
+                  setSuccess(`Saved ${saved}/${toSave.length} questions to bank`);
+                } else if (saved > 0) {
+                  setError(`Saved ${saved}/${toSave.length} — the rest failed: ${firstErr}`);
+                } else {
+                  setError(`Could not save any questions: ${firstErr}`);
+                }
                 setAiResult(null);
                 const { quiz } = await import("@/lib/api");
                 const poolRes = await quiz.challenges();
