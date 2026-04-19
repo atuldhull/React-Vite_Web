@@ -38,7 +38,21 @@ export const createCertificateBatchSchema = z.object({
   eventName:       z.string().trim().min(1, "eventName required").max(200),
   eventDate:       z.string().trim().max(40).optional().nullable(),
   issuedBy:        z.string().trim().max(200).optional().nullable(),
-  certType:        z.enum(["PARTICIPATION", "WINNER", "EXCELLENCE", "APPRECIATION"])
+  // Frontend sends lowercase short names ("participation", "achievement",
+  // "winner", "merit"). Schema accepts BOTH those AND the legacy
+  // uppercase enum that was here originally — upper-case the input,
+  // then pipe into the union so a future UI refactor doesn't need to
+  // change the backend. Older rows in the DB (created before this
+  // commit) may carry "EXCELLENCE" or "APPRECIATION" — still valid.
+  certType:        z.string().trim().toUpperCase()
+                    .pipe(z.enum([
+                      "PARTICIPATION",
+                      "ACHIEVEMENT",
+                      "WINNER",
+                      "MERIT",
+                      "EXCELLENCE",
+                      "APPRECIATION",
+                    ]))
                     .default("PARTICIPATION"),
   organiserLine:   z.string().trim().max(400).optional(),
   bodyText:        z.string().trim().max(4000).optional(),

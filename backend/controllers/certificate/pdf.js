@@ -342,10 +342,12 @@ function prettyDate(s) {
 
 function defaultVerb(certType) {
   const t = (certType || "").toLowerCase();
-  if (t.includes("excel"))  return "demonstrated excellence in";
-  if (t.includes("compl"))  return "completed";
-  if (t.includes("winner")) return "won";
-  if (t.includes("merit"))  return "achieved merit in";
+  if (t.includes("excel"))    return "demonstrated excellence in";
+  if (t.includes("achiev"))   return "achieved distinction in";
+  if (t.includes("compl"))    return "completed";
+  if (t.includes("winner"))   return "won";
+  if (t.includes("merit"))    return "achieved merit in";
+  if (t.includes("apprec"))   return "contributed to";
   return "participated in";
 }
 
