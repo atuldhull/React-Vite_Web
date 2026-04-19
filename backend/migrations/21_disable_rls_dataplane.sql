@@ -56,53 +56,30 @@
 --  repeatedly. No data is touched.
 -- ═══════════════════════════════════════════════════════════════
 
-BEGIN;
-
-DO $$
-DECLARE
-  tbl TEXT;
-  -- Tables the backend reads/writes on the user-facing hot path.
-  -- Matches the TENANT_TABLES set in backend/middleware/tenantMiddleware.js
-  -- minus the three that migration 01 already disabled, plus a few
-  -- adjacent tables (event_registrations, comments) that the same
-  -- service-role-bypass assumption covered.
-  dataplane_tables TEXT[] := ARRAY[
-    'challenges',
-    'events',
-    'event_registrations',
-    'arena_attempts',
-    'announcements',
-    'notifications',
-    'scheduled_tests',
-    'test_attempts',
-    'teams',
-    'projects',
-    'project_votes',
-    'weekly_winners',
-    'org_invitations',
-    'comments',
-    'messages',
-    'conversations',
-    'friendships',
-    'user_public_keys',
-    'chat_settings',
-    'user_blocks'
-  ];
-BEGIN
-  FOREACH tbl IN ARRAY dataplane_tables LOOP
-    IF EXISTS (
-      SELECT 1 FROM pg_tables
-      WHERE schemaname = 'public' AND tablename = tbl
-    ) THEN
-      EXECUTE format('ALTER TABLE public.%I DISABLE ROW LEVEL SECURITY', tbl);
-      RAISE NOTICE 'RLS disabled on %', tbl;
-    ELSE
-      RAISE NOTICE 'skip % — not present on this install', tbl;
-    END IF;
-  END LOOP;
-END $$;
-
-COMMIT;
+-- Each ALTER is independent with IF EXISTS — tables not present on a
+-- given install skip silently instead of aborting the whole batch
+-- (the plain DISABLE form errors on "relation does not exist" and
+-- Postgres rolls back every preceding statement in the transaction).
+ALTER TABLE IF EXISTS public.challenges          DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.events              DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.event_registrations DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.arena_attempts      DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.announcements       DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.notifications       DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.scheduled_tests     DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.test_attempts       DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.teams               DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.projects            DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.project_votes       DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.weekly_winners      DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.org_invitations     DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.comments            DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.messages            DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.conversations       DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.friendships         DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.user_public_keys    DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.chat_settings       DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.user_blocks         DISABLE ROW LEVEL SECURITY;
 
 -- ────────────────────────────────────────────────────────────────
 -- Verification — expect rls_enabled = false for every listed table.
