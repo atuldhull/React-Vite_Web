@@ -82,7 +82,13 @@ export default function TeacherChallengesPage() {
       const res = await teacher.generate(topic, difficulty);
       setGenerated(res.data);
     } catch (err) {
-      setGenError(err.response?.data?.message || "AI generation failed. Try again.");
+      // Backend sends {error: "..."} (not message). Read both so legacy
+      // shapes still work, and fall through to the generic fallback.
+      setGenError(
+        err.response?.data?.error
+        || err.response?.data?.message
+        || "AI generation failed. Try again."
+      );
     } finally {
       setGenerating(false);
     }

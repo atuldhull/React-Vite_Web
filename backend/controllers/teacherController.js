@@ -10,6 +10,7 @@
 // and student rosters across every org. Super_admin still sees
 // platform-wide via the Proxy's role-based escape hatch.
 import axios   from "axios";
+import { logger } from "../config/logger.js";
 
 /* ─────────────────────────────────────
    GET TEACHER PROFILE
@@ -164,14 +165,7 @@ export const teacherGenerateQuestion = async (req, res) => {
   const difficulty = ALLOWED.includes(raw) ? raw : "medium";
   const points = { easy: 20, medium: 50, hard: 100, extreme: 200 }[difficulty];
 
-  try {
-    const response = await axios.post(
-      "https://openrouter.ai/api/v1/chat/completions",
-      {
-        model: "deepseek/deepseek-chat",
-        messages: [
-          { role: "system", content: "Output only valid JSON. No markdown." },
-          { role: "user", content: `Generate ONE engineering mathematics MCQ for BMSIT students.
+  const prompt = `Generate ONE engineering mathematics MCQ for BMSIT students.
 Topic: ${topic}
 Difficulty: ${difficulty}
 
@@ -184,12 +178,26 @@ Return ONLY this JSON:
   "difficulty": "${difficulty}",
   "points": ${points},
   "solution": "explanation"
-}` },
+}`;
+
+  // Single retry on transient OpenRouter flakes — cold-start jitter +
+  // edge-POP 5xx is the #1 source of "AI generation failed". Same
+  // pattern as PANDA's /bot/chat handler.
+  const RETRY_STATUSES = new Set([502, 503, 504]);
+  const RETRY_CODES    = new Set(["ECONNABORTED", "ECONNRESET", "ENOTFOUND", "EAI_AGAIN"]);
+  async function callOnce() {
+    return axios.post(
+      "https://openrouter.ai/api/v1/chat/completions",
+      {
+        model: "deepseek/deepseek-chat",
+        messages: [
+          { role: "system", content: "Output only valid JSON. No markdown." },
+          { role: "user", content: prompt },
         ],
         temperature: 0.4,
-        // Extreme prompts often produce a longer solution paragraph. 900
-        // keeps headroom without noticeably raising cost.
-        max_tokens: 900,
+        // 1200 tokens so Extreme-difficulty questions with longer
+        // solutions don't truncate mid-JSON and fail the parser.
+        max_tokens: 1200,
       },
       {
         headers: {
@@ -199,19 +207,60 @@ Return ONLY this JSON:
         timeout: 30000,
       }
     );
+  }
+  async function callWithRetry() {
+    try {
+      return await callOnce();
+    } catch (err) {
+      const retriable = (err.response?.status && RETRY_STATUSES.has(err.response.status))
+        || RETRY_CODES.has(err.code);
+      if (!retriable) throw err;
+      logger.warn({ status: err.response?.status, code: err.code, topic, difficulty }, "teacherGenerate upstream transient — retrying once");
+      await new Promise((r) => setTimeout(r, 500));
+      return callOnce();
+    }
+  }
 
-    let text = response.data?.choices?.[0]?.message?.content || "";
-    text = text.replace(/```json/gi, "").replace(/```/g, "").trim();
+  let rawText = "";
+  try {
+    const response = await callWithRetry();
+
+    rawText = response.data?.choices?.[0]?.message?.content || "";
+    let text = rawText.replace(/```json/gi, "").replace(/```/g, "").trim();
     const start = text.indexOf("{"), end = text.lastIndexOf("}");
     if (start === -1) throw new Error("No JSON in response");
 
     return res.json(JSON.parse(text.slice(start, end + 1)));
   } catch (err) {
-    // Surface the upstream reason (OpenRouter status + body) so the next
-    // time a 500 happens the Render logs tell us what actually failed
-    // instead of a bare "Request failed with status code 502".
-    const upstream = err.response?.data || err.code || err.message;
-    return res.status(500).json({ error: err.message, upstream });
+    // Map upstream failures to accurate status codes + log enough
+    // context to pinpoint the cause in Render logs without replaying
+    // the request. If the model returned text but the parser choked,
+    // the rawText preview is what we need to fix the prompt.
+    const upstreamStatus = err.response?.status;
+    const isTimeout      = err.code === "ECONNABORTED";
+    const status = isTimeout
+      ? 504
+      : (upstreamStatus && upstreamStatus >= 500 ? 502 : 500);
+    logger.error({
+      err,
+      topic,
+      difficulty,
+      upstreamStatus,
+      code: err.code,
+      rawPreview: rawText ? rawText.slice(0, 400) : null,
+      mappedStatus: status,
+    }, "teacherGenerateQuestion failed");
+    // Give the frontend a concrete short reason it can display; keep
+    // the full upstream body out of the response (it can contain the
+    // API key echo in some error shapes).
+    const reason = isTimeout
+      ? "AI service timed out — try a shorter topic or switch difficulty."
+      : upstreamStatus && upstreamStatus >= 500
+        ? "AI service is flaky right now — retry in a moment."
+        : rawText
+          ? "AI returned a response I couldn't parse — try again."
+          : "AI generation failed. Try again.";
+    return res.status(status).json({ error: reason });
   }
 };
 
