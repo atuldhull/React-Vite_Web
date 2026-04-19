@@ -4,11 +4,46 @@ import { Link } from "react-router-dom";
 import { bot } from "@/lib/api";
 import { useAuthStore } from "@/store/auth-store";
 
+// Minimal, safe markdown → HTML renderer for PANDA replies.
+// Order matters:
+//   1. HTML-escape the raw text so an LLM-generated "<script>" can't
+//      reach the DOM via dangerouslySetInnerHTML.
+//   2. Convert [label](url) first — we rely on the matched url being
+//      intact; doing bare-URL autolinking before this would double-
+//      anchor the href.
+//   3. Autolink any remaining bare http(s):// URLs.
+//   4. Bold, inline code, and line breaks last.
+const LINK_CLASS =
+  'text-[#00FFC8] underline underline-offset-2 break-words hover:brightness-125';
+function escapeHtml(s) {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
 function renderMd(text) {
-  return text
+  let html = escapeHtml(text);
+  // [label](https://url) — the common case for tool-cited papers.
+  html = html.replace(
+    /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,
+    (_, label, url) =>
+      `<a href="${url}" target="_blank" rel="noopener noreferrer" class="${LINK_CLASS}">${label}</a>`,
+  );
+  // Bare URLs not already wrapped by the step above. Negative lookbehind
+  // via the leading group: only match when the url isn't preceded by `"`
+  // or `=` (which would mean it's already inside an href attribute).
+  html = html.replace(
+    /(^|[^"=])(https?:\/\/[^\s<]+)/g,
+    (_, prefix, url) =>
+      `${prefix}<a href="${url}" target="_blank" rel="noopener noreferrer" class="${LINK_CLASS}">${url}</a>`,
+  );
+  html = html
     .replace(/\*\*(.*?)\*\*/g, '<strong class="text-white">$1</strong>')
     .replace(/`(.*?)`/g, '<code class="rounded bg-[rgba(0,255,200,0.1)] px-1 py-0.5 font-mono text-[11px] text-[#00FFC8]">$1</code>')
     .replace(/\n/g, "<br/>");
+  return html;
 }
 
 export default function PandaChatPanel({ open }) {

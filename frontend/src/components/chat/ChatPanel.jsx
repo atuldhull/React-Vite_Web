@@ -186,14 +186,21 @@ export default function ChatPanel({ open, onClose, initialPeerUserId = null, onT
       const otherId = conv.participant_a === user.id ? conv.participant_b : conv.participant_a;
 
       // Get peer's public key for decryption. 404 here means the peer
-      // hasn't forged an identity yet — we surface that explicitly
-      // because otherwise the send button silently refuses to work.
+      // has never registered a public key with the server — either they
+      // never completed the Identity Ceremony, or their first registerKey
+      // POST failed silently. Merely "opening chat" doesn't trigger a
+      // ceremony, so the old copy ("ask them to open chat at least once")
+      // was misleading. Tell the peer what to actually do.
       let keyData;
       try {
         ({ data: keyData } = await chat.getKey(otherId));
       } catch (err) {
         if (err?.response?.status === 404) {
-          setChatError("This user hasn't set up end-to-end encryption yet — ask them to open chat at least once.");
+          setChatError(
+            "This user hasn't finished their identity setup yet. " +
+            "Ask them to open their Profile → Identity panel and complete the " +
+            "12-word ceremony — that's what registers their encryption key.",
+          );
           setPeerKey(null);
           setMessages([]);
           return;
