@@ -67,6 +67,11 @@ export default function EventsPage() {
   const [actionResult, setActionResult] = useState(null); // { eventId, type, message }
   const [checkinCode, setCheckinCode] = useState("");
   const [showCheckin, setShowCheckin] = useState(null); // event id showing checkin input
+  // Team registration — open a small inline form for team events
+  // (name + size). Keyed by event.id so the form shows for just the
+  // event being registered, not all team events at once.
+  const [showTeamForm, setShowTeamForm] = useState(null); // event id
+  const [teamForm, setTeamForm] = useState({ name: "", size: "" });
   const [recs, setRecs] = useState([]);
   const [recPrefs, setRecPrefs] = useState(null);
   // Paid-event payment submission state (migration 19).
@@ -130,9 +135,22 @@ export default function EventsPage() {
 
   const handleRegister = async (event) => {
     if (!user) { navigate("/login"); return; }
+    // Team events collect a team name + size before calling the API.
+    // Clicking Register on a team event opens the inline form and
+    // returns — the real register call happens from that form's
+    // confirm button via submitTeamRegistration.
+    if (event.is_team_event) {
+      setShowTeamForm(event.id);
+      setTeamForm({ name: "", size: String(event.min_team_size || 2) });
+      return;
+    }
+    await submitRegistration(event, null);
+  };
+
+  async function submitRegistration(event, teamPayload) {
     setActionLoading(event.id);
     try {
-      const { data } = await eventsApi.register(event.id);
+      const { data } = await eventsApi.register(event.id, teamPayload || undefined);
       setActionResult({
         eventId: event.id,
         type: data.waitlisted ? "warning" : "success",
@@ -140,6 +158,8 @@ export default function EventsPage() {
           ? "You're on the waitlist — we'll notify you if a spot opens"
           : "Registered successfully!",
       });
+      setShowTeamForm(null);
+      setTeamForm({ name: "", size: "" });
       fetchEvents(); // refresh counts
     } catch (err) {
       const msg = err.response?.data?.error || "Registration failed";
@@ -147,6 +167,26 @@ export default function EventsPage() {
     } finally {
       setActionLoading(null);
     }
+  }
+
+  const submitTeamRegistration = (event) => {
+    const name = teamForm.name.trim();
+    const size = Number(teamForm.size);
+    if (!name) {
+      setActionResult({ eventId: event.id, type: "error", message: "Team name required" });
+      return;
+    }
+    const mn = event.min_team_size || 1;
+    const mx = event.max_team_size || 50;
+    if (!Number.isInteger(size) || size < mn || size > mx) {
+      setActionResult({
+        eventId: event.id,
+        type: "error",
+        message: `Team size must be between ${mn} and ${mx}`,
+      });
+      return;
+    }
+    return submitRegistration(event, { team_name: name, team_size: size });
   };
 
   const handleCancel = async (event) => {
@@ -592,6 +632,61 @@ export default function EventsPage() {
                                 <Button variant="ghost" size="sm" onClick={() => { setShowCheckin(null); setCheckinCode(""); }}>
                                   Cancel
                                 </Button>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+
+                          {/* Team registration form — shown when the
+                             student clicks Register on a team event. */}
+                          <AnimatePresence>
+                            {showTeamForm === event.id && (
+                              <motion.div
+                                initial={{ opacity: 0, height: 0 }}
+                                animate={{ opacity: 1, height: "auto" }}
+                                exit={{ opacity: 0, height: 0 }}
+                                className="mt-4 rounded-xl border border-primary/30 bg-primary/[0.05] p-4"
+                              >
+                                <p className="mb-3 font-mono text-[11px] uppercase tracking-wider text-primary">
+                                  Team details
+                                </p>
+                                <div className="flex flex-wrap items-end gap-3">
+                                  <div className="flex-1 min-w-[180px]">
+                                    <label className="mb-1 block font-mono text-[10px] uppercase tracking-wider text-text-dim">Team name</label>
+                                    <input
+                                      type="text"
+                                      value={teamForm.name}
+                                      onChange={(e) => setTeamForm((s) => ({ ...s, name: e.target.value }))}
+                                      placeholder="e.g. Euler's Engineers"
+                                      maxLength={80}
+                                      autoFocus
+                                      className="w-full rounded-lg border border-line/15 bg-black/15 px-3 py-2 text-sm text-white outline-none focus:border-primary/40"
+                                    />
+                                  </div>
+                                  <div className="w-32">
+                                    <label className="mb-1 block font-mono text-[10px] uppercase tracking-wider text-text-dim">
+                                      Team size ({event.min_team_size || 1}–{event.max_team_size || 50})
+                                    </label>
+                                    <input
+                                      type="number"
+                                      min={event.min_team_size || 1}
+                                      max={event.max_team_size || 50}
+                                      value={teamForm.size}
+                                      onChange={(e) => setTeamForm((s) => ({ ...s, size: e.target.value }))}
+                                      className="w-full rounded-lg border border-line/15 bg-black/15 px-3 py-2 font-mono text-sm text-white outline-none focus:border-primary/40"
+                                    />
+                                  </div>
+                                  <div className="flex gap-2">
+                                    <Button size="sm" onClick={() => submitTeamRegistration(event)} loading={isActing}>
+                                      Confirm
+                                    </Button>
+                                    <Button variant="ghost" size="sm" onClick={() => { setShowTeamForm(null); setTeamForm({ name: "", size: "" }); }}>
+                                      Cancel
+                                    </Button>
+                                  </div>
+                                </div>
+                                <p className="mt-3 font-mono text-[10px] text-text-dim">
+                                  You're registering on behalf of your team. One QR + one check-in covers everyone.
+                                </p>
                               </motion.div>
                             )}
                           </AnimatePresence>
