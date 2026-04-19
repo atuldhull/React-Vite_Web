@@ -141,17 +141,43 @@ For questions obviously unrelated to math or academics (celebrity gossip, dating
     }
   }
 
+  const toolsCalled = []; // audit trail for diagnostics on failure
+
   try {
     for (let iter = 0; iter < MAX_TOOL_ITERATIONS; iter++) {
       const response = await callOpenRouter();
 
       const msg = response.data?.choices?.[0]?.message;
-      if (!msg) break;
+      // `msg` absent means OpenRouter returned a 200 with no choices —
+      // genuinely upstream-broken. Treat as a transient error so the
+      // frontend shows the consistent "napping" toast rather than a
+      // weird inline reply that looks like PANDA "successfully" said
+      // something snarky.
+      if (!msg) {
+        logger.error({
+          iter,
+          toolsCalled,
+          responsePreview: JSON.stringify(response.data || {}).slice(0, 400),
+        }, "PANDA: empty OpenRouter response (no message)");
+        return res.status(502).json({ error: "Upstream returned an empty response" });
+      }
 
       // Done — model replied with final content, no more tool calls.
       if (!msg.tool_calls || msg.tool_calls.length === 0) {
-        const reply = msg.content || "Bruh the AI servers are taking a nap 😴 try again in a sec!";
-        return res.json({ reply });
+        if (!msg.content || !msg.content.trim()) {
+          // Model finished the loop but gave us nothing. Log the full
+          // state so we can see whether tool results were malformed,
+          // context was too long, or the model just refused.
+          logger.error({
+            iter,
+            toolsCalled,
+            finishReason: response.data?.choices?.[0]?.finish_reason || null,
+            msgPreview:   JSON.stringify(msg).slice(0, 400),
+            usage:        response.data?.usage || null,
+          }, "PANDA: empty content on final iteration");
+          return res.status(502).json({ error: "Upstream produced no answer" });
+        }
+        return res.json({ reply: msg.content });
       }
 
       // Tool call loop — execute each requested tool, feed results back.
@@ -160,7 +186,19 @@ For questions obviously unrelated to math or academics (celebrity gossip, dating
         let args = {};
         try { args = JSON.parse(call.function.arguments || "{}"); } catch { /* ignore — empty args */ }
         logger.info({ tool: call.function.name, args }, "PANDA tool call");
-        const result = await executeTool(call.function.name, args);
+        let result;
+        try {
+          result = await executeTool(call.function.name, args);
+          toolsCalled.push({ tool: call.function.name, ok: true });
+        } catch (toolErr) {
+          // A tool throw would otherwise propagate to the outer catch
+          // and look like an OpenRouter failure. Capture it here,
+          // feed a clear error back to the model so it can recover,
+          // and keep the loop going.
+          logger.warn({ err: toolErr, tool: call.function.name, args }, "PANDA tool failed");
+          toolsCalled.push({ tool: call.function.name, ok: false, err: toolErr.message });
+          result = JSON.stringify({ error: `Tool ${call.function.name} failed: ${toolErr.message}` });
+        }
         loopMessages.push({
           role:         "tool",
           tool_call_id: call.id,
@@ -169,10 +207,15 @@ For questions obviously unrelated to math or academics (celebrity gossip, dating
       }
     }
 
-    // Fallthrough — too many iterations; return a graceful message.
-    return res.json({
-      reply: "I went down a rabbit hole checking a bunch of sources and lost the thread 🐇 try rephrasing?",
-    });
+    // Fallthrough — too many iterations. Log what happened so we can
+    // tell whether the model looped on the same tool or actually
+    // chained meaningfully. 502 so the frontend's single "napping"
+    // path handles it consistently.
+    logger.error({
+      toolsCalled,
+      iterations: MAX_TOOL_ITERATIONS,
+    }, "PANDA: exhausted tool iterations without final reply");
+    return res.status(502).json({ error: "Chained too many tools without answering" });
   } catch (err) {
     // Map upstream failures to accurate status codes so logs + the
     // frontend can tell "we timed out" from "OpenRouter 5xx'd us" from
@@ -181,14 +224,25 @@ For questions obviously unrelated to math or academics (celebrity gossip, dating
     // Sentry grouping much easier.
     const upstreamStatus = err.response?.status;
     const isTimeout      = err.code === "ECONNABORTED";
+    // OpenRouter returns 401 when the API key is missing/wrong and
+    // 402 when the account has no credit. These will persist until
+    // the admin fixes the env — logging the upstream body makes that
+    // obvious in the Render logs instead of looking like random
+    // flakiness. The user-facing 502 stays consistent so we don't
+    // leak key-state over the wire.
+    const isAuthOrBilling = upstreamStatus === 401 || upstreamStatus === 402 || upstreamStatus === 403;
     const status = isTimeout
       ? 504
-      : (upstreamStatus && upstreamStatus >= 500 ? 502 : 500);
+      : (upstreamStatus && upstreamStatus >= 500 ? 502
+        : isAuthOrBilling ? 502
+        : 500);
     logger.error({
       err,
       upstreamStatus,
+      upstreamBody: err.response?.data ? JSON.stringify(err.response.data).slice(0, 400) : null,
       code: err.code,
       mappedStatus: status,
+      isAuthOrBilling,
     }, "ΣBot Error");
     return res.status(status).json({ error: "AI is on a coffee break ☕ try again shortly." });
   }
