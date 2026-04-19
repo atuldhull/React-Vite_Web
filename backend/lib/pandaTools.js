@@ -100,6 +100,29 @@ export const PANDA_TOOLS = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "get_video_tutorials",
+      description:
+        "Fetch a YouTube search URL plus curated math-education channel recommendations for a topic. Use this whenever the student asks for videos, visual explanations, tutorials, or says 'show me a video on X'. Returns a ready-to-open YouTube search link and 2-4 channel suggestions tuned to the topic (e.g. 3Blue1Brown for visual intuition, Khan Academy for fundamentals, MIT OCW for depth).",
+      parameters: {
+        type: "object",
+        properties: {
+          query: {
+            type: "string",
+            description: "Topic or question, e.g. 'derivatives intuition', 'quicksort explained', 'Gauss divergence theorem'",
+          },
+          level: {
+            type: "string",
+            enum: ["beginner", "intermediate", "advanced"],
+            description: "Student level — determines which channels are recommended. Defaults to intermediate.",
+          },
+        },
+        required: ["query"],
+      },
+    },
+  },
 ];
 
 // ═══════════════════════════════════════════════════════════
@@ -121,6 +144,9 @@ export async function executeTool(name, args) {
         break;
       case "search_oeis":
         result = await searchOeis(args.query);
+        break;
+      case "get_video_tutorials":
+        result = getVideoTutorials(args.query, args.level);
         break;
       default:
         result = `Unknown tool "${name}". No lookup performed.`;
@@ -166,12 +192,19 @@ async function searchArxiv(query, maxResults) {
       .slice(0, 3)
       .map((x) => x[1].trim());
     if (title) {
+      // Every arxiv abs URL has a sibling /pdf/ variant that serves
+      // the PDF directly. Emit it explicitly so the model can surface
+      // "download PDF" links students click straight through to,
+      // instead of landing on the abstract page first.
+      // abs/2604.15125v1 -> pdf/2604.15125v1.pdf
+      const pdf = link ? link.replace("/abs/", "/pdf/") + ".pdf" : null;
       papers.push({
         title,
         authors: authors.join(", ") || "Unknown",
         published,
         abstract: summary,
         link,
+        pdf,
       });
     }
   }
@@ -262,4 +295,52 @@ async function searchOeis(query) {
 
   if (results.length === 0) return `No OEIS sequence found for "${query}".`;
   return JSON.stringify({ source: "oeis.org", count: results.length, sequences: results }, null, 2);
+}
+
+// ═══════════════════════════════════════════════════════════
+// Tool: Video tutorials (no network — curated + search URL)
+// ═══════════════════════════════════════════════════════════
+// Deliberately NOT a live YouTube scrape. The Data API needs a key +
+// billing, public scraping is fragile, and the student just wants
+// links they can click. We emit:
+//   - A ready-to-open YouTube search URL for their exact query
+//   - A few hand-picked channel links tuned to difficulty level
+// The model then arranges these into the link-list format from the
+// system prompt.
+
+const CHANNEL_RECS = {
+  beginner: [
+    { name: "Khan Academy",     url: "https://www.youtube.com/@khanacademy",    why: "crystal-clear fundamentals from arithmetic to early calculus" },
+    { name: "3Blue1Brown",      url: "https://www.youtube.com/@3blue1brown",    why: "visual intuition — great even as a first exposure to a topic" },
+    { name: "Professor Leonard", url: "https://www.youtube.com/@ProfessorLeonard", why: "long-form calculus + linear algebra lectures, gentle pace" },
+  ],
+  intermediate: [
+    { name: "3Blue1Brown",      url: "https://www.youtube.com/@3blue1brown",    why: "best-in-class visual proofs (essence of calculus, linear algebra)" },
+    { name: "MIT OpenCourseWare", url: "https://www.youtube.com/@mitocw",       why: "full university lecture series across every math subject" },
+    { name: "Mathologer",       url: "https://www.youtube.com/@Mathologer",     why: "olympiad-flavour topics, deep but accessible" },
+    { name: "Numberphile",      url: "https://www.youtube.com/@numberphile",    why: "bite-size deep dives into number theory + curiosities" },
+  ],
+  advanced: [
+    { name: "MIT OpenCourseWare", url: "https://www.youtube.com/@mitocw",       why: "grad-level analysis, topology, algebraic geometry" },
+    { name: "Richard E Borcherds", url: "https://www.youtube.com/@richarde.borcherds7998", why: "Fields medallist lecturing on algebra, number theory, string theory" },
+    { name: "The Bright Side of Mathematics", url: "https://www.youtube.com/@brightsideofmaths", why: "clean rigorous exposition of functional analysis, measure theory" },
+    { name: "Michael Penn",     url: "https://www.youtube.com/@MichaelPennMath", why: "problem-solving + olympiad + number theory, rigorous" },
+  ],
+};
+
+function getVideoTutorials(query, level) {
+  const lvl = ["beginner", "intermediate", "advanced"].includes(level) ? level : "intermediate";
+  const searchUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`;
+  return JSON.stringify(
+    {
+      source: "youtube.com + curated channel list",
+      query,
+      level: lvl,
+      search_url: searchUrl,
+      search_note: "Open this URL to see YouTube's ranked results for this exact query.",
+      channels: CHANNEL_RECS[lvl],
+    },
+    null,
+    2,
+  );
 }
