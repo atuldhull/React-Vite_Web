@@ -54,7 +54,12 @@ describe("applyHelmet — security headers", () => {
     expect(csp).toMatch(/default-src 'self'/);
     expect(csp).toMatch(/script-src[^;]*'self'/);
     expect(csp).toMatch(/connect-src[^;]*supabase\.co/);
-    expect(csp).toMatch(/frame-src 'none'/);
+    // frame-src used to be 'none'. Migration 23 opened it to
+    // 'self' + *.razorpay.com so Razorpay's checkout widget can
+    // render its payment iframe. Keep the guard that it remains
+    // tightly scoped — only those two sources.
+    expect(csp).toMatch(/frame-src[^;]*'self'/);
+    expect(csp).toMatch(/frame-src[^;]*\*\.razorpay\.com/);
     expect(csp).toMatch(/object-src 'none'/);
   });
 
