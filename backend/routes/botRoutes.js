@@ -1,9 +1,9 @@
 import express from "express";
-import axios   from "axios";
 import { requireAuth } from "../middleware/authMiddleware.js";
 import { aiLimiter } from "../middleware/rateLimiter.js";
 import { logger } from "../config/logger.js";
 import { PANDA_TOOLS, executeTool } from "../lib/pandaTools.js";
+import { callLLM } from "../lib/llm.js";
 
 const router = express.Router();
 
@@ -97,56 +97,25 @@ For questions obviously unrelated to math or academics (celebrity gossip, dating
     ...messages.slice(-10),
   ];
 
-  // Single-retry wrapper around the OpenRouter call. Cold-start jitter
-  // and OpenRouter's edge POP occasionally 502 the first request; a
-  // retry after a short sleep converts most of those "PANDA is napping"
-  // incidents into a successful reply without opening the door to
-  // unbounded retry loops that would drain the per-user rate budget.
-  const RETRY_STATUSES = new Set([502, 503, 504]);
-  const RETRY_CODES    = new Set(["ECONNABORTED", "ECONNRESET", "ENOTFOUND", "EAI_AGAIN"]);
-  async function callOpenRouterOnce() {
-    return axios.post(
-      "https://openrouter.ai/api/v1/chat/completions",
-      {
-        model:       "deepseek/deepseek-chat",
-        messages:    loopMessages,
-        tools:       PANDA_TOOLS,
-        tool_choice: "auto",
-        temperature: 0.7,
-        // 1800 tokens lets the model finish a long research-paper
-        // list or a multi-step proof without being cut off.
-        max_tokens:  1800,
-      },
-      {
-        headers: {
-          "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY}`,
-          "Content-Type":  "application/json",
-          "HTTP-Referer":  "https://mathcollective.bmsit.in",
-          "X-Title":       "Math Collective SigmaBot",
-        },
-        timeout: 45000,
-      },
-    );
-  }
-  async function callOpenRouter() {
-    try {
-      return await callOpenRouterOnce();
-    } catch (err) {
-      const status = err.response?.status;
-      const code   = err.code;
-      const retriable = (status && RETRY_STATUSES.has(status)) || RETRY_CODES.has(code);
-      if (!retriable) throw err;
-      logger.warn({ status, code }, "PANDA upstream transient — retrying once");
-      await new Promise((r) => setTimeout(r, 500));
-      return callOpenRouterOnce();
-    }
-  }
-
   const toolsCalled = []; // audit trail for diagnostics on failure
+  let lastProvider = null; // populated by callLLM; logged on failure
 
   try {
     for (let iter = 0; iter < MAX_TOOL_ITERATIONS; iter++) {
-      const response = await callOpenRouter();
+      // callLLM: Gemini primary → OpenRouter fallback. One same-
+      // provider retry on transient 5xx/timeouts, then failover.
+      // PANDA is the "chat" mode — keeps thinking on because the
+      // model reasons over tool results before replying.
+      const { response, provider } = await callLLM({
+        messages:    loopMessages,
+        tools:       PANDA_TOOLS,
+        toolChoice:  "auto",
+        temperature: 0.7,
+        maxTokens:   1800,
+        mode:        "chat",
+        timeoutMs:   45000,
+      });
+      lastProvider = provider;
 
       const msg = response.data?.choices?.[0]?.message;
       // `msg` absent means OpenRouter returned a 200 with no choices —
@@ -239,11 +208,13 @@ For questions obviously unrelated to math or academics (celebrity gossip, dating
         : 500);
     logger.error({
       err,
+      lastProvider,
       upstreamStatus,
       upstreamBody: err.response?.data ? JSON.stringify(err.response.data).slice(0, 400) : null,
       code: err.code,
       mappedStatus: status,
       isAuthOrBilling,
+      noProvider: err.code === "NO_LLM_PROVIDER",
     }, "ΣBot Error");
     return res.status(status).json({ error: "AI is on a coffee break ☕ try again shortly." });
   }

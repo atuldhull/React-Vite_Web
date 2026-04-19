@@ -9,9 +9,9 @@
 // caller's org. Previously a teacher in org A saw aggregate stats
 // and student rosters across every org. Super_admin still sees
 // platform-wide via the Proxy's role-based escape hatch.
-import axios   from "axios";
 import supabase from "../config/supabase.js";
 import { logger } from "../config/logger.js";
+import { callLLM } from "../lib/llm.js";
 
 /* ─────────────────────────────────────
    GET TEACHER PROFILE
@@ -181,50 +181,28 @@ Return ONLY this JSON:
   "solution": "explanation"
 }`;
 
-  // Single retry on transient OpenRouter flakes — cold-start jitter +
-  // edge-POP 5xx is the #1 source of "AI generation failed". Same
-  // pattern as PANDA's /bot/chat handler.
-  const RETRY_STATUSES = new Set([502, 503, 504]);
-  const RETRY_CODES    = new Set(["ECONNABORTED", "ECONNRESET", "ENOTFOUND", "EAI_AGAIN"]);
-  async function callOnce() {
-    return axios.post(
-      "https://openrouter.ai/api/v1/chat/completions",
-      {
-        model: "deepseek/deepseek-chat",
-        messages: [
-          { role: "system", content: "Output only valid JSON. No markdown." },
-          { role: "user", content: prompt },
-        ],
-        temperature: 0.4,
-        // 1200 tokens so Extreme-difficulty questions with longer
-        // solutions don't truncate mid-JSON and fail the parser.
-        max_tokens: 1200,
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        timeout: 30000,
-      }
-    );
-  }
-  async function callWithRetry() {
-    try {
-      return await callOnce();
-    } catch (err) {
-      const retriable = (err.response?.status && RETRY_STATUSES.has(err.response.status))
-        || RETRY_CODES.has(err.code);
-      if (!retriable) throw err;
-      logger.warn({ status: err.response?.status, code: err.code, topic, difficulty }, "teacherGenerate upstream transient — retrying once");
-      await new Promise((r) => setTimeout(r, 500));
-      return callOnce();
-    }
-  }
-
   let rawText = "";
+  let usedProvider = null;
   try {
-    const response = await callWithRetry();
+    // "oneshot" mode tells the helper to pick a non-thinking model
+    // variant (gemini-2.5-flash-lite on the primary provider) because
+    // we need the full max_tokens budget for the JSON response — a
+    // thinking model would burn a chunk of that budget on invisible
+    // reasoning and truncate the JSON mid-field. Helper handles
+    // retry + Gemini→OpenRouter failover internally.
+    const { response, provider } = await callLLM({
+      messages: [
+        { role: "system", content: "Output only valid JSON. No markdown." },
+        { role: "user", content: prompt },
+      ],
+      temperature: 0.4,
+      // 1200 tokens so Extreme-difficulty questions with longer
+      // solutions don't truncate mid-JSON and fail the parser.
+      maxTokens: 1200,
+      mode:      "oneshot",
+      timeoutMs: 30000,
+    });
+    usedProvider = provider;
 
     rawText = response.data?.choices?.[0]?.message?.content || "";
     let text = rawText.replace(/```json/gi, "").replace(/```/g, "").trim();
@@ -246,10 +224,12 @@ Return ONLY this JSON:
       err,
       topic,
       difficulty,
+      usedProvider,
       upstreamStatus,
       code: err.code,
       rawPreview: rawText ? rawText.slice(0, 400) : null,
       mappedStatus: status,
+      noProvider: err.code === "NO_LLM_PROVIDER",
     }, "teacherGenerateQuestion failed");
     // Give the frontend a concrete short reason it can display; keep
     // the full upstream body out of the response (it can contain the
