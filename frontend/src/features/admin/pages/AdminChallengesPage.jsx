@@ -38,7 +38,11 @@ export default function AdminChallengesPage() {
       const res = await teacher.generate(aiTopic, aiDifficulty);
       setGenerated(res.data);
     } catch (err) {
-      setGenError(err.response?.data?.message || "AI generation failed");
+      setGenError(
+        err.response?.data?.error
+        || err.response?.data?.message
+        || "AI generation failed"
+      );
     }
     setGenerating(false);
   }
