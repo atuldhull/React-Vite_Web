@@ -4,18 +4,22 @@
  * Service Worker — Math Collective PWA
  *
  * Caching strategies:
- *   - CACHE-FIRST: Static assets (JS, CSS, fonts, images, textures)
- *   - NETWORK-FIRST: API calls (/api/*) — fresh data preferred, cached fallback
- *   - STALE-WHILE-REVALIDATE: HTML pages — show cached, update in background
+ *   - CACHE-FIRST: Static assets (JS, CSS, fonts, images, textures) — safe now that
+ *     Vite emits content-hashed filenames. Each deploy produces new URLs, so stale
+ *     cache entries become orphans automatically.
+ *   - NETWORK-FIRST: API calls (/api/*) + HTML pages — fresh preferred, cache fallback
  *   - CACHE-ONLY: Offline fallback page
  *
  * Push notifications: Handles incoming push events for quiz invites, messages, etc.
  */
 
-// Bump CACHE_NAME so the install handler pre-caches fresh with the
-// post-fix logic — otherwise every browser that has mc-v1 already
-// caches the old sw.js's broken responses.
-const CACHE_NAME = "mc-v3";
+// Bump CACHE_NAME on any change that should invalidate prior caches.
+// v4 is a one-time wipe: v3 users had unhashed `app.js` cached
+// indefinitely under cache-first, which kept the pre-23cad10
+// `isValidPrivateKey` crash alive on their second browser profile.
+// Changing this string makes the activate handler delete every cache
+// that doesn't match, forcing a clean reload of the hashed-URL bundle.
+const CACHE_NAME = "mc-v4";
 const OFFLINE_URL = "/app/offline.html";
 
 // Static assets to pre-cache on install
@@ -127,31 +131,32 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // ── HTML pages: Stale-while-revalidate ──
+  // ── HTML pages: Network-first (cache fallback for offline) ──
+  // Stale-while-revalidate used to serve cached HTML first. Combined
+  // with cache-first on unhashed JS/CSS assets, that meant post-deploy
+  // first visits referenced the OLD chunk names — and those old chunks
+  // were still cached — so users ran previous-deploy code for one
+  // extra visit after every deploy. Network-first makes HTML always
+  // reflect the current deploy; cache is purely offline fallback.
   if (event.request.headers.get("accept")?.includes("text/html")) {
     event.respondWith(
-      caches.match(event.request).then(async (cached) => {
-        const fetchPromise = fetch(event.request)
-          .then((response) => {
-            if (response.ok) {
-              const clone = response.clone();
-              caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
-            }
-            return response;
-          })
-          .catch(async () => {
-            // Completely offline — try to show fallback page; if even
-            // that isn't cached, synthesise a minimal offline page so
-            // respondWith() never receives undefined.
-            const offline = await caches.match(OFFLINE_URL);
-            return offline || new Response("<h1>Offline</h1>", {
-              status: 503,
-              headers: { "Content-Type": "text/html" },
-            });
+      fetch(event.request)
+        .then((response) => {
+          if (response.ok) {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+          }
+          return response;
+        })
+        .catch(async () => {
+          const cached = await caches.match(event.request);
+          if (cached) return cached;
+          const offline = await caches.match(OFFLINE_URL);
+          return offline || new Response("<h1>Offline</h1>", {
+            status: 503,
+            headers: { "Content-Type": "text/html" },
           });
-
-        return cached || fetchPromise;
-      }),
+        }),
     );
     return;
   }

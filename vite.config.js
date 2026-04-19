@@ -48,14 +48,22 @@ export default defineConfig({
     sourcemap: true,
     rollupOptions: {
       output: {
-        entryFileNames: "assets/app.js",
-        chunkFileNames: "assets/[name].js",
+        // Content-hashed filenames. Previously stable names (`app.js`,
+        // `app.css`, `<Route>.js`) meant every deploy reused the same
+        // URL. The service worker's cache-first strategy for static
+        // assets then pinned OLD JS to that filename forever — the
+        // exact mechanism that kept the `isValidPrivateKey` crash
+        // alive on second-browser-profile users after the fix shipped
+        // in commit 23cad10. Hashed names let old SW cache entries
+        // become orphaned automatically on every deploy.
+        entryFileNames: "assets/app-[hash].js",
+        chunkFileNames: "assets/[name]-[hash].js",
         assetFileNames: (assetInfo) => {
           if (assetInfo.name && assetInfo.name.endsWith(".css")) {
-            return "assets/app.css";
+            return "assets/app-[hash].css";
           }
 
-          return "assets/[name][extname]";
+          return "assets/[name]-[hash][extname]";
         },
       },
     },

@@ -55,8 +55,9 @@ export const createCertificateBatch = async (req, res) => {
       logoFilenames: logoFilenamesRaw,
       signatories:   signatoriesRaw,
       // Simple-form fields (teacher UI sends these; schema transforms
-      // logoUrl/sigUrl into bare filenames before they reach us).
-      logoUrl, sigUrl, palette,
+      // logoUrl/sigUrl/templateUrl into bare filenames before they
+      // reach us).
+      logoUrl, sigUrl, templateUrl, palette,
       recipients:   recipientsRaw,
       sendEmail,
       template = "classic",
@@ -111,6 +112,12 @@ export const createCertificateBatch = async (req, res) => {
     const sigWithPaths = signatories.map(s => ({
       ...s, signatureImagePath: s.signatureFilename ? tp(s.signatureFilename) : null,
     }));
+    // templateUrl arrives as a bare filename (schema strips the
+    // /uploads/cert-assets/ prefix). Resolve to an absolute path for
+    // the renderer and only accept it if the file actually exists.
+    const templateImagePath = templateUrl && fs.existsSync(tp(templateUrl))
+      ? tp(templateUrl)
+      : null;
 
     // Resolve org_id explicitly. Earlier prod failure: the tenant
     // proxy's injection was somehow not applying on this specific
@@ -126,13 +133,23 @@ export const createCertificateBatch = async (req, res) => {
       });
     }
 
-    // Save batch record
+    // Save batch record. template_image historically doubled as a
+    // cache for the first logo filename; we keep that fallback for
+    // backward compat with existing rows, but when the teacher
+    // supplied an actual template image we use the column for its
+    // real purpose and tag it so download.js knows which intent
+    // applies (custom-image background vs. logo fallback).
+    const hasCustomTemplate = !!templateUrl;
+    const templateImageValue = hasCustomTemplate
+      ? `/uploads/cert-assets/${templateUrl}`
+      : (logoFilenames[0] ? `/uploads/cert-assets/${logoFilenames[0]}` : null);
     const { data: batch, error: batchErr } = await supabase
       .from("certificate_batches").insert({
         org_id: orgIdForInsert,
         title, event_name: eventName, event_date: eventDate,
-        issued_by: issuedBy, template_type: "pdfkit",
-        template_image: logoFilenames[0] ? `/uploads/cert-assets/${logoFilenames[0]}` : null,
+        issued_by: issuedBy,
+        template_type: hasCustomTemplate ? "custom-image" : "pdfkit",
+        template_image: templateImageValue,
         recipients, created_by: userId,
         signatory_name:  signatories[0]?.name  || null,
         signatory_title: signatories[0]?.title || null,
@@ -164,6 +181,7 @@ export const createCertificateBatch = async (req, res) => {
     const certBase = {
       eventName, certType, organiserLine, bodyText, eventDate, issuedBy,
       logoPaths, signatories: sigWithPaths, template,
+      templateImagePath,
     };
 
     let emailsSent = 0;

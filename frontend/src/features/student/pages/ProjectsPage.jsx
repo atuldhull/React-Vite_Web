@@ -28,18 +28,23 @@ export default function ProjectsPage() {
   // Filters
   const [selectedCategory, setSelectedCategory] = useState("All");
 
-  // Create team form
+  // Create team form — one slot per additional member (leader is
+  // implicit). Backend requires 3-6 members total, so we surface 2-5
+  // extra email slots.
   const [showTeamForm, setShowTeamForm] = useState(false);
   const [teamName, setTeamName] = useState("");
-  const [teamMembers, setTeamMembers] = useState("");
+  const [teamMemberEmails, setTeamMemberEmails] = useState(["", "", ""]);
   const [teamLoading, setTeamLoading] = useState(false);
 
-  // Submit project form
+  // Submit project form. The schema has two URL columns (github_url,
+  // demo_url); the form now exposes both instead of stuffing one into
+  // the other. A third slides URL would need a migration — deferred.
   const [showProjectForm, setShowProjectForm] = useState(false);
   const [projectTitle, setProjectTitle] = useState("");
   const [projectDescription, setProjectDescription] = useState("");
   const [projectCategory, setProjectCategory] = useState("");
-  const [projectLink, setProjectLink] = useState("");
+  const [projectGithub, setProjectGithub] = useState("");
+  const [projectDemo, setProjectDemo] = useState("");
   const [submitLoading, setSubmitLoading] = useState(false);
 
   // Voting
@@ -60,7 +65,13 @@ export default function ProjectsPage() {
       ]);
       setProjectList(projRes.data);
       setCategories(catRes.data);
-      setMyTeam(teamRes.data);
+      // Backend shape is { team: <team|null>, project: <project|null> }.
+      // The UI previously stored the whole wrapper, so `myTeam` was
+      // always truthy (even with no team), which hid the "Create Team"
+      // button and showed "Submit Project" for users with no team —
+      // producing the "Failed to submit project" crash because the
+      // submit endpoint requires a teamId.
+      setMyTeam(teamRes.data?.team || null);
     } catch (err) {
       setError(err.response?.data?.message || "Failed to load projects");
     } finally {
@@ -72,39 +83,72 @@ export default function ProjectsPage() {
     e.preventDefault();
     try {
       setTeamLoading(true);
+      // Backend validator (createTeamSchema) expects `memberEmails`.
+      // Earlier this was sent as `members` which Zod silently stripped,
+      // leaving the controller with zero emails and tripping its
+      // "Minimum 3 members required" 400.
+      const cleanedEmails = teamMemberEmails.map((e) => e.trim()).filter(Boolean);
       const { data } = await projects.createTeam({
         name: teamName,
-        members: teamMembers.split(",").map((m) => m.trim()).filter(Boolean),
+        memberEmails: cleanedEmails,
       });
-      setMyTeam(data);
+      setMyTeam(data?.team || data);
       setShowTeamForm(false);
       setTeamName("");
-      setTeamMembers("");
+      setTeamMemberEmails(["", "", ""]);
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to create team");
+      alert(err.response?.data?.error || err.response?.data?.message || "Failed to create team");
     } finally {
       setTeamLoading(false);
     }
   }
 
+  function updateMemberEmail(idx, value) {
+    setTeamMemberEmails((prev) => {
+      const next = [...prev];
+      next[idx] = value;
+      return next;
+    });
+  }
+
+  function addMemberSlot() {
+    // Backend cap is 6 total members (leader + 5 additional).
+    setTeamMemberEmails((prev) => (prev.length >= 5 ? prev : [...prev, ""]));
+  }
+
+  function removeMemberSlot(idx) {
+    // Keep at least 2 slots visible so the form never collapses below
+    // a valid team size (leader + 2 = 3 minimum).
+    setTeamMemberEmails((prev) => (prev.length <= 2 ? prev : prev.filter((_, i) => i !== idx)));
+  }
+
   async function handleSubmitProject(e) {
     e.preventDefault();
+    // Defensive: the button should already be hidden without a team,
+    // but if something slips through we fail fast with a clear error.
+    if (!myTeam?.id) {
+      alert("Create a team before submitting a project.");
+      return;
+    }
     try {
       setSubmitLoading(true);
       await projects.submit({
+        teamId: myTeam.id,
         title: projectTitle,
         description: projectDescription,
         category: projectCategory,
-        link: projectLink,
+        github_url: projectGithub || "",
+        demo_url:   projectDemo   || "",
       });
       setShowProjectForm(false);
       setProjectTitle("");
       setProjectDescription("");
       setProjectCategory("");
-      setProjectLink("");
+      setProjectGithub("");
+      setProjectDemo("");
       fetchAll();
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to submit project");
+      alert(err.response?.data?.error || err.response?.data?.message || "Failed to submit project");
     } finally {
       setSubmitLoading(false);
     }
@@ -250,12 +294,46 @@ export default function ProjectsPage() {
                   placeholder="e.g. Euler's Engineers"
                   required
                 />
-                <InputField
-                  label="Member Emails (comma separated)"
-                  value={teamMembers}
-                  onChange={(e) => setTeamMembers(e.target.value)}
-                  placeholder="email1@example.com, email2@example.com"
-                />
+                <div>
+                  <span className="mb-2 block font-mono text-[11px] uppercase tracking-[0.28em] text-text-muted">
+                    Teammate Emails
+                  </span>
+                  <p className="mb-3 text-xs text-text-dim">
+                    You are the team leader. Add 2–5 teammates by email (teams need 3–6 members in total).
+                  </p>
+                  <div className="space-y-2">
+                    {teamMemberEmails.map((emailValue, idx) => (
+                      <div key={idx} className="flex items-center gap-2">
+                        <input
+                          type="email"
+                          value={emailValue}
+                          onChange={(e) => updateMemberEmail(idx, e.target.value)}
+                          placeholder={`teammate${idx + 1}@example.com`}
+                          className="flex-1 rounded-[1.5rem] border border-line/18 bg-panel/70 px-4 py-3 text-sm text-white outline-none transition duration-200 focus:border-primary/45"
+                        />
+                        {teamMemberEmails.length > 2 && (
+                          <button
+                            type="button"
+                            onClick={() => removeMemberSlot(idx)}
+                            aria-label={`Remove teammate ${idx + 1}`}
+                            className="rounded-full border border-line/20 bg-black/10 px-3 py-2 font-mono text-[10px] uppercase tracking-wider text-text-dim transition hover:border-danger/40 hover:text-danger"
+                          >
+                            Remove
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  {teamMemberEmails.length < 5 && (
+                    <button
+                      type="button"
+                      onClick={addMemberSlot}
+                      className="mt-3 rounded-full border border-line/20 bg-white/[0.04] px-4 py-2 font-mono text-[10px] uppercase tracking-wider text-text-muted transition hover:border-primary/40 hover:text-white"
+                    >
+                      + Add teammate
+                    </button>
+                  )}
+                </div>
                 <Button type="submit" size="sm" loading={teamLoading}>
                   Create Team
                 </Button>
@@ -314,11 +392,20 @@ export default function ProjectsPage() {
                   </select>
                 </div>
                 <InputField
-                  label="Project Link (optional)"
-                  value={projectLink}
-                  onChange={(e) => setProjectLink(e.target.value)}
-                  placeholder="https://github.com/..."
+                  label="GitHub URL (optional)"
+                  value={projectGithub}
+                  onChange={(e) => setProjectGithub(e.target.value)}
+                  placeholder="https://github.com/your-team/project"
                 />
+                <InputField
+                  label="Live demo URL (optional)"
+                  value={projectDemo}
+                  onChange={(e) => setProjectDemo(e.target.value)}
+                  placeholder="https://your-deployed-site.com"
+                />
+                <p className="-mt-2 text-xs text-text-dim">
+                  Want to share slides or a video too? Put the link in the description for now — a dedicated field is coming next.
+                </p>
                 <Button type="submit" size="sm" loading={submitLoading}>
                   Submit Project
                 </Button>

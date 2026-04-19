@@ -140,9 +140,18 @@ export const cancelRegistration = async (req, res) => {
     if (reg.status === "cancelled") return res.status(400).json({ error: "Already cancelled" });
     if (reg.status === "attended") return res.status(400).json({ error: "Cannot cancel after attending" });
 
-    await supabase.from("event_registrations")
+    // The cancel itself is load-bearing — if it fails (DB error,
+    // row locked, network flap) we must NOT continue to the waitlist-
+    // promotion block, because the seat isn't actually freed. Previously
+    // this path swallowed the error and the caller got {success:true}
+    // while the row stayed at "registered".
+    const { error: cancelErr } = await supabase.from("event_registrations")
       .update({ status: "cancelled", cancelled_at: new Date().toISOString() })
       .eq("id", reg.id);
+    if (cancelErr) {
+      logger.error({ err: cancelErr, regId: reg.id }, "Cancel registration: update failed");
+      return res.status(500).json({ error: "Cancellation failed" });
+    }
 
     // Promote first waitlisted user
     const { data: waitlisted } = await supabase
@@ -155,20 +164,35 @@ export const cancelRegistration = async (req, res) => {
       .maybeSingle();
 
     if (waitlisted) {
-      await supabase.from("event_registrations")
+      const { error: promoteErr } = await supabase.from("event_registrations")
         .update({ status: "registered" })
         .eq("id", waitlisted.id);
-      await sendNotification({
-        userIds: [waitlisted.user_id],
-        title: "You're in!",
-        body: "A spot opened up — you've been moved from the waitlist",
-        type: "success",
-        link: `/events`,
-      });
+      if (promoteErr) {
+        // Don't fail the cancel — the seat IS free. Just log loudly so
+        // ops can manually nudge the waitlisted user if notifications
+        // didn't reach them. Returning the cancel as successful is the
+        // right call; the waitlist promotion is a best-effort step.
+        logger.error({
+          err: promoteErr,
+          waitlistRegId: waitlisted.id,
+          waitlistUserId: waitlisted.user_id,
+        }, "Waitlist promotion: update failed (cancel still succeeded)");
+      } else {
+        await sendNotification({
+          userIds: [waitlisted.user_id],
+          title: "You're in!",
+          body: "A spot opened up — you've been moved from the waitlist",
+          type: "success",
+          link: `/events`,
+        }).catch((err) => {
+          logger.warn({ err, userId: waitlisted.user_id }, "Waitlist promotion notification failed");
+        });
+      }
     }
 
     return res.json({ success: true });
-  } catch {
+  } catch (err) {
+    logger.error({ err }, "Cancel Registration");
     return res.status(500).json({ error: "Cancellation failed" });
   }
 };

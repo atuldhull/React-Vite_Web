@@ -153,8 +153,16 @@ export const getRecentActivity = async (req, res) => {
    GET /api/teacher/generate
 ───────────────────────────────────── */
 export const teacherGenerateQuestion = async (req, res) => {
-  const topic      = req.query.topic || "Calculus";
-  const difficulty = req.query.difficulty || "medium";
+  const topic = (req.query.topic || "Calculus").toString().slice(0, 80);
+
+  // Frontend sends capitalised values ("Easy"/"Medium"/"Hard"/"Extreme").
+  // Previous code did case-sensitive equality against lowercase, so every
+  // non-lowercase value silently fell into the "medium" branch AND threw
+  // a 500 because the LLM's longer Extreme responses overflowed 600 tokens.
+  const raw = (req.query.difficulty || "medium").toString().toLowerCase();
+  const ALLOWED = ["easy", "medium", "hard", "extreme"];
+  const difficulty = ALLOWED.includes(raw) ? raw : "medium";
+  const points = { easy: 20, medium: 50, hard: 100, extreme: 200 }[difficulty];
 
   try {
     const response = await axios.post(
@@ -174,12 +182,14 @@ Return ONLY this JSON:
   "options": ["A", "B", "C", "D"],
   "correct_index": 0,
   "difficulty": "${difficulty}",
-  "points": ${difficulty === "easy" ? 20 : difficulty === "hard" ? 100 : 50},
+  "points": ${points},
   "solution": "explanation"
 }` },
         ],
         temperature: 0.4,
-        max_tokens: 600,
+        // Extreme prompts often produce a longer solution paragraph. 900
+        // keeps headroom without noticeably raising cost.
+        max_tokens: 900,
       },
       {
         headers: {
@@ -197,7 +207,11 @@ Return ONLY this JSON:
 
     return res.json(JSON.parse(text.slice(start, end + 1)));
   } catch (err) {
-    return res.status(500).json({ error: err.message });
+    // Surface the upstream reason (OpenRouter status + body) so the next
+    // time a 500 happens the Render logs tell us what actually failed
+    // instead of a bare "Request failed with status code 502".
+    const upstream = err.response?.data || err.code || err.message;
+    return res.status(500).json({ error: err.message, upstream });
   }
 };
 

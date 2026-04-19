@@ -28,14 +28,36 @@ export const previewCertificate = async (req, res) => {
       eventName = "Sample Event", certType = "PARTICIPATION",
       organiserLine = "", bodyText = "", eventDate = "", issuedBy = "",
       logoFilenames = [], signatories = [],
+      // Simple-form passthroughs from the teacher UI. logoUrl/sigUrl
+      // arrive as full /uploads/... paths; templateUrl is the optional
+      // background image. We normalise all three to bare filenames so
+      // the ASSET_DIR join below works.
+      logoUrl, sigUrl, templateUrl,
     } = req.body;
 
+    const stripPrefix = (s) => (s || "").replace(/^.*\/cert-assets\//, "").replace(/^\/+/, "");
+    const mergedLogos = [
+      ...logoFilenames,
+      ...(logoUrl ? [stripPrefix(logoUrl)] : []),
+    ].filter(Boolean);
+
     const tp = f => f ? path.join(ASSET_DIR, f) : null;
-    const logoPaths = logoFilenames.filter(Boolean).map(tp).filter(p => p && fs.existsSync(p));
-    const sigWithPaths = signatories.map(s => ({
-      ...s,
-      signatureImagePath: s.signatureFilename ? tp(s.signatureFilename) : null,
-    }));
+    const logoPaths = mergedLogos.map(tp).filter(p => p && fs.existsSync(p));
+    const sigFilename = sigUrl ? stripPrefix(sigUrl) : null;
+    const sigWithPaths = [
+      ...signatories.map(s => ({
+        ...s,
+        signatureImagePath: s.signatureFilename ? tp(s.signatureFilename) : null,
+      })),
+      ...(sigFilename && fs.existsSync(tp(sigFilename))
+        ? [{ name: issuedBy || "", title: "", signatureImagePath: tp(sigFilename) }]
+        : []),
+    ];
+
+    const templateFilename = templateUrl ? stripPrefix(templateUrl) : null;
+    const templateImagePath = templateFilename && fs.existsSync(tp(templateFilename))
+      ? tp(templateFilename)
+      : null;
 
     const pdfBuf = await buildCertificate({
       recipientName: "Recipient Name",
@@ -43,6 +65,7 @@ export const previewCertificate = async (req, res) => {
       bodyText, eventDate, issuedBy,
       logoPaths, signatories: sigWithPaths,
       template: req.body.template || "classic",
+      templateImagePath,
     });
 
     res.setHeader("Content-Type",        "application/pdf");
@@ -63,12 +86,17 @@ export const downloadCertificate = async (req, res) => {
       .select("*,certificate_batches(*)").eq("id",req.params.id).maybeSingle();
     if (error||!cert) return res.status(404).json({ error: "Not found" });
     const b = cert.certificate_batches;
-    // Reconstruct the logo + signature absolute paths from the
-    // batch record so the rendered cert matches what the admin
-    // designed when they created the batch.
-    const logoPaths = b.template_image
-      ? [path.join(ASSET_DIR, b.template_image.replace(/^.*\/cert-assets\//, ""))]
-      : [];
+    // template_image doubles as either a custom background (when
+    // template_type === "custom-image") or a logo-filename cache
+    // (legacy behaviour, when template_type is "pdfkit" or missing).
+    // Route it to the correct opts key so the renderer doesn't stretch
+    // a small logo across the whole page.
+    const storedPath = b.template_image
+      ? path.join(ASSET_DIR, b.template_image.replace(/^.*\/cert-assets\//, ""))
+      : null;
+    const isCustomTemplate = b.template_type === "custom-image" && storedPath;
+    const logoPaths = !isCustomTemplate && storedPath ? [storedPath] : [];
+    const templateImagePath = isCustomTemplate ? storedPath : null;
     const pdfBuf = await buildCertificate({
       recipientName: cert.recipient_name,
       eventName:     cert.event_name,
@@ -77,6 +105,7 @@ export const downloadCertificate = async (req, res) => {
       certType:      b.cert_type   || "PARTICIPATION",
       template:      b.template_variant || "classic",
       logoPaths,
+      templateImagePath,
       signatories:   b.signatory_name ? [{ name: b.signatory_name, title: b.signatory_title }] : [],
       downloadToken: cert.download_token,
     });
@@ -100,9 +129,12 @@ export const downloadBatchZip = async (req, res) => {
     res.setHeader("Content-Disposition",`attachment; filename="Certificates_${batch.event_name.replace(/\s+/g,"_")}.zip"`);
     const archive = archiver("zip",{ zlib:{ level:6 } });
     archive.pipe(res);
-    const batchLogo = batch.template_image
-      ? [path.join(ASSET_DIR, batch.template_image.replace(/^.*\/cert-assets\//, ""))]
-      : [];
+    const storedPath = batch.template_image
+      ? path.join(ASSET_DIR, batch.template_image.replace(/^.*\/cert-assets\//, ""))
+      : null;
+    const isCustomTemplate = batch.template_type === "custom-image" && storedPath;
+    const batchLogo         = !isCustomTemplate && storedPath ? [storedPath] : [];
+    const batchTemplatePath = isCustomTemplate ? storedPath : null;
     for (const cert of (certs||[])) {
       const pdfBuf = await buildCertificate({
         recipientName: cert.recipient_name, eventName: cert.event_name,
@@ -110,6 +142,7 @@ export const downloadBatchZip = async (req, res) => {
         certType:  batch.cert_type || "PARTICIPATION",
         template:  batch.template_variant || "classic",
         logoPaths: batchLogo,
+        templateImagePath: batchTemplatePath,
         signatories: batch.signatory_name?[{name:batch.signatory_name,title:batch.signatory_title}]:[],
         downloadToken: cert.download_token,
       });

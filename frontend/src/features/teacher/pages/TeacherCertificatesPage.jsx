@@ -35,16 +35,25 @@ export default function TeacherCertificatesPage() {
   // Asset upload state
   const [logoFile, setLogoFile] = useState(null);
   const [sigFile, setSigFile] = useState(null);
+  const [templateFile, setTemplateFile] = useState(null);
   const [logoUrl, setLogoUrl] = useState(null);
   const [sigUrl, setSigUrl] = useState(null);
+  // Optional full-bleed background (A4 landscape PNG/JPG). When set,
+  // the PDF renderer skips its preset border + fill and uses this
+  // image as the whole page — teacher-provided branding passes through.
+  const [templateUrl, setTemplateUrl] = useState(null);
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [uploadingSig, setUploadingSig] = useState(false);
+  const [uploadingTemplate, setUploadingTemplate] = useState(false);
 
   // Form state
   const [eventName, setEventName] = useState("");
   const [certType, setCertType] = useState("participation");
   const [palette, setPalette] = useState("purple");
   const [recipients, setRecipients] = useState("");
+  // Optional free-form achievement paragraph rendered onto the cert.
+  // When blank, the PDF renderer falls back to its built-in default verb.
+  const [bodyText, setBodyText] = useState("");
 
   // Match state
   const [matchedStudents, setMatchedStudents] = useState([]);
@@ -64,6 +73,7 @@ export default function TeacherCertificatesPage() {
 
   const logoRef = useRef(null);
   const sigRef = useRef(null);
+  const templateRef = useRef(null);
 
   useEffect(() => {
     fetchBatches();
@@ -111,6 +121,27 @@ export default function TeacherCertificatesPage() {
     }
   }
 
+  async function handleUploadTemplate() {
+    if (!templateFile) return;
+    try {
+      setUploadingTemplate(true);
+      setError(null);
+      const res = await certificates.uploadAsset(templateFile, "template");
+      setTemplateUrl(res.data?.url || res.data);
+      setSuccess("Certificate template uploaded successfully");
+    } catch (err) {
+      setError(err.response?.data?.message || "Template upload failed");
+    } finally {
+      setUploadingTemplate(false);
+    }
+  }
+
+  function handleClearTemplate() {
+    setTemplateFile(null);
+    setTemplateUrl(null);
+    if (templateRef.current) templateRef.current.value = "";
+  }
+
   async function handleMatchStudents() {
     if (!recipients.trim()) return;
     try {
@@ -139,6 +170,8 @@ export default function TeacherCertificatesPage() {
         recipients,
         logoUrl,
         sigUrl,
+        templateUrl,
+        bodyText,
       });
       const blob = new Blob([res.data], { type: "application/pdf" });
       const url = URL.createObjectURL(blob);
@@ -166,10 +199,13 @@ export default function TeacherCertificatesPage() {
         recipients,
         logoUrl,
         sigUrl,
+        templateUrl,
+        bodyText,
       });
       setSuccess("Certificate batch created successfully!");
       setEventName("");
       setRecipients("");
+      setBodyText("");
       setMatchedStudents([]);
       if (previewUrl) {
         URL.revokeObjectURL(previewUrl);
@@ -330,6 +366,50 @@ export default function TeacherCertificatesPage() {
                   <p className="mt-2 font-mono text-[10px] text-success">Signature uploaded</p>
                 )}
               </div>
+
+              {/* Custom template background (optional) */}
+              <div className="rounded-xl border border-line/10 bg-black/10 p-4">
+                <label className="mb-2 block font-mono text-[10px] uppercase tracking-wider text-text-dim">
+                  Certificate Template (optional)
+                </label>
+                <p className="mb-3 text-xs text-text-dim">
+                  Upload your own A4 landscape PNG or JPG to use as the full background.
+                  The recipient name, body, signatories, and QR still render on top — leave the
+                  centre of your design clear. When set, the preset border and colours are skipped.
+                </p>
+                <div className="flex items-center gap-3">
+                  <input
+                    ref={templateRef}
+                    type="file"
+                    accept="image/png,image/jpeg"
+                    onChange={(e) => setTemplateFile(e.target.files[0])}
+                    className="flex-1 text-sm text-text-muted file:mr-3 file:rounded-lg file:border file:border-line/15 file:bg-surface/50 file:px-3 file:py-1.5 file:font-mono file:text-[11px] file:uppercase file:text-text-muted file:transition hover:file:border-primary/30 hover:file:text-white"
+                  />
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={handleUploadTemplate}
+                    loading={uploadingTemplate}
+                    disabled={!templateFile}
+                  >
+                    Upload
+                  </Button>
+                </div>
+                {templateUrl && (
+                  <div className="mt-3 flex items-center justify-between rounded-lg border border-success/20 bg-success/5 px-3 py-2">
+                    <p className="font-mono text-[10px] text-success">
+                      Template active — will be used as the cert background.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={handleClearTemplate}
+                      className="font-mono text-[10px] uppercase tracking-wider text-text-muted transition hover:text-danger"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           </Card>
         </motion.div>
@@ -423,6 +503,24 @@ export default function TeacherCertificatesPage() {
                   rows={5}
                   className="w-full resize-y rounded-xl border border-line/15 bg-surface/50 px-4 py-3 text-sm text-white placeholder-text-dim backdrop-blur outline-none transition focus:border-primary/30"
                 />
+              </div>
+
+              {/* Achievement body (optional) */}
+              <div>
+                <label className="mb-1.5 block font-mono text-[10px] uppercase tracking-wider text-text-dim">
+                  Achievement description (optional)
+                </label>
+                <textarea
+                  value={bodyText}
+                  onChange={(e) => setBodyText(e.target.value.slice(0, 4000))}
+                  placeholder="e.g. For winning the Coding Era hackathon by designing and deploying a real-time collaborative whiteboard."
+                  rows={3}
+                  maxLength={4000}
+                  className="w-full resize-y rounded-xl border border-line/15 bg-surface/50 px-4 py-3 text-sm text-white placeholder-text-dim backdrop-blur outline-none transition focus:border-primary/30"
+                />
+                <p className="mt-1 font-mono text-[10px] text-text-dim">
+                  Appears in the body of the certificate. Leave blank for the default phrasing.
+                </p>
               </div>
 
               {/* Match students */}

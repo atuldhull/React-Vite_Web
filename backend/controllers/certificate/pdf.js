@@ -103,6 +103,11 @@ const TEMPLATES = {
  * @param {string[]} [opts.logoPaths]     absolute paths to PNG/JPG logos
  * @param {Array<{name:string,title?:string,signatureImagePath?:string}>} [opts.signatories]
  * @param {string} [opts.template]        classic | modern | minimal (default classic)
+ * @param {string} [opts.templateImagePath] absolute path to a full-bleed user-uploaded
+ *                                        background PNG/JPG. When present, it REPLACES
+ *                                        the preset background fill and border so the
+ *                                        teacher's design carries the visual branding.
+ *                                        Text, signatures, and QR still render on top.
  * @param {string} [opts.downloadToken]   UUID from certificates.download_token; used for verify URL + cert ID
  * @returns {Promise<Buffer>}
  */
@@ -118,8 +123,15 @@ export async function buildCertificate(opts) {
     logoPaths       = [],
     signatories     = [],
     template: templateKey,
+    templateImagePath,
     downloadToken,
   } = opts || {};
+
+  // When the caller supplied a custom template image, it supplies the
+  // background + border + any brand marks by itself — so we skip the
+  // preset background fill and the ornamental border. If the image
+  // doesn't exist on disk we silently fall back to the preset style.
+  const useCustomTemplate = !!(templateImagePath && fs.existsSync(templateImagePath));
 
   const tKey = (templateKey && TEMPLATES[templateKey]) ? templateKey : "classic";
   const T    = TEMPLATES[tKey];
@@ -170,10 +182,21 @@ export async function buildCertificate(opts) {
   });
 
   // ─────── Background
-  doc.rect(0, 0, PAGE.W, PAGE.H).fill(T.bg);
-
-  // ─────── Outer ornamental border
-  drawBorder(doc, T, accent);
+  if (useCustomTemplate) {
+    try {
+      doc.image(templateImagePath, 0, 0, { width: PAGE.W, height: PAGE.H });
+    } catch {
+      // The file exists but pdfkit rejected it (unsupported format,
+      // corrupt, etc.). Fall back to the preset fill + border so the
+      // cert still renders rather than erroring the whole batch.
+      doc.rect(0, 0, PAGE.W, PAGE.H).fill(T.bg);
+      drawBorder(doc, T, accent);
+    }
+  } else {
+    doc.rect(0, 0, PAGE.W, PAGE.H).fill(T.bg);
+    // ─────── Outer ornamental border
+    drawBorder(doc, T, accent);
+  }
 
   // ─────── Logo row (top centre) — stack horizontally if multiple
   const validLogos = logoPaths.filter((p) => p && fs.existsSync(p)).slice(0, 3);

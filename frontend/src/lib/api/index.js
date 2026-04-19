@@ -49,9 +49,18 @@ export const leaderboard = {
 };
 
 // ── Events ──
+// `id` arguments are validated before the request — a callsite with
+// `undefined`/`null` used to produce `/api/events/undefined`, routed to
+// the `/:id` handler whose UUID check then 400'd. Throwing early makes
+// the bug show up at the call site (as a clear Error) instead of a
+// mysterious "Invalid event ID" network error.
+function requireId(id, fn) {
+  if (!id) throw new Error(`events.${fn}: id is required (got ${id})`);
+  return id;
+}
 export const events = {
   list: () => http.get("/events"),
-  get: (id) => http.get(`/events/${id}`),
+  get: (id) => http.get(`/events/${requireId(id, "get")}`),
   create: (data) => http.post("/events", data),
   update: (id, data) => http.patch(`/events/${id}`, data),
   remove: (id) => http.delete(`/events/${id}`),

@@ -528,7 +528,7 @@ export default function EventsPage() {
                                     value={payRefInputs[event.id] || ""}
                                     onChange={(e) => setPayRefInputs((s) => ({ ...s, [event.id]: e.target.value }))}
                                     onKeyDown={(e) => e.key === "Enter" && handleSubmitPayment(event)}
-                                    className="flex-1 min-w-[180px] rounded-lg border border-line/15 bg-black/15 px-3 py-2 font-mono text-sm text-white outline-none focus:border-secondary/40"
+                                    className="w-full min-w-0 flex-1 rounded-lg border border-line/15 bg-black/15 px-3 py-2 font-mono text-sm text-white outline-none focus:border-secondary/40 sm:w-auto sm:min-w-[180px]"
                                     maxLength={32}
                                   />
                                   <Button
@@ -597,8 +597,11 @@ export default function EventsPage() {
                           </AnimatePresence>
                         </div>
 
-                        {/* Right: Action buttons */}
-                        <div className="flex flex-col items-end gap-2 flex-shrink-0">
+                        {/* Right: Action buttons. Stretch to full
+                           width on mobile so they sit below the info
+                           block cleanly; right-align at tablet+ where
+                           the card goes horizontal. */}
+                        <div className="flex flex-col items-stretch gap-2 flex-shrink-0 sm:items-end">
                           {/* Register button */}
                           {(status === "upcoming" || status === "registering") && !isRegistered && !event.is_full && (
                             <Button size="sm" onClick={() => handleRegister(event)} loading={isActing}>

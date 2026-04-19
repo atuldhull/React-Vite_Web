@@ -133,11 +133,16 @@
   min-height: 100vh;
 }
 
-/* 3D canvas is fixed full-screen behind everything */
+/* 3D canvas is fixed full-screen behind everything.
+   100vw includes the scrollbar gutter, so on narrow viewports the
+   canvas stuck out past the right edge and pushed a horizontal
+   scrollbar onto the page. 100% of the containing block (html) is
+   the same size as the visible viewport without the gutter. */
 .monument-canvas-wrapper {
   position: fixed;
   top: 0; left: 0;
-  width: 100vw; height: 100vh;
+  width: 100%; height: 100%;
+  max-width: 100vw;
   z-index: 0;
   pointer-events: none;
 }
@@ -162,7 +167,10 @@
   --color-danger: 230 80 80;
   --color-text-primary: 20 24 40;
   --color-text-muted: 80 90 110;
-  --color-text-dim: 140 150 170;
+  /* Previous rgb(140,150,170) gave ~2:1 contrast on white — below WCAG AA
+     4.5:1 for body text. 100/110/130 is ~5:1 on white, passes AA, and still
+     reads visibly "dimmer" than muted (which is ~6.8:1). */
+  --color-text-dim: 100 110 130;
   --shadow-orbit: 0 24px 60px rgba(109, 60, 230, 0.08), 0 0 0 1px rgba(109, 60, 230, 0.06);
   --shadow-panel: 0 8px 30px rgba(0, 0, 0, 0.06), 0 0 0 1px rgba(0, 0, 0, 0.04);
   --shadow-pulse: 0 0 0 1px rgba(20, 160, 230, 0.1), 0 8px 24px rgba(20, 160, 230, 0.08);
@@ -268,9 +276,17 @@ h1, h2, h3, h4 { font-family: 'Space Grotesk', sans-serif; }
   .px-5 { padding-left: 1rem; padding-right: 1rem; }
 }
 
-/* Prevent horizontal overflow on mobile */
+/* Prevent horizontal overflow on any viewport narrower than a laptop.
+   Previous rule only kicked in ≤480px, so phablets and small tablets
+   (481–767px) could still show a horizontal scrollbar when a stray
+   100vw element (e.g. the monument canvas + scrollbar gutter) tipped
+   content over the edge. Applying it at the html + body level from
+   767px down catches every mobile/tablet case without affecting
+   desktop layouts. */
+@media (max-width: 767px) {
+  html, body { overflow-x: hidden; }
+}
 @media (max-width: 480px) {
-  body { overflow-x: hidden; }
   .overflow-x-auto { -webkit-overflow-scrolling: touch; }
   /* Stack table cells better */
   table { font-size: 0.75rem; }

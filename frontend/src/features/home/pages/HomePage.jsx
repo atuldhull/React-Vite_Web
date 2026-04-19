@@ -138,7 +138,10 @@ export default function HomePage() {
         }}>
           <h1 style={{
             fontFamily: "'Space Grotesk', sans-serif",
-            fontSize: "clamp(2.5rem, 7vw, 5rem)",
+            // Lower minimum so the title doesn't overflow ~375px
+            // viewports. 7vw on a 375px screen is 26px, below the old
+            // 2.5rem (40px) floor — which forced overflow.
+            fontSize: "clamp(1.75rem, 7vw, 5rem)",
             fontWeight: 800, color: "white", margin: 0,
             letterSpacing: "-0.04em", lineHeight: 1.1,
             textShadow: "0 0 80px rgba(0,0,0,0.6), 0 0 160px rgba(79,195,247,0.1)",
@@ -182,7 +185,7 @@ export default function HomePage() {
       <div style={{ height: "500vh", position: "relative", pointerEvents: "none" }} />
 
       {/* ── CONTENT SECTIONS ── */}
-      <div style={{ position: "relative", minHeight: "100vh" }} className="space-y-20 px-4 pb-16 pt-16 sm:px-8">
+      <div style={{ position: "relative", minHeight: "100vh" }} className="space-y-12 px-4 pb-16 pt-16 sm:space-y-20 sm:px-8">
         <MonumentBackground monument="desert" intensity={0.2} />
 
         <motion.div initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.7 }}
