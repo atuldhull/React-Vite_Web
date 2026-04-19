@@ -20,11 +20,15 @@ export default function CapacityBar({ current = 0, max = null, className = "" })
 
   return (
     <div className={className}>
-      <div className="flex items-center justify-between mb-1">
-        <span className="font-mono text-[10px] text-text-dim">
+      <div className="mb-1.5 flex items-center justify-between gap-3">
+        <span className="truncate font-mono text-[10px] text-text-dim">
           {current} / {max} registered
         </span>
-        <span className={`math-text text-[11px] font-bold ${
+        {/* tabular-nums + min-w keep the percentage right-aligned in a
+            stable column instead of shifting 1px each time the count
+            ticks up by 10/100/... Also prevents visual overlap with
+            the left label on narrow cards. */}
+        <span className={`math-text shrink-0 text-right tabular-nums text-[11px] font-bold [min-width:2.5rem] ${
           full ? "text-danger" : warn ? "text-warning" : "text-success"
         }`}>
           {pct}%
