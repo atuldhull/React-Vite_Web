@@ -82,13 +82,22 @@ export default function TeacherChallengesPage() {
       const res = await teacher.generate(topic, difficulty);
       setGenerated(res.data);
     } catch (err) {
-      // Backend sends {error: "..."} (not message). Read both so legacy
-      // shapes still work, and fall through to the generic fallback.
-      setGenError(
-        err.response?.data?.error
-        || err.response?.data?.message
-        || "AI generation failed. Try again."
-      );
+      // Distinguish "backend sent an error reason" from "the request
+      // never reached the server" (CORS, offline, timeout with no
+      // response). Users were seeing a bare "AI generation failed"
+      // when axios had no response object at all — now they see a
+      // specific hint that points at the right place to look.
+      const data = err?.response?.data;
+      const status = err?.response?.status;
+      let msg;
+      if (data?.error || data?.message) {
+        msg = data.error || data.message;
+      } else if (!err?.response) {
+        msg = `Network error — the request didn't reach the server (${err?.code || err?.message || "unknown"}). Check your connection and try again.`;
+      } else {
+        msg = `AI generation failed (HTTP ${status}). Try again or lower the difficulty.`;
+      }
+      setGenError(msg);
     } finally {
       setGenerating(false);
     }
