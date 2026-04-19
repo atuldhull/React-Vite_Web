@@ -83,6 +83,11 @@ export const events = {
   // Paid-event reconciliation (migration 19)
   submitPayment: (id, regId, paymentRef) =>
     http.post(`/events/${id}/registrations/${regId}/pay`, { paymentRef }),
+  // Razorpay auto-verify flow (migration 23). The manual UPI-ref flow
+  // above is still used as a fallback when RAZORPAY_KEY_ID isn't set
+  // or the student hits "pay manually instead".
+  createRazorpayOrder: (id, regId) =>
+    http.post(`/events/${id}/registrations/${regId}/razorpay-order`),
   listPayments: (id) => http.get(`/events/${id}/payments`),
   markPaid: (id, regId) =>
     http.post(`/events/${id}/registrations/${regId}/mark-paid`, {}),

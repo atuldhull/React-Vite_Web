@@ -21,8 +21,9 @@ import {
   getEventLeaderboard, updateEventScore, publishEventResults,
   // Site settings
   getSiteSettings, updateSiteSetting,
-  // Paid-event reconciliation (migration 19)
+  // Paid-event reconciliation (migration 19) + Razorpay auto-verify (migration 23)
   submitPaymentRef, markPaid, rejectPayment, getPaymentsForEvent,
+  createEventPaymentOrder,
 } from "../controllers/event/index.js";
 import { requireAuth, requireAdmin, requireTeacher, checkFeatureFlag } from "../middleware/authMiddleware.js";
 import { validateBody } from "../validators/common.js";
@@ -69,6 +70,14 @@ router.post(
   requireAuth,
   validateBody(submitPaymentSchema),
   submitPaymentRef,
+);
+// Student requests a Razorpay order for their outstanding payment
+// (migration 23). The webhook auto-flips payment_status=paid on
+// capture — no admin reconciliation needed when this flow is used.
+router.post(
+  "/:id/registrations/:regId/razorpay-order",
+  requireAuth,
+  createEventPaymentOrder,
 );
 // Admin/teacher lists payments for reconciliation.
 router.get(

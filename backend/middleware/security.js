@@ -44,8 +44,15 @@ export function applyHelmet(app) {
   // In production both Swagger and HMR are gone, the SPA bundle is
   // fully external and pre-hashed, so we can drop those allowances
   // entirely — a tighter CSP that rejects any injected inline script.
-  const scriptSrcProd = ["'self'"];
-  const scriptSrcDev  = ["'self'", "'unsafe-inline'", "cdn.jsdelivr.net", "cdnjs.cloudflare.com", "unpkg.com", "esm.sh"];
+  // Razorpay checkout needs its own script/style/connect/frame allowances.
+  // The widget loads checkout.js from checkout.razorpay.com, fetches
+  // order + payment status from api.razorpay.com, and opens a payment
+  // iframe under api.razorpay.com. 'unsafe-inline' for styleSrc is
+  // required by the widget too (it injects inline style attributes).
+  // All narrowly scoped to *.razorpay.com — doesn't broaden the CSP
+  // beyond the third-party we actually load.
+  const scriptSrcProd = ["'self'", "checkout.razorpay.com"];
+  const scriptSrcDev  = ["'self'", "'unsafe-inline'", "cdn.jsdelivr.net", "cdnjs.cloudflare.com", "unpkg.com", "esm.sh", "checkout.razorpay.com"];
   const styleSrcProd  = ["'self'", "'unsafe-inline'", "fonts.googleapis.com"];
   const styleSrcDev   = ["'self'", "'unsafe-inline'", "fonts.googleapis.com", "cdn.jsdelivr.net", "cdnjs.cloudflare.com"];
 
@@ -61,10 +68,14 @@ export function applyHelmet(app) {
         // meaningful XSS vector — CSP doesn't add real protection
         // here — and blocking them just degrades typography.
         fontSrc:        ["'self'", "data:", "fonts.gstatic.com", "cdn.jsdelivr.net"],
-        imgSrc:         ["'self'", "data:", "blob:", "api.dicebear.com", "*.supabase.co", "res.cloudinary.com"],
+        imgSrc:         ["'self'", "data:", "blob:", "api.dicebear.com", "*.supabase.co", "res.cloudinary.com", "*.razorpay.com"],
         mediaSrc:       ["'self'", "blob:", "res.cloudinary.com"],
-        connectSrc:     ["'self'", "*.supabase.co", "api.openrouter.ai", "api.dicebear.com", "openrouter.ai", "res.cloudinary.com"],
-        frameSrc:       ["'none'"],
+        // Razorpay's checkout widget talks to api.razorpay.com +
+        // lumberjack.razorpay.com (analytics) — add both.
+        connectSrc:     ["'self'", "*.supabase.co", "api.openrouter.ai", "api.dicebear.com", "openrouter.ai", "res.cloudinary.com", "*.razorpay.com"],
+        // Razorpay renders the payment form in an iframe served from
+        // api.razorpay.com. The default-deny frameSrc was blocking it.
+        frameSrc:       ["'self'", "*.razorpay.com"],
         objectSrc:      ["'none'"],
         upgradeInsecureRequests: process.env.NODE_ENV === "production" ? [] : null,
       },

@@ -27,6 +27,7 @@ import EventHero from "@/features/events/components/EventHero";
 import EventExplorer from "@/features/events/components/EventExplorer";
 import { events as eventsApi, insights } from "@/lib/api";
 import { useAuthStore } from "@/store/auth-store";
+import { openRazorpayCheckout } from "@/lib/razorpay";
 
 // ── Helpers ──────────────────────────────────────────────
 
@@ -224,6 +225,55 @@ export default function EventsPage() {
         || err.response?.data?.error
         || "Submission failed";
       setActionResult({ eventId: event.id, type: "error", message: msg });
+    } finally {
+      setPayLoading(null);
+    }
+  };
+
+  // Razorpay auto-verify flow (migration 23). Creates a server-side
+  // order, opens the checkout widget, and polls for payment_status
+  // updates driven by the webhook — no manual UPI ref needed.
+  const handleRazorpayPay = async (event) => {
+    const regId = event.user_registration?.id;
+    if (!regId) return;
+    setPayLoading(event.id);
+    try {
+      const { data: order } = await eventsApi.createRazorpayOrder(event.id, regId);
+      if (!order?.order_id || !order?.key_id) {
+        throw new Error(order?.error || "Razorpay order not created");
+      }
+      await openRazorpayCheckout({
+        keyId:       order.key_id,
+        orderId:     order.order_id,
+        amountPaise: order.amount,
+        eventTitle:  order.event_title || event.title,
+        prefill:     { name: user?.name, email: user?.email },
+      });
+      // The webhook is the source of truth; the checkout modal
+      // closing only tells us the user clicked "success" at
+      // Razorpay's end. Poll a few times — most webhooks land in
+      // under 3 seconds.
+      setActionResult({
+        eventId: event.id,
+        type: "success",
+        message: "Payment captured — verifying with our server…",
+      });
+      let attempts = 0;
+      const poll = async () => {
+        attempts++;
+        await fetchEvents();
+        if (attempts < 5) setTimeout(poll, 1500);
+      };
+      setTimeout(poll, 1500);
+    } catch (err) {
+      const msg = err?.response?.data?.error || err?.message || "Payment failed";
+      // Don't treat "user cancelled" as a red toast — it's just a
+      // close. Razorpay's own modal already showed the relevant UI.
+      if (/cancel/i.test(msg)) {
+        setActionResult({ eventId: event.id, type: "warning", message: "Payment cancelled — retry when ready" });
+      } else {
+        setActionResult({ eventId: event.id, type: "error", message: msg });
+      }
     } finally {
       setPayLoading(null);
     }
@@ -559,28 +609,52 @@ export default function EventsPage() {
                                 </p>
                               )}
 
-                              {/* Reference-submit form. Hidden once status='submitted' (admin reviewing). */}
+                              {/* Razorpay auto-verify button — primary payment path.
+                                  Hidden once status='submitted' (manual flow in progress) or while polling. */}
                               {event.user_registration?.payment_status !== "submitted" && (
-                                <div className="mt-3 flex flex-wrap items-center gap-2">
-                                  <input
-                                    type="text"
-                                    placeholder="UPI Ref / Transaction ID"
-                                    value={payRefInputs[event.id] || ""}
-                                    onChange={(e) => setPayRefInputs((s) => ({ ...s, [event.id]: e.target.value }))}
-                                    onKeyDown={(e) => e.key === "Enter" && handleSubmitPayment(event)}
-                                    className="w-full min-w-0 flex-1 rounded-lg border border-line/15 bg-black/15 px-3 py-2 font-mono text-sm text-white outline-none focus:border-secondary/40 sm:w-auto sm:min-w-[180px]"
-                                    maxLength={32}
-                                  />
+                                <div className="mt-3">
                                   <Button
                                     size="sm"
-                                    variant="secondary"
-                                    onClick={() => handleSubmitPayment(event)}
+                                    onClick={() => handleRazorpayPay(event)}
                                     loading={payLoading === event.id}
-                                    disabled={!((payRefInputs[event.id] || "").trim())}
+                                    className="w-full sm:w-auto"
                                   >
-                                    {event.user_registration?.payment_status === "rejected" ? "Resubmit" : "I've paid"}
+                                    {event.user_registration?.payment_status === "rejected" ? "Retry Payment" : `Pay ₹${((event.price_paise || 0) / 100).toFixed(0)} securely`}
                                   </Button>
+                                  <p className="mt-1.5 font-mono text-[10px] text-text-dim">
+                                    Opens Razorpay — cards, UPI, netbanking. Your registration flips to ✓ automatically once the payment clears (no admin verification needed).
+                                  </p>
                                 </div>
+                              )}
+
+                              {/* Manual UPI ref fallback — shown collapsed, expands on click.
+                                  Keeps the old path available when Razorpay is down / not wired. */}
+                              {event.user_registration?.payment_status !== "submitted" && (
+                                <details className="mt-3">
+                                  <summary className="cursor-pointer font-mono text-[10px] uppercase tracking-wider text-text-dim hover:text-text-muted">
+                                    Or pay manually via UPI + submit ref
+                                  </summary>
+                                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                                    <input
+                                      type="text"
+                                      placeholder="UPI Ref / Transaction ID"
+                                      value={payRefInputs[event.id] || ""}
+                                      onChange={(e) => setPayRefInputs((s) => ({ ...s, [event.id]: e.target.value }))}
+                                      onKeyDown={(e) => e.key === "Enter" && handleSubmitPayment(event)}
+                                      className="w-full min-w-0 flex-1 rounded-lg border border-line/15 bg-black/15 px-3 py-2 font-mono text-sm text-white outline-none focus:border-secondary/40 sm:w-auto sm:min-w-[180px]"
+                                      maxLength={32}
+                                    />
+                                    <Button
+                                      size="sm"
+                                      variant="secondary"
+                                      onClick={() => handleSubmitPayment(event)}
+                                      loading={payLoading === event.id}
+                                      disabled={!((payRefInputs[event.id] || "").trim())}
+                                    >
+                                      Submit ref
+                                    </Button>
+                                  </div>
+                                </details>
                               )}
                               {event.user_registration?.payment_status === "submitted" && (
                                 <p className="mt-3 font-mono text-[10px] text-text-dim">

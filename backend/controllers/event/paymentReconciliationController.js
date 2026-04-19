@@ -41,6 +41,7 @@
 import supabase from "../../config/supabase.js";
 import { logger } from "../../config/logger.js";
 import { sendNotification } from "../notificationController.js";
+import { getRazorpay, publicKeyId, isConfigured as razorpayConfigured } from "../payment/config.js";
 
 /* ─────────────────────────────────────────────────────────────────
    POST /api/events/:id/registrations/:regId/pay
@@ -322,5 +323,124 @@ export const getPaymentsForEvent = async (req, res) => {
   } catch (err) {
     logger.error({ err }, "getPaymentsForEvent");
     return res.status(500).json({ error: "Failed" });
+  }
+};
+
+/* ─────────────────────────────────────────────────────────────────
+   POST /api/events/:id/registrations/:regId/razorpay-order
+   Student-side: create a Razorpay order for this registration's
+   outstanding payment. Frontend uses the returned order_id + key_id
+   to open the Razorpay checkout widget. Capture is webhook-driven —
+   this endpoint only PREPARES the payment intent.
+
+   Flow:
+     1. Verify the caller owns this registration and it's still
+        unpaid (pending / submitted / rejected all allowed — a
+        rejected student can retry via Razorpay).
+     2. Verify the event is paid and has price_paise > 0.
+     3. Call Razorpay's orders.create with the right amount.
+     4. Persist the resulting order.id on the registration row so
+        the webhook can reverse-lookup which registration gets
+        flipped to 'paid' when capture fires.
+     5. Return order_id, amount, key_id, display info for the
+        checkout widget.
+
+   Does NOT flip payment_status. That happens in the webhook once
+   Razorpay actually captures the money. If the student closes the
+   widget or pays fails, the registration stays where it was.
+   ───────────────────────────────────────────────────────────────── */
+export const createEventPaymentOrder = async (req, res) => {
+  const userId = req.userId || req.session?.user?.id;
+  const { id: eventId, regId } = req.params;
+
+  if (!razorpayConfigured()) {
+    return res.status(503).json({
+      error: "Razorpay is not configured on this server. Ask an admin to set RAZORPAY_KEY_ID / RAZORPAY_KEY_SECRET.",
+    });
+  }
+
+  try {
+    // 1. Load the registration — must exist, must belong to caller.
+    //    req.db auto-scopes by org_id so a cross-tenant regId guess
+    //    returns 404 rather than 403.
+    const { data: reg, error: regErr } = await req.db
+      .from("event_registrations")
+      .select("id, event_id, user_id, payment_status, razorpay_order_id")
+      .eq("id", regId)
+      .eq("event_id", eventId)
+      .maybeSingle();
+
+    if (regErr) {
+      logger.error({ err: regErr, regId }, "createEventPaymentOrder lookup");
+      return res.status(500).json({ error: "Lookup failed" });
+    }
+    if (!reg) return res.status(404).json({ error: "Registration not found" });
+    if (reg.user_id !== userId) {
+      return res.status(403).json({ error: "Not your registration" });
+    }
+    if (reg.payment_status === "paid") {
+      return res.status(400).json({ error: "This registration is already paid" });
+    }
+    if (reg.payment_status === "not_required") {
+      return res.status(400).json({ error: "Free event — no payment needed" });
+    }
+
+    // 2. Load the event to pull amount + title. req.db ensures the
+    //    caller can only open an order for an event in their org.
+    const { data: event, error: evtErr } = await req.db
+      .from("events")
+      .select("id, title, is_paid, price_paise, org_id")
+      .eq("id", eventId)
+      .maybeSingle();
+
+    if (evtErr) return res.status(500).json({ error: "Event lookup failed" });
+    if (!event) return res.status(404).json({ error: "Event not found" });
+    if (!event.is_paid) return res.status(400).json({ error: "Event is not paid" });
+    if (!event.price_paise || event.price_paise <= 0) {
+      return res.status(400).json({ error: "Event has no price set" });
+    }
+
+    // 3. Create the order. Receipt is truncated to 40 chars — the
+    //    full regId is in notes for reconciliation.
+    const razorpay = await getRazorpay();
+    const order = await razorpay.orders.create({
+      amount:   event.price_paise,
+      currency: "INR",
+      receipt:  `evt_${regId.slice(0, 8)}_${Date.now()}`.slice(0, 40),
+      notes: {
+        kind:          "event_registration",
+        event_id:      eventId,
+        event_title:   event.title,
+        registration_id: regId,
+        user_id:       userId,
+        org_id:        event.org_id,
+      },
+    });
+
+    // 4. Persist the order_id on the registration so the webhook
+    //    can find this row when capture fires.
+    const { error: updErr } = await req.db
+      .from("event_registrations")
+      .update({ razorpay_order_id: order.id })
+      .eq("id", regId);
+    if (updErr) {
+      logger.error({ err: updErr, regId, orderId: order.id }, "createEventPaymentOrder update");
+      // Don't fail the whole request — the order exists on Razorpay's
+      // side, the webhook still gets the capture event, and if we
+      // can't find the reg we fall back to the notes.event_id +
+      // notes.registration_id we attached above.
+    }
+
+    return res.json({
+      order_id: order.id,
+      amount:   event.price_paise,
+      currency: "INR",
+      key_id:   publicKeyId(),
+      event_title: event.title,
+      registration_id: regId,
+    });
+  } catch (err) {
+    logger.error({ err, regId, eventId }, "createEventPaymentOrder");
+    return res.status(500).json({ error: err.message || "Order creation failed" });
   }
 };

@@ -14,12 +14,13 @@ export { getEvents, getEvent, createEvent, updateEvent, deleteEvent, toggleRegis
 // Registration
 export { registerForEvent, cancelRegistration, getRegistrations } from "./registrationController.js";
 
-// Paid-event reconciliation (migration 19)
+// Paid-event reconciliation (migration 19) + Razorpay auto-verify (migration 23)
 export {
   submitPaymentRef,
   markPaid,
   rejectPayment,
   getPaymentsForEvent,
+  createEventPaymentOrder,
 } from "./paymentReconciliationController.js";
 
 // Attendance
