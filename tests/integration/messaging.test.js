@@ -80,7 +80,16 @@ vi.mock("@supabase/supabase-js", () => ({
           if (table === "friendships")      return { data: state.existingFriend, error: null };
           return { data: null, error: null };
         },
-        maybeSingle: async () => ({ data: null, error: null }),
+        maybeSingle: async () => {
+          // Mirrors the `single` branch for user_public_keys so the
+          // registerPublicKey read-back-verify step (added to stop the
+          // backend lying about successful upserts) sees a row when
+          // the test set state.publicKeyRow.
+          if (table === "user_public_keys") return { data: state.publicKeyRow, error: null };
+          if (table === "conversations")    return { data: state.conversation, error: null };
+          if (table === "chat_settings")    return { data: state.chatSettings, error: null };
+          return { data: null, error: null };
+        },
         // The .or().or().limit() chain in friend-request etc.
         // resolves to an array via .then.
         then: (r) => {
@@ -139,11 +148,29 @@ describe("POST /api/chat/keys/register", () => {
   });
 
   it("upserts the key + returns success when given a publicKey", async () => {
+    // The controller verifies the row actually landed by re-reading
+    // it after the upsert — pre-seed the mock so the read-back sees
+    // something and the handler reports the real happy path.
+    state.publicKeyRow = { user_id: "u-1" };
     const res = await request(buildApp()).post("/api/chat/keys/register").send({
       publicKey: { kty: "OKP", crv: "Ed25519", x: "abc" },
     });
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
+  });
+
+  it("500 when the upsert reports success but the row never actually lands", async () => {
+    // Regression guard for the "User A can send but B can't receive"
+    // bug: Supabase could report {error: null} on the upsert while
+    // the row was never readable. state.publicKeyRow stays null here
+    // to simulate that silent failure mode — the handler must not
+    // return success in that case.
+    state.publicKeyRow = null;
+    const res = await request(buildApp()).post("/api/chat/keys/register").send({
+      publicKey: { kty: "OKP", crv: "Ed25519", x: "abc" },
+    });
+    expect(res.status).toBe(500);
+    expect(res.body.error).toMatch(/not readable|persist/i);
   });
 });
 

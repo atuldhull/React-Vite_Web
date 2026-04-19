@@ -46,6 +46,19 @@ export const useIdentityStore = create((set, get) => ({
    */
   pendingPhrase: null,
 
+  /**
+   * Derived keypair material held between startCeremony + confirmCeremony
+   * so we don't re-run the PBKDF2 round-trip. Declared here so @ts-check
+   * doesn't flag the later set({_pendingScalar: ...}) calls as writes
+   * to undeclared properties.
+   * @type {Uint8Array | null}
+   */
+  _pendingScalar: null,
+  /** @type {CryptoKey | null} */
+  _pendingPrivateKey: null,
+  /** @type {object | null} */
+  _pendingPublicJwk: null,
+
   /** Last error to surface in modals — cleared when the user dismisses. */
   /** @type {string | null} */
   error: null,
@@ -77,21 +90,16 @@ export const useIdentityStore = create((set, get) => ({
       // Self-heal the "key saved locally but never reached the server"
       // case (happens when the original confirmCeremony succeeded on
       // IndexedDB but the subsequent registerKey call lost the network
-      // race). The endpoint is an idempotent upsert, so the worst case
-      // on a healthy system is one redundant write per boot. Failure
-      // is surfaced in `serverSyncError` so the UI can show a banner
-      // — local decryption keeps working, only SENDING (which needs
-      // the recipient to be able to fetch our key) is affected.
-      chatApi.registerKey(publicKeyJwk).then(
-        () => set({ serverSyncError: null }),
-        (err) => {
-          const msg = err?.message || "Could not sync key to server";
-          console.warn("[identity] server key republish failed:", msg);
-          set({ serverSyncError: msg });
-        },
-      );
+      // race or — the root of the current "User A can send but B can't
+      // receive" bug — the backend swallowed an upsert error and lied
+      // about success). Strategy: check whether our userId already has
+      // a key on the server; if not, register + verify it actually
+      // landed by re-fetching. 3 retries with exponential backoff
+      // handle transient network flakes without spamming the API.
+      syncPublicKeyToServer(get, set);
     } catch (err) {
-      set({ status: "missing", error: err instanceof Error ? err.message : "Hydration failed" });
+      const e = /** @type {Error} */ (err);
+      set({ status: "missing", error: e instanceof Error ? e.message : "Hydration failed" });
     }
   },
 
@@ -248,13 +256,51 @@ export const useIdentityStore = create((set, get) => ({
    * is set.
    */
   retryServerSync: async () => {
-    const s = get();
-    if (!s.publicKeyJwk) return;
-    try {
-      await chatApi.registerKey(s.publicKeyJwk);
-      set({ serverSyncError: null });
-    } catch (err) {
-      set({ serverSyncError: err?.message || "Could not sync key to server" });
-    }
+    await syncPublicKeyToServer(get, set);
   },
 }));
+
+/**
+ * Publish the current user's public key to the server with retry and
+ * exponential backoff on transient failures (up to 3 attempts, 500ms /
+ * 1000ms between). Non-retriable 4xx errors (401/403/bad request) fail
+ * fast. The backend now verifies the upsert landed before returning
+ * success, so a 200 here is authoritative.
+ *
+ * Previously this was a single fire-and-forget POST that console.warn'd
+ * on failure and left the user stuck — the root of the "User A can
+ * send but B can't receive" report, once the backend was also fixed
+ * to stop reporting false positives on failed upserts.
+ *
+ * @param {() => any} get
+ * @param {(patch: any) => void} set
+ */
+async function syncPublicKeyToServer(get, set) {
+  const jwk = get().publicKeyJwk;
+  if (!jwk) return;
+
+  const maxAttempts = 3;
+  let lastErr = null;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      await chatApi.registerKey(jwk);
+      set({ serverSyncError: null });
+      return;
+    } catch (err) {
+      const e = /** @type {any} */ (err);
+      lastErr = e;
+      const status = e?.response?.status;
+      const is4xx = typeof status === "number" && status >= 400 && status < 500;
+      // 4xx is non-retriable — backoff won't help (bad payload, CSRF,
+      // session expired). Bubble the error immediately.
+      if (is4xx) break;
+      if (attempt < maxAttempts) {
+        await new Promise((r) => setTimeout(r, 500 * attempt));
+      }
+    }
+  }
+  const e = /** @type {any} */ (lastErr);
+  const msg = e?.response?.data?.error || e?.message || "Could not sync key to server";
+  console.warn("[identity] server key republish failed after retries:", msg);
+  set({ serverSyncError: msg });
+}

@@ -35,11 +35,40 @@ export async function registerPublicKey(req, res) {
     const { publicKey } = req.body;
     if (!publicKey) return res.status(400).json({ error: "publicKey required" });
 
-    await supabase.from("user_public_keys").upsert({
+    // Previously the upsert error was swallowed — we'd destructure
+    // nothing from the await and res.json({success:true}) regardless.
+    // That's the root of the "User A can send but B can't receive"
+    // bug: A's client thought the key was registered, but the row
+    // never reached the DB. Now we check error AND read back the row
+    // to confirm it actually persisted before reporting success.
+    const { error: upsertErr } = await supabase.from("user_public_keys").upsert({
       user_id: userId,
       public_key: JSON.stringify(publicKey),
       updated_at: new Date().toISOString(),
     });
+
+    if (upsertErr) {
+      return res.status(500).json({
+        error: "Failed to persist public key",
+        detail: upsertErr.message,
+      });
+    }
+
+    // Verify the row landed. A silent 0-row upsert (extremely rare,
+    // but possible with RLS / constraint / trigger shenanigans) would
+    // otherwise leak through as a false positive.
+    const { data: persisted, error: readBackErr } = await supabase
+      .from("user_public_keys")
+      .select("user_id")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (readBackErr || !persisted) {
+      return res.status(500).json({
+        error: "Key upsert reported success but the row is not readable",
+        detail: readBackErr?.message || "row missing after upsert",
+      });
+    }
 
     res.json({ success: true });
   } catch (err) {
@@ -51,12 +80,18 @@ export async function registerPublicKey(req, res) {
 export async function getPublicKey(req, res) {
   try {
     const { userId } = req.params;
-    const { data } = await supabase
+    // .single() throws a PostgrestError when the row is missing (it
+    // also throws when >1 row exists). .maybeSingle() returns
+    // {data:null, error:null} on miss — which is the case we want
+    // to handle with a clean 404 rather than letting it flow into
+    // the catch as a 500.
+    const { data, error } = await supabase
       .from("user_public_keys")
       .select("public_key")
       .eq("user_id", userId)
-      .single();
+      .maybeSingle();
 
+    if (error) return res.status(500).json({ error: error.message });
     if (!data) return res.status(404).json({ error: "User has no public key" });
     res.json({ publicKey: JSON.parse(data.public_key) });
   } catch (err) {
