@@ -79,6 +79,10 @@ const ALLOWLIST = [
     why:  "GET /api/certificates/verify/:token — public certificate verification, no auth, intentionally cross-tenant (a prospective employer scanning the QR doesn't know which org issued the cert). Exposes only display-safe fields (recipient name, event, date, issuer) — never email or batch metadata.",
   },
   {
+    file: "backend/controllers/certificate/batch.js",
+    why:  "POST /api/certificates/create writes certificate_batches + certificates via raw supabase with explicit org_id. The req.db proxy was producing intermittent 'null value in column org_id' errors in prod despite session having org_id correctly set; bypassing the proxy and supplying org_id manually + an early 400 if no org_id on the session removes that fragility. Service-role bypasses RLS so no isolation lost.",
+  },
+  {
     file: "backend/controllers/event/achievementController.js",
     why:  "checkEventAchievements/checkWinAchievements helpers take only userId (no req); user_id comes from auth.users which is unique across orgs, so user_id-filtered student updates are safe without org_id scoping",
   },

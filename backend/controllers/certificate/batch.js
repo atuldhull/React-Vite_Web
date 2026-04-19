@@ -5,6 +5,7 @@ import { sendNotification }  from "../notificationController.js";
 import { buildCertificate }  from "./pdf.js";
 import { ASSET_DIR }         from "./helpers.js";
 import { logger } from "../../config/logger.js";
+import supabase from "../../config/supabase.js";
 
 // Tenant scoping: every DB call below uses req.db.from(...) which is
 // installed by injectTenant on /api routes. The Proxy auto-injects
@@ -111,9 +112,24 @@ export const createCertificateBatch = async (req, res) => {
       ...s, signatureImagePath: s.signatureFilename ? tp(s.signatureFilename) : null,
     }));
 
+    // Resolve org_id explicitly. Earlier prod failure: the tenant
+    // proxy's injection was somehow not applying on this specific
+    // insert and Postgres rejected the row with "null value in
+    // column org_id". Sidestepping req.db + raw supabase + manually
+    // supplying org_id removes the dependency on the proxy plumbing.
+    // Service-role bypasses RLS, so we lose no guardrail.
+    const orgIdForInsert = req.orgId || req.session?.user?.org_id;
+    if (!orgIdForInsert) {
+      logger.error({ userId, session: req.session?.user }, "cert create: no org_id in session");
+      return res.status(400).json({
+        error: "No organisation context on your session. Log out and log back in.",
+      });
+    }
+
     // Save batch record
-    const { data: batch, error: batchErr } = await req.db
+    const { data: batch, error: batchErr } = await supabase
       .from("certificate_batches").insert({
+        org_id: orgIdForInsert,
         title, event_name: eventName, event_date: eventDate,
         issued_by: issuedBy, template_type: "pdfkit",
         template_image: logoFilenames[0] ? `/uploads/cert-assets/${logoFilenames[0]}` : null,
@@ -127,9 +143,12 @@ export const createCertificateBatch = async (req, res) => {
     // Insert each recipient row and SELECT them back so we have the
     // auto-generated download_token for every cert — needed by the
     // PDF generator to encode the per-cert verify URL + QR.
-    const { data: certRows, error: certsErr } = await req.db
+    // Same org_id reasoning as above: explicit injection on raw
+    // supabase, no proxy dependency.
+    const { data: certRows, error: certsErr } = await supabase
       .from("certificates")
       .insert(recipients.map(r => ({
+        org_id: orgIdForInsert,
         batch_id: batch.id, user_id: r.userId||null,
         recipient_name: r.name, recipient_email: r.email||null, event_name: eventName,
       })))

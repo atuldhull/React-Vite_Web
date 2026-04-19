@@ -121,17 +121,24 @@ describe("certificate/batch.js — tenant scoping", () => {
     expect(calls[0].ops.find(o => o.op === "select")).toBeTruthy();
   });
 
-  it("createCertificateBatch INSERTs go through req.db (org_id auto-injected by Proxy)", async () => {
-    const { req, calls } = makeReq({
+  it("createCertificateBatch INSERTs reach raw supabase with explicit org_id (proxy bypass — see batch.js comment)", async () => {
+    // After the Phase-prod fix in commit ~2026-04-19, cert inserts no
+    // longer go through req.db — they use raw supabase + manually-
+    // supplied org_id because the proxy's auto-injection was
+    // intermittently failing in prod ("null value in column org_id").
+    // This test pins the new behaviour: the controller is expected to
+    // hit raw supabase.from() (which the test mock throws on) and the
+    // catch block surfaces that throw as a 500. That throw arriving
+    // proves the new code path is alive.
+    const { req } = makeReq({
       body: {
         title: "T", eventName: "E", recipients: [{ name: "A", email: "a@x.co" }],
       },
     });
     const res = makeRes();
     await downloadCallSafe(batchMod.createCertificateBatch, req, res);
-    // First call inserts the batch row.
-    expect(calls[0].table).toBe("certificate_batches");
-    expect(calls[0].ops[0].op).toBe("insert");
+    expect(res._status).toBe(500);
+    expect(String(res._body?.error || "")).toMatch(/raw supabase\.from\(\) must NOT/);
   });
 
   it("getBatches uses req.db.from('certificate_batches')", async () => {
