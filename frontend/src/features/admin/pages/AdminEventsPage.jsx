@@ -38,6 +38,11 @@ const EMPTY_FORM = {
   // the fee.
   is_paid: false, price_rupees: "", payment_upi_id: "",
   payment_qr_base64: "", payment_instructions: "",
+  // Team-event fields (migration 22). Only meaningful when
+  // is_team_event is true; the DB defaults keep solo events clean
+  // if a teacher flips the checkbox on + off without touching the
+  // size inputs.
+  is_team_event: false, min_team_size: "2", max_team_size: "5",
 };
 
 export default function AdminEventsPage() {
@@ -112,6 +117,14 @@ export default function AdminEventsPage() {
         return;
       }
     }
+    if (form.is_team_event) {
+      const mn = Number(form.min_team_size);
+      const mx = Number(form.max_team_size);
+      if (!(mn >= 1) || !(mx >= mn) || mx > 50) {
+        showMsg("Team size range must be 1 ≤ min ≤ max ≤ 50");
+        return;
+      }
+    }
     setSaving(true);
     try {
       // <input type="datetime-local"> emits values like "2026-04-20T12:00"
@@ -161,6 +174,12 @@ export default function AdminEventsPage() {
         payment_upi_id:       form.is_paid ? (form.payment_upi_id || null) : null,
         payment_qr_base64:    form.is_paid ? (form.payment_qr_base64 || null) : null,
         payment_instructions: form.is_paid ? (form.payment_instructions || null) : null,
+        // Team-event fields. When is_team_event is off we send the DB
+        // defaults (2/5) rather than null — the columns are NOT NULL
+        // per migration 22.
+        is_team_event:  !!form.is_team_event,
+        min_team_size:  form.is_team_event ? Number(form.min_team_size) || 2 : 2,
+        max_team_size:  form.is_team_event ? Number(form.max_team_size) || 5 : 5,
       };
       // strip the UI-only field before sending
       delete payload.price_rupees;
@@ -209,6 +228,10 @@ export default function AdminEventsPage() {
       payment_upi_id: ev.payment_upi_id || "",
       payment_qr_base64: ev.payment_qr_base64 || "",
       payment_instructions: ev.payment_instructions || "",
+      // Team-event fields
+      is_team_event: !!ev.is_team_event,
+      min_team_size: ev.min_team_size != null ? String(ev.min_team_size) : "2",
+      max_team_size: ev.max_team_size != null ? String(ev.max_team_size) : "5",
     });
     setEditId(ev.id); setShowForm(true);
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -450,6 +473,37 @@ export default function AdminEventsPage() {
                       )}
                     </div>
                   </div>
+                </div>
+                {/* ── Team Event (migration 22) ── */}
+                <div className="rounded-xl border border-line/15 bg-panel/40 p-4">
+                  <label className="flex items-center gap-2 text-sm text-white cursor-pointer">
+                    <input type="checkbox" checked={form.is_team_event} onChange={e => setField("is_team_event", e.target.checked)} className="accent-primary" />
+                    <span className="font-semibold">This is a team event</span>
+                    <span className="font-mono text-[10px] text-text-dim">(one leader registers on behalf of the team)</span>
+                  </label>
+                  {form.is_team_event && (
+                    <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                      <InputField
+                        label="Min team size"
+                        type="number"
+                        value={form.min_team_size}
+                        onChange={e => setField("min_team_size", e.target.value)}
+                        placeholder="2"
+                      />
+                      <InputField
+                        label="Max team size"
+                        type="number"
+                        value={form.max_team_size}
+                        onChange={e => setField("max_team_size", e.target.value)}
+                        placeholder="5"
+                      />
+                    </div>
+                  )}
+                  {form.is_team_event && (
+                    <p className="mt-3 font-mono text-[10px] text-text-dim">
+                      Students will be asked for a team name and team size at registration. The size is validated against the range above. One QR / one check-in per team.
+                    </p>
+                  )}
                 </div>
                 {/* ── Paid Event (migration 19) ── */}
                 <div className="rounded-xl border border-line/15 bg-panel/40 p-4">

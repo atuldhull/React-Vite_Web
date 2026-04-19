@@ -27,6 +27,18 @@ export const submitPaymentSchema = z.object({
 });
 
 /* ────────────────────────────────────────────────────────────
+   STUDENT — "Register me (or my team) for this event"
+   team_name + team_size only apply to team events; the controller
+   re-validates against the event's min/max and drops them on solo
+   events. Zod stays permissive here so a stray payload doesn't 400
+   when the frontend couldn't know the event is solo.
+   ──────────────────────────────────────────────────────────── */
+export const registerForEventSchema = z.object({
+  team_name: z.string().trim().min(1, "team name required").max(80, "team name too long").optional(),
+  team_size: z.coerce.number().int().min(1).max(50).optional(),
+}).strict();
+
+/* ────────────────────────────────────────────────────────────
    ADMIN — "I verified this payment in my bank app"
    ──────────────────────────────────────────────────────────── */
 

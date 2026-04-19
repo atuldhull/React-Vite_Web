@@ -27,6 +27,33 @@ export const registerForEvent = async (req, res) => {
     if (status === "closed" || status === "cancelled")
       return res.status(400).json({ error: "Registration is closed" });
 
+    // Team-event validation (migration 22).
+    //   - Team events require team_name AND team_size
+    //   - team_size must fall in the event's [min_team_size, max_team_size]
+    //   - Solo events ignore these fields (we null them out so the DB
+    //     row is clean even if a broken client sent extras)
+    let teamName = null;
+    let teamSize = null;
+    if (event.is_team_event) {
+      teamName = (req.body.team_name || "").toString().trim();
+      const sizeRaw = Number(req.body.team_size);
+      if (!teamName) {
+        return res.status(400).json({ error: "team_name required for team events" });
+      }
+      if (teamName.length > 80) {
+        return res.status(400).json({ error: "team_name is too long (max 80 chars)" });
+      }
+      if (!Number.isInteger(sizeRaw) || sizeRaw < 1) {
+        return res.status(400).json({ error: "team_size required for team events" });
+      }
+      const mn = event.min_team_size || 1;
+      const mx = event.max_team_size || 50;
+      if (sizeRaw < mn || sizeRaw > mx) {
+        return res.status(400).json({ error: `team_size must be between ${mn} and ${mx}` });
+      }
+      teamSize = sizeRaw;
+    }
+
     // 2. Check duplicate
     const { data: existing } = await supabase
       .from("event_registrations")
@@ -71,6 +98,12 @@ export const registerForEvent = async (req, res) => {
         paid_at:         null,
         marked_by:       null,
         marked_at:       null,
+        // Team fields — reset on re-register so the new attempt
+        // carries the new team info (or nulls on a solo event even
+        // if the prior registration was for a team event that got
+        // toggled off in the meantime).
+        team_name:       teamName,
+        team_size:       teamSize,
       };
       const { data, error } = await supabase
         .from("event_registrations")
@@ -85,7 +118,8 @@ export const registerForEvent = async (req, res) => {
           event_id: eventId,
           user_id: userId,
           status: regStatus,
-          team_name: req.body.team_name || null,
+          team_name: teamName,
+          team_size: teamSize,
           notes: req.body.notes || null,
           qr_token: generateQrToken(),
           payment_status: initialPaymentStatus,

@@ -69,6 +69,16 @@ const eventShape = {
   payment_upi_id:         upiVpa.optional().nullable(),
   payment_qr_base64:      qrDataUrl.optional().nullable(),
   payment_instructions:   z.string().trim().max(2000).optional().nullable(),
+
+  // Team events — migration 22
+  // Solo when is_team_event=false (default). When true, the
+  // registering leader must name a team and declare a member count
+  // in [min_team_size, max_team_size]. DB CHECK enforces
+  // 1 <= min <= max <= 50; we mirror that here so Zod fails the
+  // admin form early with a clear message.
+  is_team_event:          z.boolean().optional(),
+  min_team_size:          z.coerce.number().int().min(1).max(50).optional(),
+  max_team_size:          z.coerce.number().int().min(1).max(50).optional(),
 };
 
 // Create requires a title; controller treats everything else as optional.
