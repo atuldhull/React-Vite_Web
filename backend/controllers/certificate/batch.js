@@ -48,15 +48,62 @@ export const createCertificateBatch = async (req, res) => {
   const userId = req.session?.user?.id;
   try {
     const {
-      title, eventName, eventDate, issuedBy,
+      title:        titleRaw,
+      eventName, eventDate, issuedBy,
       certType = "PARTICIPATION", organiserLine = "", bodyText = "",
-      logoFilenames = [], signatories = [],
-      recipients, sendEmail,
+      logoFilenames: logoFilenamesRaw,
+      signatories:   signatoriesRaw,
+      // Simple-form fields (teacher UI sends these; schema transforms
+      // logoUrl/sigUrl into bare filenames before they reach us).
+      logoUrl, sigUrl, palette,
+      recipients:   recipientsRaw,
+      sendEmail,
       template = "classic",
     } = req.body;
 
-    if (!title || !eventName || !recipients?.length)
-      return res.status(400).json({ error: "title, eventName, and recipients required" });
+    // Title falls back to the event name — the simple UI has no
+    // separate "batch title" field.
+    const title = (titleRaw && titleRaw.trim()) || eventName;
+
+    // logoFilenames merges the rich-form array with the simple-form
+    // logoUrl so either shape works.
+    const logoFilenames = [
+      ...(Array.isArray(logoFilenamesRaw) ? logoFilenamesRaw : []),
+      ...(logoUrl ? [logoUrl] : []),
+    ].filter(Boolean);
+
+    // Signatories merges the rich-form array with a single auto-
+    // generated signatory from the simple-form sigUrl + issuedBy.
+    const signatories = [
+      ...(Array.isArray(signatoriesRaw) ? signatoriesRaw : []),
+      ...(sigUrl
+        ? [{ name: issuedBy || "", title: "", signatureFilename: sigUrl }]
+        : []),
+    ];
+
+    // recipients may arrive as a newline-separated string from the
+    // simple UI, or as the rich {name,email?,userId?} array from an
+    // API caller / future UI. Normalise to the rich shape.
+    const recipients = Array.isArray(recipientsRaw)
+      ? recipientsRaw
+      : (recipientsRaw || "")
+          .split(/\r?\n/)
+          .map((line) => line.trim())
+          .filter(Boolean)
+          .map((line) => {
+            // "Name <email>" or "Name, email" or plain "Name"
+            const emailMatch = line.match(/[\w.+-]+@[\w-]+\.[\w.-]+/);
+            const email = emailMatch ? emailMatch[0] : null;
+            const name  = line.replace(emailMatch?.[0] || "", "").replace(/[<>,]/g, "").trim();
+            return { name: name || line, email };
+          });
+
+    void palette; // cosmetic UI hint — accepted by the schema, not yet
+                  // threaded into pdf.js (the PDF's accent is already
+                  // derived from logo colours). Reserved for future use.
+
+    if (!eventName || !recipients?.length)
+      return res.status(400).json({ error: "eventName and at least one recipient are required" });
 
     const tp = f => f ? path.join(ASSET_DIR, f) : null;
     const logoPaths    = logoFilenames.filter(Boolean).map(tp).filter(p => p && fs.existsSync(p));
