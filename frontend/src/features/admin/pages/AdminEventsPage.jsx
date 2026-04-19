@@ -114,6 +114,26 @@ export default function AdminEventsPage() {
     }
     setSaving(true);
     try {
+      // <input type="datetime-local"> emits values like "2026-04-20T12:00"
+      // (no seconds, no timezone). Zod's .datetime() requires full ISO
+      // with timezone ("...T12:00:00Z"), so every date entered in the
+      // form was failing validation with "date: Invalid datetime". Pad
+      // the string to a full ISO instant before POST — the local wall
+      // clock is the user's intent, so "Z" marks it as UTC without
+      // silently shifting by their tz offset.
+      const toIsoOrNull = (v) => {
+        if (!v) return null;
+        if (typeof v !== "string") return v;
+        // Already full ISO? ends with Z or an offset (+/-hh:mm)
+        if (/Z$|[+-]\d{2}:?\d{2}$/.test(v)) return v;
+        // YYYY-MM-DDTHH:MM → add :00 seconds
+        if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(v)) return `${v}:00Z`;
+        // YYYY-MM-DDTHH:MM:SS → add Z
+        if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/.test(v)) return `${v}Z`;
+        // YYYY-MM-DD (date only) — leave alone, validator's second
+        // branch accepts it via regex.
+        return v;
+      };
       const payload = {
         ...form,
         capacity: form.capacity ? Number(form.capacity) : null,
@@ -125,12 +145,12 @@ export default function AdminEventsPage() {
         // never touched sit at "" in form state, so without this coercion
         // every unfilled date or URL field triggers a blanket "Validation
         // failed" on event create.
-        date:                 form.date || null,
+        date:                 toIsoOrNull(form.date),
         venue_link:           form.venue_link || null,
         cover_image_url:      form.cover_image_url || null,
-        starts_at: form.starts_at || form.date || null,
-        ends_at: form.ends_at || null,
-        registration_deadline: form.registration_deadline || null,
+        starts_at: toIsoOrNull(form.starts_at || form.date),
+        ends_at:   toIsoOrNull(form.ends_at),
+        registration_deadline: toIsoOrNull(form.registration_deadline),
         // Paid-event fields. Convert rupees → paise for the API.
         // Empty strings become nulls so the validator's optional()
         // branches are hit instead of failing on "" vs. UPI regex.
