@@ -74,7 +74,7 @@
     "multer": "^1.4.5-lts.1",
     "nerdamer": "1.1.13",
     "node-fetch": "3.3.2",
-    "nodemailer": "^6.9.13",
+    "nodemailer": "^8.0.5",
     "nodemon": "3.1.14",
     "pdfkit": "^0.15.0",
     "pino": "9.14.0",
