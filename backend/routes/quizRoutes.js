@@ -132,6 +132,7 @@ Return ONLY this JSON (no markdown, no extra text):
     temperature: 0.4,
     maxTokens:  safeDifficulty === "extreme" ? 900 : 700,
     mode:       "oneshot",
+    jsonOnly:   true,
     timeoutMs:  30000,
   });
 

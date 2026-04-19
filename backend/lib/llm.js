@@ -91,6 +91,10 @@ function availableProviders() {
  * @param {"chat"|"oneshot"} [opts.mode] — "chat" picks the thinking model,
  *                                         "oneshot" picks the non-thinking
  *                                         variant. Default "chat".
+ * @param {boolean} [opts.jsonOnly]      — when true, asks the provider to
+ *                                         return a strict JSON object
+ *                                         (response_format: json_object).
+ *                                         Use for one-shot structured gen.
  * @param {number} [opts.timeoutMs]
  * @returns {Promise<{response: any, provider: string, model: string}>}
  *
@@ -104,6 +108,7 @@ export async function callLLM(opts) {
     temperature = 0.7,
     maxTokens   = 1800,
     mode        = "chat",
+    jsonOnly    = false,
     timeoutMs   = 45000,
   } = opts;
 
@@ -128,6 +133,13 @@ export async function callLLM(opts) {
     // Non-thinking one-shot path — tell Gemini not to burn output
     // tokens on internal reasoning. OpenRouter ignores the field.
     if (mode === "oneshot") body.reasoning_effort = "none";
+    // Strict-JSON mode — Gemini and OpenAI-compat endpoints both
+    // guarantee parseable JSON when this is set. Previously we asked
+    // the model to emit JSON via the system prompt and hoped for the
+    // best; Gemini sometimes wrapped output in ```json fences or
+    // added a prose preamble, which tripped our "couldn't parse"
+    // branch. Server-side enforcement fixes that at the source.
+    if (jsonOnly) body.response_format = { type: "json_object" };
 
     const headers = {
       "Authorization": `Bearer ${process.env[p.envKey]}`,

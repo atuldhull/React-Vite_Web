@@ -198,9 +198,10 @@ Return ONLY this JSON:
       temperature: 0.4,
       // 1200 tokens so Extreme-difficulty questions with longer
       // solutions don't truncate mid-JSON and fail the parser.
-      maxTokens: 1200,
-      mode:      "oneshot",
-      timeoutMs: 30000,
+      maxTokens:  1200,
+      mode:       "oneshot",
+      jsonOnly:   true,
+      timeoutMs:  30000,
     });
     usedProvider = provider;
 
