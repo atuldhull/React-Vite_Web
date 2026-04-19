@@ -83,6 +83,10 @@ const ALLOWLIST = [
     why:  "POST /api/certificates/create writes certificate_batches + certificates via raw supabase with explicit org_id. The req.db proxy was producing intermittent 'null value in column org_id' errors in prod despite session having org_id correctly set; bypassing the proxy and supplying org_id manually + an early 400 if no org_id on the session removes that fragility. Service-role bypasses RLS so no isolation lost.",
   },
   {
+    file: "backend/controllers/teacherController.js",
+    why:  "POST /api/teacher/save-question writes to `challenges` via raw supabase with explicit org_id. Same rationale as certificate/batch.js — the proxy's intermittent null-org_id on inserts was 500'ing Extreme-difficulty saves in prod. Read paths (getStats, getChallenges, etc.) still use req.db for org scoping.",
+  },
+  {
     file: "backend/controllers/event/achievementController.js",
     why:  "checkEventAchievements/checkWinAchievements helpers take only userId (no req); user_id comes from auth.users which is unique across orgs, so user_id-filtered student updates are safe without org_id scoping",
   },

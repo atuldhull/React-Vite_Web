@@ -10,6 +10,7 @@
 // and student rosters across every org. Super_admin still sees
 // platform-wide via the Proxy's role-based escape hatch.
 import axios   from "axios";
+import supabase from "../config/supabase.js";
 import { logger } from "../config/logger.js";
 
 /* ─────────────────────────────────────
@@ -275,24 +276,63 @@ export const teacherSaveQuestion = async (req, res) => {
       return res.status(400).json({ error: "Invalid question format" });
     }
 
-    const { data, error } = await req.db
+    // Same issue the cert-batch insert hit (commit 49b8f85): the
+    // tenant proxy only auto-injects org_id when effectiveOrgId is
+    // truthy, so a session where req.orgId is absent would leak an
+    // org_id:NULL into the challenges insert and trip the NOT NULL
+    // constraint with "null value in column org_id". Resolve the
+    // org explicitly and fail loudly with a clear message if we
+    // can't — rather than showing the generic 500 the user was
+    // seeing on Extreme-difficulty saves.
+    const orgIdForInsert = req.orgId || req.session?.user?.org_id;
+    if (!orgIdForInsert) {
+      logger.error({
+        userId: req.session?.user?.id,
+        role:   req.session?.user?.role,
+      }, "teacherSaveQuestion: session has no org_id");
+      return res.status(400).json({
+        error: "No organisation context on your session. Log out and log back in.",
+      });
+    }
+
+    // Normalise difficulty to lowercase (the DB column convention) AND
+    // map "extreme" explicitly with a 200-point default — the generator
+    // ladder is 20/50/100/200, but nothing in the old save path had an
+    // extreme arm.
+    const rawDiff = (q.difficulty || "medium").toString().toLowerCase();
+    const ALLOWED = ["easy", "medium", "hard", "extreme"];
+    const difficulty = ALLOWED.includes(rawDiff) ? rawDiff : "medium";
+    const defaultPoints = { easy: 20, medium: 50, hard: 100, extreme: 200 }[difficulty];
+
+    // Service-role supabase bypasses RLS; we inject org_id explicitly
+    // so we don't depend on the proxy plumbing for this write.
+    const { data, error } = await supabase
       .from("challenges")
       .insert({
+        org_id:        orgIdForInsert,
         title:         q.title,
         question:      q.question,
         options:       q.options,
         correct_index: Number(q.correct_index),
-        difficulty:    (q.difficulty || "medium").toLowerCase(),
-        points:        Number(q.points) || 50,
+        difficulty,
+        points:        Number(q.points) || defaultPoints,
         solution:      q.solution || null,
         is_active:     true,
       })
       .select()
       .single();
 
-    if (error) return res.status(500).json({ error: error.message });
+    if (error) {
+      logger.error({
+        err: error,
+        orgId: orgIdForInsert,
+        difficulty,
+      }, "teacherSaveQuestion insert failed");
+      return res.status(500).json({ error: error.message });
+    }
     return res.status(201).json({ success: true, challenge: data });
-  } catch {
+  } catch (err) {
+    logger.error({ err }, "teacherSaveQuestion");
     return res.status(500).json({ error: "Failed to save question" });
   }
 };

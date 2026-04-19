@@ -175,18 +175,42 @@ export const getNextChallenge = async (req, res) => {
 
     const { data: all, error } = await query;
 
-    if (error) return res.status(500).json({ error: error.message });
+    if (error) {
+      logger.error({ err: error, userId, difficulty }, "getNextChallenge query failed");
+      return res.status(500).json({ error: error.message });
+    }
     // "No challenges available" is not an error — it's a real state
     // (all solved / none match the filter / none active yet). Return
     // 200 with challenge=null so the frontend renders the empty UI
     // without the browser logging a red 404 in the console.
     if (!all || all.length === 0) {
+      // Log the exact scope so the "all my questions disappeared" case
+      // is traceable. The likely cause when the teacher sees challenges
+      // in /teacher/challenges but arena finds none is that the arena
+      // caller's session org_id differs from the challenges' org_id —
+      // e.g. creating questions as a teacher then playing as a student
+      // provisioned in a different org.
+      logger.info({
+        userId,
+        orgId: req.orgId || null,
+        role:  req.userRole || null,
+        difficulty: difficulty || "all",
+      }, "getNextChallenge: no challenges match org + is_active filter");
       return res.json({ challenge: null, reason: "no_active" });
     }
 
     // Filter to unsolved ones
     const unsolved = all.filter(c => !attemptedIds.includes(c.id));
     const pool = unsolved.length > 0 ? unsolved : all; // fallback: repeat if all solved
+
+    logger.info({
+      userId,
+      orgId: req.orgId || null,
+      totalActive: all.length,
+      attempted:   attemptedIds.length,
+      unsolved:    unsolved.length,
+      difficulty:  difficulty || "all",
+    }, "getNextChallenge: pool resolved");
 
     // Pick a random one from the pool
     const challenge = pool[Math.floor(Math.random() * pool.length)];
