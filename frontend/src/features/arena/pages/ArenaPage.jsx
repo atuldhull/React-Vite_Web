@@ -183,19 +183,22 @@ export default function ArenaPage() {
           )}
         </MonumentHero>
 
-        {/* Difficulty filter */}
-        <div className="mx-auto flex max-w-3xl flex-wrap items-center justify-center gap-3">
+        {/* Difficulty filter — stacks label above buttons on mobile
+           so the label + 5 pills don't wrap awkwardly on ~375px. */}
+        <div className="mx-auto flex max-w-3xl flex-col items-center gap-2 sm:flex-row sm:flex-wrap sm:justify-center sm:gap-3">
           <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-text-dim">Difficulty:</span>
-          {["All", "Easy", "Medium", "Hard", "Extreme"].map((d) => (
-            <Button
-              key={d}
-              variant={difficulty === d ? "primary" : "ghost"}
-              size="sm"
-              onClick={() => handleDifficultyChange(d)}
-            >
-              {d}
-            </Button>
-          ))}
+          <div className="flex flex-wrap justify-center gap-2 sm:gap-3">
+            {["All", "Easy", "Medium", "Hard", "Extreme"].map((d) => (
+              <Button
+                key={d}
+                variant={difficulty === d ? "primary" : "ghost"}
+                size="sm"
+                onClick={() => handleDifficultyChange(d)}
+              >
+                {d}
+              </Button>
+            ))}
+          </div>
         </div>
 
         <div className="grid gap-8 xl:grid-cols-[1fr_340px]">
@@ -370,7 +373,7 @@ export default function ArenaPage() {
             transition={{ delay: 0.3 }}
             className="space-y-6"
           >
-            <Card variant="solid" className="sticky top-24">
+            <Card variant="solid" className="xl:sticky xl:top-24">
               <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-primary">Weekly Leaderboard</p>
               <h3 className="mt-2 font-display text-xl font-bold text-white">Top Performers</h3>
               <div className="mt-5 space-y-3">

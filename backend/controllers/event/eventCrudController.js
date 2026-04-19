@@ -5,6 +5,7 @@
 import supabase from "../../config/supabase.js";
 import { sendNotification } from "../notificationController.js";
 import { computeStatus, validateUUID } from "./eventHelpers.js";
+import { logger } from "../../config/logger.js";
 
 /* GET /api/events — list all active events with registration counts */
 export const getEvents = async (req, res) => {
@@ -60,8 +61,21 @@ export const getEvents = async (req, res) => {
 /* GET /api/events/:id — single event with full details */
 export const getEvent = async (req, res) => {
   try {
-    if (!validateUUID(req.params.id))
+    if (!validateUUID(req.params.id)) {
+      // Issue 4a logging: someone in production is hitting /api/events
+      // with what looks like a 400. The most likely root cause is a
+      // frontend caller passing `undefined` / `null` / empty-string as
+      // the id, so the URL resolves to /api/events/undefined and lands
+      // here. Logging the raw id + referer lets us pinpoint the caller
+      // from the Render logs the next time the error fires.
+      logger.warn({
+        rawId:    req.params.id,
+        url:      req.originalUrl,
+        referer:  req.get("referer") || null,
+        userId:   req.session?.user?.id || null,
+      }, "getEvent rejected non-UUID id");
       return res.status(400).json({ error: "Invalid event ID" });
+    }
 
     const { data, error } = await req.db
       .from("events").select("*")

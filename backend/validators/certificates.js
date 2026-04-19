@@ -91,6 +91,11 @@ export const createCertificateBatchSchema = z.object({
   // reconciles into the rich form.
   logoUrl:         logoUrlToFilename.optional().nullable(),
   sigUrl:          logoUrlToFilename.optional().nullable(),
+  // Optional teacher-supplied A4-landscape background image. Same
+  // transform as logoUrl — strips the /uploads/cert-assets/ prefix to
+  // leave a bare filename the controller resolves against ASSET_DIR.
+  // When present, the PDF renderer skips the preset border + fill.
+  templateUrl:     logoUrlToFilename.optional().nullable(),
   // UI colour-palette hint — cosmetic, safe to accept any string.
   palette:         z.string().trim().max(40).optional(),
   recipients:      recipientsField,

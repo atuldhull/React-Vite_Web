@@ -72,10 +72,15 @@ export default function PandaChatPanel({ open }) {
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: 24, scale: 0.95 }}
           transition={{ type: "spring", stiffness: 300, damping: 28 }}
-          className="fixed bottom-[100px] right-6 z-50 flex flex-col overflow-hidden"
+          className="fixed bottom-[96px] right-3 z-50 flex flex-col overflow-hidden sm:bottom-[100px] sm:right-6"
           style={{
-            width: "min(420px, calc(100vw - 2rem))",
-            height: "min(600px, calc(100vh - 9rem))",
+            // Dynamic viewport units (100dvh) subtract the mobile
+            // browser's address bar / bottom chrome, so the chat panel
+            // doesn't get clipped below the fold on iOS Safari. Width
+            // now clamps aggressively on small viewports so it never
+            // exceeds the screen minus a small gutter.
+            width: "min(420px, calc(100vw - 1.5rem))",
+            height: "min(600px, calc(100dvh - 8rem))",
             clipPath: "var(--clip-notch)",
             background: "rgba(0, 10, 20, 0.92)",
             backdropFilter: "blur(20px)",

@@ -97,6 +97,21 @@ export default function AdminEventsPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.title.trim()) return;
+    // Paid events with a blank price silently shipped as free before
+    // this guard — backend would accept is_paid:true with price_paise:0
+    // and students would register without ever seeing a pay screen.
+    // Block the save here with a clear message instead.
+    if (form.is_paid) {
+      const rupees = Number(form.price_rupees);
+      if (!form.price_rupees || !(rupees > 0)) {
+        showMsg("Paid events need a price greater than 0");
+        return;
+      }
+      if (!form.payment_upi_id && !form.payment_qr_base64) {
+        showMsg("Paid events need a UPI ID or a QR image for students to pay");
+        return;
+      }
+    }
     setSaving(true);
     try {
       const payload = {
@@ -106,6 +121,13 @@ export default function AdminEventsPage() {
         xp_bonus_first: Number(form.xp_bonus_first) || 0,
         xp_bonus_winner: Number(form.xp_bonus_winner) || 0,
         tags: form.tags ? form.tags.split(",").map(t => t.trim()).filter(Boolean) : [],
+        // Zod's .url() and isoDate regex both reject "". Inputs that were
+        // never touched sit at "" in form state, so without this coercion
+        // every unfilled date or URL field triggers a blanket "Validation
+        // failed" on event create.
+        date:                 form.date || null,
+        venue_link:           form.venue_link || null,
+        cover_image_url:      form.cover_image_url || null,
         starts_at: form.starts_at || form.date || null,
         ends_at: form.ends_at || null,
         registration_deadline: form.registration_deadline || null,
@@ -131,7 +153,18 @@ export default function AdminEventsPage() {
       }
       setForm({ ...EMPTY_FORM }); setEditId(null); setShowForm(false);
       fetchEvents();
-    } catch (err) { showMsg(err.response?.data?.error || "Failed"); }
+    } catch (err) {
+      // Surface the first Zod issue (path + message) when the validator
+      // rejects the payload, so "Validation failed" stops being an
+      // unactionable wall and the admin can see e.g. "venue_link: must
+      // be a URL".
+      const data = err.response?.data;
+      const firstIssue = data?.issues?.[0];
+      const detail = firstIssue
+        ? `${firstIssue.path}: ${firstIssue.message}`
+        : null;
+      showMsg(detail || data?.error || "Failed");
+    }
     setSaving(false);
   };
 

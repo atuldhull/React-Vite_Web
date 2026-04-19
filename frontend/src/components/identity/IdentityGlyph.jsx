@@ -44,6 +44,12 @@ import { chat } from "@/lib/api";
 import { deriveSigil } from "@/lib/identity/sigil";
 
 const sigilCache = /** @type {Map<string, any>} */ (new Map());
+// Users whose /chat/keys/:id lookup already returned 404 in this
+// session. Re-querying on every re-render spams the console with
+// "Failed to load resource: 404" for every teammate who hasn't
+// forged an identity yet. Cache the miss — the glyph just stays at
+// its placeholder until they do, same outcome with 1 request total.
+const missingKeyCache = /** @type {Set<string>} */ (new Set());
 
 /**
  * @param {{
@@ -62,6 +68,11 @@ export default function IdentityGlyph({ sigil: sigilProp, userId, size = 40, inl
     if (sigilProp) { setSigil(sigilProp); return; }
     if (!userId) return;
     if (sigilCache.has(userId)) { setSigil(sigilCache.get(userId)); return; }
+    // Previously returned 404 for this user in this session — skip the
+    // round-trip (and the noisy browser console entry) and keep the
+    // placeholder. First post-ceremony visit clears nothing; the cache
+    // is session-scoped so a fresh reload after ceremony will re-query.
+    if (missingKeyCache.has(userId)) return;
 
     let cancelled = false;
     chat.getKey(userId)
@@ -72,7 +83,11 @@ export default function IdentityGlyph({ sigil: sigilProp, userId, size = 40, inl
         sigilCache.set(userId, s);
         if (!cancelled) setSigil(s);
       })
-      .catch(() => { /* silent — placeholder stays */ });
+      .catch((err) => {
+        // 404 = peer has no key yet. Remember it so we don't re-spam.
+        // Any other error stays uncached — next render will retry.
+        if (err?.response?.status === 404) missingKeyCache.add(userId);
+      });
 
     return () => { cancelled = true; };
   }, [sigilProp, userId]);

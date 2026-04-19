@@ -7,11 +7,11 @@ import { PANDA_TOOLS, executeTool } from "../lib/pandaTools.js";
 
 const router = express.Router();
 
-// Max turns of the LLM ↔ tool loop per request. With 4 tools the
-// typical query resolves in 1-2 tool calls; 4 iterations gives
-// headroom for cross-referencing (arxiv → wikipedia → oeis etc.)
-// without risking an unbounded loop.
-const MAX_TOOL_ITERATIONS = 4;
+// Max turns of the LLM ↔ tool loop per request. 7 gives the model
+// enough slack to chain arxiv → semantic_scholar → wikipedia on a
+// single "latest papers on X" query without the rabbit-hole fallback
+// firing mid-answer. aiLimiter (20/hr/user) still caps overall cost.
+const MAX_TOOL_ITERATIONS = 7;
 
 // aiLimiter: ΣBot chat hits OpenRouter on every message — 20/hr per
 // user prevents a runaway client loop from draining the API budget.
@@ -79,10 +79,13 @@ TOOLS — you have REAL internet access via these functions. Use them aggressive
 
 TOOL-USE RULES:
 1. When uncertain about a fact, especially "latest", "current year", "publication date", "who proved what when" — CALL A TOOL. Don't guess.
-2. After a tool returns, weave the real data into your answer with your usual personality and emoji style — don't just dump JSON.
-3. ALWAYS include the link field from the tool output so the student can verify.
-4. NEVER fabricate URLs. If a tool didn't return a link, say "search [X] on arxiv.org" instead of inventing one.
-5. One tool is usually enough. Cross-reference with a second only if it adds real value (e.g. arXiv for recency + Wikipedia for concept).
+2. When the student asks for "papers", "research", "tutorials", "videos", "resources", or "links" on ANY topic — CALL A TOOL. Don't answer from memory.
+3. After a tool returns, weave the real data into your answer with your usual personality — don't just dump JSON.
+4. When a tool returns multiple items, format them as a bulleted list, one per item, like:
+   - **[Paper/Page title]** — one-sentence takeaway. 👉 https://the-actual-url
+   The URL MUST be on its own, unwrapped, on the same line or the next — never hide it behind a word like "here".
+5. NEVER fabricate URLs. If a tool didn't return a link, say "search [X] on arxiv.org" instead of inventing one. But if the tool DID return links, surfacing every one is the whole point — do it.
+6. One tool is usually enough. Cross-reference with a second only if it adds real value (e.g. arXiv for recency + Wikipedia for concept).
 
 OFF-TOPIC HANDLING:
 For questions obviously unrelated to math or academics (celebrity gossip, dating advice, sports scores), gently redirect with humour. Borderline queries (physics, CS, ML, philosophy of math, study habits, mathematician bios) — ENGAGE, don't refuse.` + challengeSection;
@@ -93,30 +96,54 @@ For questions obviously unrelated to math or academics (celebrity gossip, dating
     ...messages.slice(-10),
   ];
 
+  // Single-retry wrapper around the OpenRouter call. Cold-start jitter
+  // and OpenRouter's edge POP occasionally 502 the first request; a
+  // retry after a short sleep converts most of those "PANDA is napping"
+  // incidents into a successful reply without opening the door to
+  // unbounded retry loops that would drain the per-user rate budget.
+  const RETRY_STATUSES = new Set([502, 503, 504]);
+  const RETRY_CODES    = new Set(["ECONNABORTED", "ECONNRESET", "ENOTFOUND", "EAI_AGAIN"]);
+  async function callOpenRouterOnce() {
+    return axios.post(
+      "https://openrouter.ai/api/v1/chat/completions",
+      {
+        model:       "deepseek/deepseek-chat",
+        messages:    loopMessages,
+        tools:       PANDA_TOOLS,
+        tool_choice: "auto",
+        temperature: 0.7,
+        // 1800 tokens lets the model finish a long research-paper
+        // list or a multi-step proof without being cut off.
+        max_tokens:  1800,
+      },
+      {
+        headers: {
+          "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY}`,
+          "Content-Type":  "application/json",
+          "HTTP-Referer":  "https://mathcollective.bmsit.in",
+          "X-Title":       "Math Collective SigmaBot",
+        },
+        timeout: 45000,
+      },
+    );
+  }
+  async function callOpenRouter() {
+    try {
+      return await callOpenRouterOnce();
+    } catch (err) {
+      const status = err.response?.status;
+      const code   = err.code;
+      const retriable = (status && RETRY_STATUSES.has(status)) || RETRY_CODES.has(code);
+      if (!retriable) throw err;
+      logger.warn({ status, code }, "PANDA upstream transient — retrying once");
+      await new Promise((r) => setTimeout(r, 500));
+      return callOpenRouterOnce();
+    }
+  }
+
   try {
     for (let iter = 0; iter < MAX_TOOL_ITERATIONS; iter++) {
-      const response = await axios.post(
-        "https://openrouter.ai/api/v1/chat/completions",
-        {
-          model:       "deepseek/deepseek-chat",
-          messages:    loopMessages,
-          tools:       PANDA_TOOLS,
-          tool_choice: "auto",
-          temperature: 0.7,
-          // 1800 tokens lets the model finish a long research-paper
-          // list or a multi-step proof without being cut off.
-          max_tokens:  1800,
-        },
-        {
-          headers: {
-            "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY}`,
-            "Content-Type":  "application/json",
-            "HTTP-Referer":  "https://mathcollective.bmsit.in",
-            "X-Title":       "Math Collective SigmaBot",
-          },
-          timeout: 45000,
-        },
-      );
+      const response = await callOpenRouter();
 
       const msg = response.data?.choices?.[0]?.message;
       if (!msg) break;
@@ -147,8 +174,23 @@ For questions obviously unrelated to math or academics (celebrity gossip, dating
       reply: "I went down a rabbit hole checking a bunch of sources and lost the thread 🐇 try rephrasing?",
     });
   } catch (err) {
-    logger.error({ err: err }, "ΣBot Error");
-    return res.status(500).json({ error: "AI is on a coffee break ☕ try again shortly." });
+    // Map upstream failures to accurate status codes so logs + the
+    // frontend can tell "we timed out" from "OpenRouter 5xx'd us" from
+    // "our own bug". The frontend still shows a generic "napping"
+    // toast for all three, but differentiated codes make triage and
+    // Sentry grouping much easier.
+    const upstreamStatus = err.response?.status;
+    const isTimeout      = err.code === "ECONNABORTED";
+    const status = isTimeout
+      ? 504
+      : (upstreamStatus && upstreamStatus >= 500 ? 502 : 500);
+    logger.error({
+      err,
+      upstreamStatus,
+      code: err.code,
+      mappedStatus: status,
+    }, "ΣBot Error");
+    return res.status(status).json({ error: "AI is on a coffee break ☕ try again shortly." });
   }
 });
 

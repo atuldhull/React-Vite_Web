@@ -159,6 +159,44 @@ export const markPaid = async (req, res) => {
       return res.status(500).json({ error: "Update failed" });
     }
 
+    // Award the early-bird XP bonus that was intentionally withheld at
+    // register-time for paid events (to stop students farming XP by
+    // spamming registrations they never pay for). Criteria match the
+    // unpaid path exactly: student ranks in the first EARLY_BIRD_THRESHOLD
+    // "registered" or "attended" rows for this event and the event has a
+    // non-zero xp_bonus_first. Best-effort — a failure here shouldn't
+    // roll back the payment-verified state.
+    try {
+      const EARLY_BIRD_THRESHOLD = 10;
+      const { data: event } = await req.db
+        .from("events").select("xp_bonus_first").eq("id", eventId).maybeSingle();
+      if (event?.xp_bonus_first > 0) {
+        // Order by registered_at so "first N" means the N earliest
+        // registrations, matching the register-time semantic. Any row
+        // that's cancelled doesn't count toward the threshold.
+        const { data: earliest } = await req.db
+          .from("event_registrations")
+          .select("user_id")
+          .eq("event_id", eventId)
+          .in("status", ["registered", "attended"])
+          .order("registered_at", { ascending: true })
+          .limit(EARLY_BIRD_THRESHOLD);
+        const isEarlyBird = (earliest || []).some((r) => r.user_id === reg.user_id);
+        if (isEarlyBird) {
+          const { data: student } = await req.db
+            .from("students").select("xp, weekly_xp").eq("user_id", reg.user_id).maybeSingle();
+          if (student) {
+            await req.db.from("students").update({
+              xp: (student.xp || 0) + event.xp_bonus_first,
+              weekly_xp: (student.weekly_xp || 0) + event.xp_bonus_first,
+            }).eq("user_id", reg.user_id);
+          }
+        }
+      }
+    } catch (xpErr) {
+      logger.warn({ err: xpErr, regId, eventId }, "markPaid: early-bird XP award failed (non-fatal)");
+    }
+
     // Notify the student — best-effort, don't block the response.
     sendNotification({
       userIds: [reg.user_id],
