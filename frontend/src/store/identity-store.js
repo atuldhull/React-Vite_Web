@@ -101,21 +101,44 @@ export const useIdentityStore = create((set, get) => ({
    * they've saved the phrase before we commit.
    */
   startCeremony: async () => {
+    // Diagnostic logging — temporary, until we've confirmed the
+    // ceremony flow works end-to-end on every device the app has
+    // been deployed to. Prefixed with [identity] so devtools filter
+    // can isolate them.
+    console.log("[identity] startCeremony: entering");
     set({ status: "forging", error: null });
     try {
+      console.log("[identity] startCeremony: generating mnemonic…");
       const { phrase, entropy } = await generateMnemonic();
+      console.log("[identity] startCeremony: phrase generated (12 words, entropy %d bytes)", entropy.length);
       set({ pendingPhrase: phrase });
       // Stash the derived-but-unpersisted keypair so the confirm
       // step doesn't re-run PBKDF2 (~1s saved).
+      console.log("[identity] startCeremony: deriving keypair (PBKDF2 100k iterations — ~1-2s)…");
       const derived = await deriveKeypairFromEntropy(entropy);
+      console.log("[identity] startCeremony: keypair derived — ready for confirm");
       set({
         _pendingScalar: derived.privateScalar,
         _pendingPrivateKey: derived.privateKey,
         _pendingPublicJwk: derived.publicKeyJwk,
       });
     } catch (err) {
+      console.error("[identity] startCeremony FAILED:", err);
+      // Previously the catch set status back to "missing" but left
+      // pendingPhrase populated (it had been set before the throw
+      // from deriveKeypairFromEntropy). That left the UI in an
+      // unrenderable state — the intro branch requires !pendingPhrase,
+      // the phrase-grid branch requires status==="forging", and the
+      // forging-spinner branch requires !pendingPhrase. Nothing
+      // matched and the modal went completely empty except for the
+      // X close button. Reset the whole transient ceremony state so
+      // the user lands back on the intro with a visible error banner.
       set({
-        status: "missing",
+        status:          "missing",
+        pendingPhrase:   null,
+        _pendingScalar:  null,
+        _pendingPrivateKey: null,
+        _pendingPublicJwk:  null,
         error: err instanceof Error ? err.message : "Ceremony failed",
       });
     }
@@ -187,8 +210,14 @@ export const useIdentityStore = create((set, get) => ({
       const sigil = await deriveSigil(publicKeyJwk);
       set({ status: "ready", privateKey, publicKeyJwk, sigil, error: null });
     } catch (err) {
+      // Match startCeremony's full-reset on failure — leave no
+      // half-populated state that would render the modal unrenderable.
       set({
-        status: "missing",
+        status:          "missing",
+        pendingPhrase:   null,
+        _pendingScalar:  null,
+        _pendingPrivateKey: null,
+        _pendingPublicJwk:  null,
         error: err instanceof Error ? err.message : "Restore failed",
       });
     }

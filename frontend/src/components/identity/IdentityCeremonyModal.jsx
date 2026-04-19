@@ -155,14 +155,37 @@ export default function IdentityCeremonyModal({ onRestoreRequest }) {
 
           {/* ── Forging in progress (PBKDF2 + key derivation ~1-2s) ── */}
           {status === "forging" && !pendingPhrase && (
-            <div className="flex flex-col items-center justify-center py-8 text-center">
-              <div className="h-10 w-10 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
-              <p className="mt-4 font-mono text-[10px] uppercase tracking-[0.3em] text-primary">
-                Deriving your identity
+            <div
+              className="flex flex-col items-center justify-center py-12 text-center"
+              // Explicit hex colours so the spinner is visible even if
+              // the theme tokens (--color-primary) haven't initialised
+              // — earlier report was "forge click shows blank" on prod
+              // where Tailwind theme vars might race with the mount.
+              style={{ minHeight: "200px" }}
+            >
+              <div
+                style={{
+                  width: "48px",
+                  height: "48px",
+                  border: "3px solid rgba(124, 58, 237, 0.2)",
+                  borderTopColor: "#7c3aed",
+                  borderRadius: "50%",
+                  animation: "spin 0.9s linear infinite",
+                }}
+              />
+              <p
+                className="mt-4 font-mono text-xs uppercase"
+                style={{ color: "#a78bfa", letterSpacing: "0.3em" }}
+              >
+                Forging your identity
               </p>
-              <p className="mt-1 text-xs text-text-muted">
-                Stretching entropy through 100,000 iterations of PBKDF2…
+              <p className="mt-2 text-sm" style={{ color: "#94a3b8" }}>
+                This takes 1–2 seconds on modern hardware.
               </p>
+              <p className="mt-1 text-[10px]" style={{ color: "#64748b" }}>
+                Stretching entropy through 100,000 PBKDF2 iterations.
+              </p>
+              <style>{`@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}`}</style>
             </div>
           )}
 
@@ -238,6 +261,33 @@ export default function IdentityCeremonyModal({ onRestoreRequest }) {
             <div className="text-center">
               <IdentityGlyph sigil={sigil} size={96} />
               <p className="mt-3 font-display text-xl text-white">This is you.</p>
+            </div>
+          )}
+
+          {/* SAFETY NET — if state ever lands outside every branch
+              above (previous bug: catch didn't clear pendingPhrase,
+              so status=missing+pendingPhrase=truthy matched nothing),
+              surface a clear fallback + error instead of an empty
+              card. Covers unforeseen state combinations too. */}
+          {!(status === "missing" && !pendingPhrase)
+            && !(status === "forging" && !pendingPhrase)
+            && !(status === "forging" && pendingPhrase)
+            && !(status === "ready"   && sigil) && (
+            <div className="py-6 text-center">
+              <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-warning">
+                Ceremony needs to restart
+              </p>
+              <p className="mt-3 text-sm text-text-muted">
+                Something went wrong mid-way. Close this window and try again.
+              </p>
+              {error && (
+                <p className="mt-3 rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-xs text-danger">
+                  {error}
+                </p>
+              )}
+              <Button size="sm" variant="ghost" className="mt-4" onClick={dismiss}>
+                Close
+              </Button>
             </div>
           )}
         </motion.div>
