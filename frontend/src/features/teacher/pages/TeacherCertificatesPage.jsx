@@ -553,18 +553,18 @@ export default function TeacherCertificatesPage() {
             <div className="mt-4 space-y-2">
               {batches.map((batch) => (
                 <div
-                  key={batch._id}
+                  key={batch.id || batch._id}
                   className="flex items-center justify-between rounded-xl border border-line/10 bg-black/10 px-4 py-3"
                 >
                   <div>
                     <p className="text-sm font-medium text-white">
-                      {batch.eventName || batch.title || "Unnamed Batch"}
+                      {batch.event_name || batch.eventName || batch.title || "Unnamed Batch"}
                     </p>
                     <p className="font-mono text-[10px] text-text-dim">
-                      {batch.certType || "certificate"} &middot;{" "}
+                      {batch.cert_type || batch.certType || "certificate"} &middot;{" "}
                       {batch.count ?? batch.recipientCount ?? 0} certificates &middot;{" "}
-                      {batch.createdAt
-                        ? new Date(batch.createdAt).toLocaleDateString()
+                      {(batch.created_at || batch.createdAt)
+                        ? new Date(batch.created_at || batch.createdAt).toLocaleDateString()
                         : ""}
                     </p>
                   </div>
@@ -572,16 +572,16 @@ export default function TeacherCertificatesPage() {
                     <Button
                       size="sm"
                       variant="secondary"
-                      onClick={() => handleDownloadZip(batch._id)}
-                      loading={downloadingId === batch._id}
+                      onClick={() => handleDownloadZip(batch.id || batch._id)}
+                      loading={downloadingId === (batch.id || batch._id)}
                     >
                       Download
                     </Button>
                     <Button
                       size="sm"
                       variant="danger"
-                      onClick={() => handleDeleteBatch(batch._id)}
-                      loading={deletingId === batch._id}
+                      onClick={() => handleDeleteBatch(batch.id || batch._id)}
+                      loading={deletingId === (batch.id || batch._id)}
                     >
                       Delete
                     </Button>
