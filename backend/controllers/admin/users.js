@@ -17,9 +17,28 @@ export const getAllUsers = async (req, res) => {
       .order("created_at", { ascending: false })
       .range(from, from + limit - 1);
 
-    if (error) return res.status(500).json({ error: error.message });
+    if (error) {
+      logger.error({ err: error, adminId: req.session?.user?.id }, "getAllUsers query failed");
+      return res.status(500).json({ error: error.message });
+    }
+
+    // Diagnostic: admins report "teachers/members tab empty". The
+    // students table is tenant-scoped via the req.db proxy, so this
+    // log reveals whether the filter is simply returning zero rows
+    // (org mismatch between the viewing admin and the student rows)
+    // vs. an actual DB error or RLS issue.
+    logger.info({
+      adminId: req.session?.user?.id || null,
+      orgId:   req.orgId || null,
+      role:    req.userRole || null,
+      count:   data?.length || 0,
+      total:   count || 0,
+      page,
+    }, "getAllUsers: tenant-scoped count");
+
     return res.json({ users: data || [], total: count || 0, page, limit });
-  } catch {
+  } catch (err) {
+    logger.error({ err }, "getAllUsers");
     return res.status(500).json({ error: "Failed to fetch users" });
   }
 };

@@ -16,7 +16,24 @@ export const getEvents = async (req, res) => {
       .eq("is_active", true)
       .order("date", { ascending: true });
 
-    if (error) return res.status(500).json({ error: error.message });
+    if (error) {
+      logger.error({ err: error, userId: req.session?.user?.id }, "getEvents query failed");
+      return res.status(500).json({ error: error.message });
+    }
+
+    // Diagnostic: users report "events visible when logged out but
+    // disappear when logged in". Logging the orgId + count here makes
+    // it trivial to tell whether the tenant proxy's .eq("org_id",…)
+    // filter is matching zero rows because the viewing user's org_id
+    // doesn't match the events' org_id (account-level org mismatch)
+    // vs. some other issue. Compare against an unscoped count via
+    // Supabase SQL editor if needed.
+    logger.info({
+      userId: req.session?.user?.id || null,
+      orgId:  req.orgId || null,
+      role:   req.userRole || null,
+      count:  data?.length || 0,
+    }, "getEvents: tenant-scoped count");
 
     // Batch-fetch registration counts
     const eventIds = (data || []).map(e => e.id);
