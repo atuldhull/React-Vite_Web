@@ -27,13 +27,21 @@ export const checkinEvent = async (req, res) => {
     // 3. Must be registered
     const { data: reg } = await supabase
       .from("event_registrations")
-      .select("id, status")
+      .select("id, status, payment_status")
       .eq("event_id", eventId)
       .eq("user_id", userId)
       .maybeSingle();
 
     if (!reg || reg.status === "cancelled")
       return res.status(400).json({ error: "Not registered for this event" });
+
+    // Paid events: block check-in until payment clears (same guard as
+    // scanQrCheckin). 402 Payment Required is the right status here.
+    if (reg.payment_status && reg.payment_status !== "paid" && reg.payment_status !== "not_required") {
+      return res.status(402).json({
+        error: `Complete your payment before checking in (status: ${reg.payment_status}).`,
+      });
+    }
 
     // 4. Check for duplicate attendance
     const { data: existing } = await supabase
@@ -162,6 +170,18 @@ export const scanQrCheckin = async (req, res) => {
 
     if (reg.status === "attended")
       return res.status(409).json({ error: "Already checked in", student: reg.students });
+
+    // Paid events: refuse check-in for unpaid registrations. The
+    // student-facing QR only renders after payment clears (see
+    // EventsPage.jsx), but guard server-side too in case a teacher
+    // hand-enters a token or an old QR is re-scanned between a
+    // cancel + re-register.
+    if (reg.payment_status && reg.payment_status !== "paid" && reg.payment_status !== "not_required") {
+      return res.status(402).json({
+        error: `Payment not verified yet (status: ${reg.payment_status}). Ask the student to complete payment before check-in.`,
+        student: reg.students,
+      });
+    }
 
     // 2. Check for duplicate attendance (session-aware)
     const { data: existing } = await supabase

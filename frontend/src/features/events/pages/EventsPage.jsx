@@ -559,16 +559,38 @@ export default function EventsPage() {
                             </div>
                           )}
 
-                          {/* QR Code (shown when registered, not yet attended) */}
-                          {isRegistered && !isAttended && event.user_registration?.qr_token && (
-                            <div className="mt-4">
-                              <EventQrCode
-                                eventId={event.id}
-                                qrToken={event.user_registration.qr_token}
-                                eventTitle={event.title}
-                              />
-                            </div>
-                          )}
+                          {/* QR Code — shown when registered, not yet attended,
+                             AND (free event OR payment verified). Paid events
+                             previously showed the QR immediately on registration
+                             which was misleading: the attendance controller
+                             refuses to check in an unpaid registration, so
+                             scanning would fail anyway. Gating here means the
+                             QR only appears once the student is actually
+                             cleared to walk through the door. */}
+                          {(() => {
+                            const reg = event.user_registration;
+                            if (!isRegistered || isAttended || !reg?.qr_token) return null;
+                            const paymentCleared =
+                              !event.is_paid
+                              || reg.payment_status === "paid"
+                              || reg.payment_status === "not_required";
+                            if (!paymentCleared) {
+                              return (
+                                <p className="mt-4 rounded-lg border border-warning/25 bg-warning/[0.06] px-3 py-2 text-xs text-warning">
+                                  Your entry QR unlocks here as soon as your payment clears.
+                                </p>
+                              );
+                            }
+                            return (
+                              <div className="mt-4">
+                                <EventQrCode
+                                  eventId={event.id}
+                                  qrToken={reg.qr_token}
+                                  eventTitle={event.title}
+                                />
+                              </div>
+                            );
+                          })()}
 
                           {/* Paid-event: payment panel (migration 19).
                               Only shown to registered students whose
