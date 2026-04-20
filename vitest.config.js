@@ -64,6 +64,32 @@ export default defineConfig({
         // coverage via paid-events.test.js but isn't in this
         // coverage-gated list yet.
         "backend/controllers/event/paymentReconciliationController.js",
+        // Registration hot path (register / cancel / list) — guarded
+        // by event-registration.test.js. Covers team-event validation
+        // (migration 22), paid-event payment_status defaulting,
+        // capacity→waitlist, and the load-bearing cancel vs
+        // best-effort promote error split.
+        "backend/controllers/event/registrationController.js",
+        // Razorpay webhook — HMAC verification, subscription capture,
+        // subscription failure, event-registration auto-verify
+        // (migration 23), unknown-order-id silent ack, and the
+        // idempotent payment.captured re-delivery. Covered by
+        // payment.test.js + (for the order-create path)
+        // razorpay-event-order.test.js.
+        "backend/controllers/payment/webhook.js",
+        "backend/controllers/payment/upgrade.js",
+        // Teacher dashboard — profile, stats, students list, challenge
+        // performance, activity feed, AI question generator (LLM path),
+        // save-question (the raw supabase + explicit org_id injection
+        // pattern that fixed the null-org_id regression), challenge
+        // list + toggle, leaderboard. Guarded by teacher.test.js.
+        "backend/controllers/teacherController.js",
+        // Challenge CRUD — getCurrent / getNext (random-unsolved logic
+        // with PG-array string option parsing) / getAll / getById /
+        // createChallenge (same raw supabase + explicit org_id pattern
+        // as teacherSaveQuestion) / update / delete / toggle.
+        // Guarded by challenge.test.js.
+        "backend/controllers/challengeController.js",
         // Validators — each of these gates a mutating API surface.
         // All tested in tests/unit/*-validators.test.js +
         // tests/unit/all-validators.test.js.

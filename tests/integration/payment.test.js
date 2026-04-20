@@ -18,11 +18,15 @@ process.env.CONTACT_EMAIL            = "test@example.com";
 process.env.CONTACT_APP_PASSWORD     = "fake";
 
 // ── In-memory stores that the supabase mock reads/writes ──
+// eventRegs keyed by razorpay_order_id because that's how the webhook
+// looks them up. The webhook also updates by `id` (after the lookup),
+// so the mock's update handler iterates values when col === "id".
 const store = {
   payments: new Map(),
   orgs: new Map(),
   plans: new Map(),
   students: new Map(),
+  eventRegs: new Map(),
 };
 
 function resetStore() {
@@ -30,6 +34,7 @@ function resetStore() {
   store.orgs.clear();
   store.plans.clear();
   store.students.clear();
+  store.eventRegs.clear();
 
   store.orgs.set("org-1", { id: "org-1", name: "Acme College" });
   store.plans.set("pro", { id: "plan-pro", name: "pro", display_name: "Pro", price_monthly: 499 });
@@ -85,6 +90,18 @@ vi.mock("../../backend/config/supabase.js", () => {
               const existing = store.orgs.get(val);
               if (existing) store.orgs.set(val, { ...existing, ...patch });
             }
+            if (tableName === "event_registrations") {
+              // webhook.payment.failed filters by razorpay_order_id;
+              // handleEventRegistrationCapture filters by the row's id.
+              if (col === "razorpay_order_id") {
+                const existing = store.eventRegs.get(val);
+                if (existing) store.eventRegs.set(val, { ...existing, ...patch });
+              } else if (col === "id") {
+                for (const [k, v] of store.eventRegs.entries()) {
+                  if (v.id === val) { store.eventRegs.set(k, { ...v, ...patch }); break; }
+                }
+              }
+            }
             return sub;
           },
           then: (fn) => Promise.resolve({ data: keyCaptured ? store.payments.get(keyCaptured) : null, error: null }).then(fn),
@@ -118,6 +135,9 @@ vi.mock("../../backend/config/supabase.js", () => {
     if (table === "students" && filters.user_id) {
       return store.students.get(filters.user_id) || null;
     }
+    if (table === "event_registrations" && filters.razorpay_order_id) {
+      return store.eventRegs.get(filters.razorpay_order_id) || null;
+    }
     return null;
   }
 
@@ -150,6 +170,14 @@ vi.mock("razorpay", () => ({
 // ── Mock nodemailer so invoice sends are no-ops ──
 vi.mock("nodemailer", () => ({
   default: { createTransport: () => ({ sendMail: async () => ({ accepted: ["x"] }) }) },
+}));
+
+// ── Mock notificationController — the event-registration capture path
+//    fires sendNotification(); real impl hits supabase + web-push and
+//    isn't our concern here. The catch() in the webhook swallows failures
+//    anyway, but mocking keeps the test deterministic.
+vi.mock("../../backend/controllers/notificationController.js", () => ({
+  sendNotification: vi.fn(async () => ({ ok: true })),
 }));
 
 const paymentRoutes = (await import("../../backend/routes/paymentRoutes.js")).default;
@@ -368,6 +396,100 @@ describe("POST /api/payment/webhook", () => {
 
     expect(res.status).toBe(200);
     expect(store.payments.get("order_fail").status).toBe("failed");
+  });
+
+  // ── Event-registration branch (migration 23) ─────────────────────
+  // When the order_id lives in event_registrations (not payment_history),
+  // the webhook must auto-verify that registration instead. These tests
+  // drive handleEventRegistrationCapture + the payment.failed fallthrough.
+
+  it("payment.captured for an event registration → flips payment_status=paid", async () => {
+    store.eventRegs.set("order_evt_1", {
+      id: "reg-1",
+      event_id: "evt-1",
+      user_id: "u-student",
+      org_id: "org-1",
+      razorpay_order_id: "order_evt_1",
+      payment_status: "pending",
+    });
+
+    const res = await sendWebhook(buildApp(),
+      { event: "payment.captured", payload: { payment: { entity: { id: "pay_evt_1", order_id: "order_evt_1" } } } });
+
+    expect(res.status).toBe(200);
+    expect(res.body.received).toBe(true);
+    const row = store.eventRegs.get("order_evt_1");
+    expect(row.payment_status).toBe("paid");
+    expect(row.paid_at).toBeTruthy();
+    expect(row.marked_at).toBeTruthy();
+    // Razorpay auto-verification leaves marked_by NULL — that's how
+    // we distinguish auto-verified rows from manually-reconciled ones.
+    expect(row.marked_by).toBeNull();
+    expect(row.rejection_reason).toBeNull();
+    // Subscription history untouched — the order_id was only in eventRegs.
+    expect(store.payments.get("order_evt_1")).toBeUndefined();
+  });
+
+  it("payment.captured is idempotent for an event registration already marked paid", async () => {
+    const paidAt = "2026-04-19T10:00:00.000Z";
+    store.eventRegs.set("order_evt_idem", {
+      id: "reg-2",
+      event_id: "evt-1",
+      user_id: "u-student",
+      org_id: "org-1",
+      razorpay_order_id: "order_evt_idem",
+      payment_status: "paid",
+      paid_at: paidAt,
+    });
+
+    const res = await sendWebhook(buildApp(),
+      { event: "payment.captured", payload: { payment: { entity: { id: "pay_evt_idem", order_id: "order_evt_idem" } } } });
+
+    expect(res.status).toBe(200);
+    // paid_at frozen to the pre-webhook value — no re-write fired.
+    expect(store.eventRegs.get("order_evt_idem").paid_at).toBe(paidAt);
+  });
+
+  it("payment.captured with an unknown order_id acks silently without side-effects", async () => {
+    // Not in payment_history, not in eventRegs — the handler logs + 200s
+    // so Razorpay stops retrying.
+    const res = await sendWebhook(buildApp(),
+      { event: "payment.captured", payload: { payment: { entity: { id: "pay_ghost", order_id: "order_ghost" } } } });
+
+    expect(res.status).toBe(200);
+    expect(res.body.received).toBe(true);
+    expect(store.eventRegs.size).toBe(0);
+    expect(store.payments.size).toBe(0);
+  });
+
+  it("payment.failed for an event registration → rejected + stores Razorpay's error_description", async () => {
+    store.eventRegs.set("order_evt_fail", {
+      id: "reg-3",
+      event_id: "evt-1",
+      user_id: "u-student",
+      org_id: "org-1",
+      razorpay_order_id: "order_evt_fail",
+      payment_status: "pending",
+    });
+
+    const res = await sendWebhook(buildApp(),
+      {
+        event: "payment.failed",
+        payload: { payment: { entity: {
+          id: "pay_evt_fail",
+          order_id: "order_evt_fail",
+          error_description: "Customer cancelled at UPI app",
+          error_reason: "user_cancelled",
+        } } },
+      });
+
+    expect(res.status).toBe(200);
+    const row = store.eventRegs.get("order_evt_fail");
+    expect(row.payment_status).toBe("rejected");
+    expect(row.rejection_reason).toBe("Customer cancelled at UPI app");
+    // razorpay_order_id stays on the row so a retry via the same flow
+    // can overwrite it cleanly — no need to null it out on rejection.
+    expect(row.razorpay_order_id).toBe("order_evt_fail");
   });
 });
 
