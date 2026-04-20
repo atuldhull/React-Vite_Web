@@ -57,6 +57,13 @@ export default defineConfig({
         "backend/controllers/userController.js",
         "backend/controllers/event/eventHelpers.js",
         "backend/controllers/payment/config.js",
+        // Razorpay event-order path (migration 23) — guarded by
+        // razorpay-event-order.test.js. Covers config + auth + state
+        // + happy-path branches. The rest of the reconciliation
+        // controller (manual UPI flow) still has integration
+        // coverage via paid-events.test.js but isn't in this
+        // coverage-gated list yet.
+        "backend/controllers/event/paymentReconciliationController.js",
         // Validators — each of these gates a mutating API surface.
         // All tested in tests/unit/*-validators.test.js +
         // tests/unit/all-validators.test.js.
@@ -70,6 +77,7 @@ export default defineConfig({
         "backend/validators/contact.js",
         "backend/validators/projects.js",
         "backend/validators/announcements.js",
+        "backend/validators/registrations.js",
         // Socket layer — entire backend/socket/* now covered.
         // chat.js is the E2EE relay, presence.js the live-users
         // tracker, notifications.js the push fan-out, quiz.js the

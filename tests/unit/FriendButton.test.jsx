@@ -13,7 +13,17 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, act } from "@testing-library/react";
+
+// Thin wrapper: the component's click handlers call hook methods
+// that return promises (sendRequest, cancelRequest, etc.), so the
+// re-render that happens when those promises resolve occurs AFTER
+// fireEvent.click returns. Without wrapping the click in act(),
+// React logs "not wrapped in act(...)" for every one — the
+// assertion still passes but the noise clutters the CI output.
+async function click(el) {
+  await act(async () => { fireEvent.click(el); });
+}
 
 // Mocks live OUTSIDE the factory — vi.mock hoists and we reference
 // these via the imported modules below.
@@ -103,9 +113,9 @@ describe("FriendButton — null friendship", () => {
     expect(screen.getByText(/add friend/i)).toBeInTheDocument();
   });
 
-  it("clicking fires sendRequest", () => {
+  it("clicking fires sendRequest", async () => {
     renderIt();
-    fireEvent.click(screen.getByRole("button", { name: /send friend request/i }));
+    await click(screen.getByRole("button", { name: /send friend request/i }));
     expect(actions.sendRequest).toHaveBeenCalledTimes(1);
   });
 });
@@ -124,9 +134,9 @@ describe("FriendButton — pending_sent", () => {
     expect(screen.getByText(/requested/i)).toBeInTheDocument();
   });
 
-  it("clicking fires cancelRequest", () => {
+  it("clicking fires cancelRequest", async () => {
     renderIt();
-    fireEvent.click(screen.getByRole("button", { name: /cancel friend request/i }));
+    await click(screen.getByRole("button", { name: /cancel friend request/i }));
     expect(actions.cancelRequest).toHaveBeenCalledTimes(1);
     expect(actions.sendRequest).not.toHaveBeenCalled();
   });
@@ -147,16 +157,16 @@ describe("FriendButton — pending_received", () => {
     expect(screen.getByRole("button", { name: /^decline$/i })).toBeInTheDocument();
   });
 
-  it("Accept fires acceptRequest", () => {
+  it("Accept fires acceptRequest", async () => {
     renderIt();
-    fireEvent.click(screen.getByRole("button", { name: /^accept$/i }));
+    await click(screen.getByRole("button", { name: /^accept$/i }));
     expect(actions.acceptRequest).toHaveBeenCalledTimes(1);
     expect(actions.declineRequest).not.toHaveBeenCalled();
   });
 
-  it("Decline fires declineRequest", () => {
+  it("Decline fires declineRequest", async () => {
     renderIt();
-    fireEvent.click(screen.getByRole("button", { name: /^decline$/i }));
+    await click(screen.getByRole("button", { name: /^decline$/i }));
     expect(actions.declineRequest).toHaveBeenCalledTimes(1);
   });
 });
@@ -177,16 +187,16 @@ describe("FriendButton — accepted", () => {
     expect(screen.getByText(/friends ✓/i)).toBeInTheDocument();
   });
 
-  it("clicking (after confirm) fires unfriend", () => {
+  it("clicking (after confirm) fires unfriend", async () => {
     renderIt();
-    fireEvent.click(screen.getByRole("button"));
+    await click(screen.getByRole("button"));
     expect(actions.unfriend).toHaveBeenCalledTimes(1);
   });
 
-  it("doesn't unfriend when the user dismisses the confirm dialog", () => {
+  it("doesn't unfriend when the user dismisses the confirm dialog", async () => {
     vi.spyOn(window, "confirm").mockReturnValue(false);
     renderIt();
-    fireEvent.click(screen.getByRole("button"));
+    await click(screen.getByRole("button"));
     expect(actions.unfriend).not.toHaveBeenCalled();
   });
 });
@@ -200,9 +210,7 @@ describe("FriendButton — onChange", () => {
     stubRelationship({ self: false, friendship: null, blocked: false, canMessage: true });
     const onChange = vi.fn();
     renderIt({ onChange });
-    fireEvent.click(screen.getByRole("button", { name: /send friend request/i }));
-    // Let the async run tick through
-    await new Promise((r) => setTimeout(r, 0));
+    await click(screen.getByRole("button", { name: /send friend request/i }));
     expect(onChange).toHaveBeenCalledTimes(1);
   });
 });

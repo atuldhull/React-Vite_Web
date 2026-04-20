@@ -100,8 +100,20 @@ function parseRouteFile(file) {
   return result;
 }
 
+// registerRoutes.js is a REGISTRAR — it only calls app.use(mount, subRouter)
+// to wire each feature's Router into the Express app. It owns no
+// `router.<verb>(...)` declarations of its own, so the parser's routeRe
+// would return zero matches for it and the sanity check would silently
+// warn-but-pass. Listing it here excludes it from the scan entirely.
+// If a new registrar-only file is added later, append it here.
+// csrfRoutes.js is similarly a single-handler mount that doesn't use
+// the guard vocabulary — listed below so it's explicitly acknowledged.
+const NON_ROUTE_FILES = new Set([
+  "registerRoutes.js",
+]);
+
 const FILES_TO_SCAN = fs.readdirSync(ROUTES_DIR)
-  .filter(f => f.endsWith("Routes.js"))
+  .filter(f => f.endsWith("Routes.js") && !NON_ROUTE_FILES.has(f))
   .map(f => path.join(ROUTES_DIR, f));
 
 const allParsed = FILES_TO_SCAN.map(file => ({
@@ -115,15 +127,21 @@ const allParsed = FILES_TO_SCAN.map(file => ({
 // ════════════════════════════════════════════════════════════
 
 describe("route-guards parser sanity", () => {
-  it("finds at least one route declaration in each route file", () => {
-    for (const { rel, parsed } of allParsed) {
-      const totalRoutes = parsed.routes.length;
-      // The parser should find at least one route per file. (Some
-      // files use `router.use(subRouter)` exclusively — exempt those.
-      // Currently every file has at least one router.<verb>().)
-      if (totalRoutes === 0) {
-        console.warn(`  no routes parsed from ${rel} — parser may need an update`);
-      }
+  it("finds at least one route declaration in each scanned route file", () => {
+    // Hard fail (was console.warn) so a new route file that doesn't
+    // parse doesn't silently get waved past the guard audit. If a file
+    // genuinely has no `router.<verb>(...)` declarations it belongs in
+    // NON_ROUTE_FILES above with a comment explaining why.
+    const empties = allParsed
+      .filter(p => p.parsed.routes.length === 0)
+      .map(p => p.rel);
+    if (empties.length) {
+      throw new Error(
+        "Route files that parsed to ZERO routes (parser gap or genuinely non-route file):\n" +
+        empties.map(f => `  ${f}`).join("\n") +
+        "\nIf genuinely non-route, add the basename to NON_ROUTE_FILES in this test.\n" +
+        "Otherwise the parser's router.<verb>() regex needs an update for a new syntax."
+      );
     }
     // Aggregate sanity: total across all files > 50.
     const total = allParsed.reduce((sum, p) => sum + p.parsed.routes.length, 0);
@@ -180,7 +198,7 @@ describe("Route-guard audit — per-file invariants", () => {
       "GET /plans",
       "POST /webhook",
     ]);
-    const v = violations(f, (mw) => true);  // pass-through; we'll re-filter below
+    const v = violations(f, (_mw) => true);  // pass-through; we'll re-filter below
     // Custom: only check routes NOT in PUBLIC.
     const wide = new Set(f.parsed.mountWide);
     const real = f.parsed.routes
