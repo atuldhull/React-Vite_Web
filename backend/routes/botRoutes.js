@@ -1,6 +1,6 @@
 import express from "express";
 import axios from "axios";
-import { requireAuth, requireAdmin } from "../middleware/authMiddleware.js";
+import { requireAuth } from "../middleware/authMiddleware.js";
 import { aiLimiter } from "../middleware/rateLimiter.js";
 import { logger } from "../config/logger.js";
 import { PANDA_TOOLS, executeTool } from "../lib/pandaTools.js";
@@ -8,19 +8,22 @@ import { callLLM, listProviders } from "../lib/llm.js";
 
 const router = express.Router();
 
-// ── GET /api/bot/diagnose — admin-only provider health check ────────
+// ── GET /api/bot/diagnose — provider health check ──────────────────
 //
 // Why: when prod PANDA shows the "napping" toast, it's because both
 // Gemini AND OpenRouter failed — but we can't tell from the frontend
 // whether it's an expired key, a rate limit, a model-name mismatch,
 // or a network fault. This endpoint hits each configured provider
 // with a minimal "reply with the word ok" prompt and surfaces the
-// raw upstream status + error body, so the admin can fix the right
-// thing in seconds instead of grepping Render logs.
+// raw upstream status code, so any operator can fix the right thing
+// in seconds instead of grepping Render logs.
 //
-// Admin-gated because the error bodies can echo the API key on some
-// 401 responses — not safe to expose publicly.
-router.get("/diagnose", requireAdmin, async (_req, res) => {
+// Gated by requireAuth (not requireAdmin) so the site owner can hit
+// it from a regular student session on their own domain. The upstream
+// error body is REDACTED to a short safe summary — some providers
+// (Gemini on 401) echo the API key back, and we never want that on
+// the wire regardless of who's logged in.
+router.get("/diagnose", requireAuth, async (_req, res) => {
   const providers = listProviders();
   const out = { providers: [] };
 
@@ -65,22 +68,39 @@ router.get("/diagnose", requireAdmin, async (_req, res) => {
       result.httpCode  = err?.response?.status || null;
       result.code      = err?.code || null;
       result.elapsedMs = Date.now() - t0;
-      // Upstream error body is the load-bearing piece — that's where the
-      // real reason hides (auth / quota / model-name / region-gated).
-      result.upstreamError = err?.response?.data
-        ? JSON.stringify(err.response.data).slice(0, 500)
-        : (err.message || "unknown");
+      // Redacted reason — map common upstream failure shapes to short
+      // human strings so we never leak the API key a 401 body can echo.
+      // If the admin needs the full upstream body, Render logs have it
+      // (logged by callLLM's error path).
+      result.reason = classifyUpstream(err);
     }
     out.providers.push(result);
   }
 
-  // Tiny summary so the admin can read it at a glance.
   const working = out.providers.filter((p) => p.status === "ok").map((p) => p.name);
   out.summary = working.length > 0
     ? `Working: ${working.join(", ")}`
-    : "ALL PROVIDERS FAILING — see per-provider upstreamError below";
+    : "ALL PROVIDERS FAILING — check 'reason' on each row";
   return res.json(out);
 });
+
+// Classify an axios error into a short, safe human string. Never echo
+// the upstream body verbatim — some providers put the API key in it.
+function classifyUpstream(err) {
+  const status = err?.response?.status;
+  const code   = err?.code;
+  if (code === "ECONNABORTED")      return "timeout (upstream > 15s)";
+  if (code === "ENOTFOUND")         return "DNS failure (outbound network blocked?)";
+  if (code === "ECONNRESET")        return "connection reset by upstream";
+  if (status === 401)               return "invalid/expired API key — regenerate and update env";
+  if (status === 402)               return "billing — provider account out of credit";
+  if (status === 403)               return "forbidden — key lacks permission or region-gated";
+  if (status === 404)               return "model not found — provider likely renamed the model";
+  if (status === 429)               return "rate-limited — hit the free-tier quota, wait or upgrade";
+  if (status >= 500 && status <= 599) return `upstream ${status} (server-side outage)`;
+  if (status)                        return `unexpected http ${status}`;
+  return `network error (${code || "unknown"})`;
+}
 
 // Max turns of the LLM ↔ tool loop per request. 7 gives the model
 // enough slack to chain arxiv → semantic_scholar → wikipedia on a
@@ -143,16 +163,21 @@ RESPONSE STRUCTURE (always follow this):
 5. **Answer: [value]** — highlighted so it's impossible to miss
 6. A wild sign-off: fun fact, meme reference, mathematician quote, or "ask me what if…" nudge
 
-TOPICS you OWN: Calculus | Linear Algebra | Differential Equations | Probability & Stats | Vector Calculus | Laplace Transforms | Fourier Series | Complex Numbers | Numerical Methods | Partial Derivatives | Number Theory | Topology | Graph Theory | Combinatorics | Algebra | Analysis | Geometry
+SCOPE — you help with ANYTHING a university student might actually need for studies:
 
-ALSO WELCOME — engage fully with any of these:
-- Research paper discussion, summaries, and recommendations
-- History of mathematics and mathematicians
-- Famous unsolved problems (Riemann, P vs NP, Birch-Swinnerton-Dyer, etc.)
-- Olympiad / Putnam / Research-level problem solving
-- Concept explanations at any depth — from intuitive to rigorous
-- Applications of math in physics, CS, ML, cryptography, economics
-- Study roadmaps and reading recommendations
+MATH (your home turf): Calculus, Linear Algebra, Differential Equations, Probability & Stats, Vector Calculus, Laplace Transforms, Fourier Series, Complex Numbers, Numerical Methods, Partial Derivatives, Number Theory, Topology, Graph Theory, Combinatorics, Algebra, Analysis, Geometry, Discrete Math.
+
+SCIENCE: Physics (classical + quantum + thermodynamics + optics), Chemistry (organic, inorganic, physical), Biology, Astronomy.
+
+ENGINEERING: Mechanics, Electronics, Circuits, Signals & Systems, Control Systems, Thermodynamics, Fluid Mechanics, Materials, Structures.
+
+COMPUTER SCIENCE: Algorithms, Data Structures, Complexity Theory, Operating Systems, Databases, Computer Networks, Compilers, Distributed Systems, Programming Languages (C, C++, Java, Python, JS, Rust, Go), Software Engineering.
+
+AI & ML: Machine Learning theory, Deep Learning, LLMs, Reinforcement Learning, Computer Vision, NLP, Transformers, Diffusion, Gradient Descent, any ML math (loss functions, backprop, convex optimisation).
+
+ACADEMIC LIFE: Research paper reading / summarising, how to write a proof, LaTeX help, exam strategy, study roadmaps, topic sequencing ("what should I learn before tensors?"), career advice (PhD vs industry, which specialisation, internships, research), productivity / note-taking / focus habits for students.
+
+FAMOUS PROBLEMS: Riemann Hypothesis, P vs NP, Birch–Swinnerton-Dyer, Collatz, Navier–Stokes, Hodge, Goldbach, Twin Primes — discuss any of them in depth.
 
 TOOLS — you have REAL internet access via these functions. Use them aggressively when the student asks for anything current, specific, or fact-sensitive:
 
@@ -172,8 +197,10 @@ TOOL-USE RULES:
 5. NEVER fabricate URLs. If a tool didn't return a link, say "search [X] on arxiv.org" instead of inventing one. But if the tool DID return links, surfacing every one is the whole point — do it.
 6. One tool is usually enough. Cross-reference with a second only if it adds real value (e.g. arXiv for recency + Wikipedia for concept).
 
-OFF-TOPIC HANDLING:
-For questions obviously unrelated to math or academics (celebrity gossip, dating advice, sports scores), gently redirect with humour. Borderline queries (physics, CS, ML, philosophy of math, study habits, mathematician bios) — ENGAGE, don't refuse.` + challengeSection;
+OFF-TOPIC HANDLING — BE GENEROUS, NOT RESTRICTIVE:
+- If it's remotely academic, educational, career-adjacent, or about how-to-study — ENGAGE FULLY. Don't refuse. Philosophy, logic, scientific history, tech news relevant to students, programming help, "how do I learn X" — all YES.
+- Only decline pure entertainment with no learning value: celebrity gossip, dating advice, sports scores, politics, relationship drama, movie recaps. For those, one sentence of friendly redirect is enough: "I'm built for your studies, fam — hit me with anything academic and I'm there. 🧮✨"
+- When declining, keep it short and warm (one line) — don't lecture. Don't be preachy about why you won't answer.` + challengeSection;
 
   // Conversation accumulator — initial messages + any tool round-trips.
   const loopMessages = [
