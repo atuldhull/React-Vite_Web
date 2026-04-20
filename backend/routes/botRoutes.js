@@ -1,11 +1,86 @@
 import express from "express";
-import { requireAuth } from "../middleware/authMiddleware.js";
+import axios from "axios";
+import { requireAuth, requireAdmin } from "../middleware/authMiddleware.js";
 import { aiLimiter } from "../middleware/rateLimiter.js";
 import { logger } from "../config/logger.js";
 import { PANDA_TOOLS, executeTool } from "../lib/pandaTools.js";
-import { callLLM } from "../lib/llm.js";
+import { callLLM, listProviders } from "../lib/llm.js";
 
 const router = express.Router();
+
+// ── GET /api/bot/diagnose — admin-only provider health check ────────
+//
+// Why: when prod PANDA shows the "napping" toast, it's because both
+// Gemini AND OpenRouter failed — but we can't tell from the frontend
+// whether it's an expired key, a rate limit, a model-name mismatch,
+// or a network fault. This endpoint hits each configured provider
+// with a minimal "reply with the word ok" prompt and surfaces the
+// raw upstream status + error body, so the admin can fix the right
+// thing in seconds instead of grepping Render logs.
+//
+// Admin-gated because the error bodies can echo the API key on some
+// 401 responses — not safe to expose publicly.
+router.get("/diagnose", requireAdmin, async (_req, res) => {
+  const providers = listProviders();
+  const out = { providers: [] };
+
+  for (const p of providers) {
+    const result = { name: p.name, hasKey: p.hasKey };
+    if (!p.hasKey) {
+      result.status = "missing_key";
+      result.hint   = `Set ${p.name === "gemini" ? "GEMINI_API_KEY" : "OPENROUTER_API_KEY"} in Render env`;
+      out.providers.push(result);
+      continue;
+    }
+
+    const url = p.name === "gemini"
+      ? "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
+      : "https://openrouter.ai/api/v1/chat/completions";
+    const model = p.name === "gemini" ? "gemini-2.5-flash" : "deepseek/deepseek-chat";
+    const body = {
+      model,
+      messages: [{ role: "user", content: "Reply with the single word 'ok'." }],
+      max_tokens: 20,
+      temperature: 0,
+    };
+    const headers = {
+      Authorization: `Bearer ${process.env[p.name === "gemini" ? "GEMINI_API_KEY" : "OPENROUTER_API_KEY"]}`,
+      "Content-Type": "application/json",
+    };
+    if (p.name === "openrouter") {
+      headers["HTTP-Referer"] = "https://mathcollective.bmsit.in";
+      headers["X-Title"]      = "Math Collective";
+    }
+
+    const t0 = Date.now();
+    try {
+      const r = await axios.post(url, body, { headers, timeout: 15000 });
+      result.status    = "ok";
+      result.httpCode  = r.status;
+      result.elapsedMs = Date.now() - t0;
+      result.reply     = r.data?.choices?.[0]?.message?.content?.slice(0, 60) || null;
+      result.model     = model;
+    } catch (err) {
+      result.status    = "failed";
+      result.httpCode  = err?.response?.status || null;
+      result.code      = err?.code || null;
+      result.elapsedMs = Date.now() - t0;
+      // Upstream error body is the load-bearing piece — that's where the
+      // real reason hides (auth / quota / model-name / region-gated).
+      result.upstreamError = err?.response?.data
+        ? JSON.stringify(err.response.data).slice(0, 500)
+        : (err.message || "unknown");
+    }
+    out.providers.push(result);
+  }
+
+  // Tiny summary so the admin can read it at a glance.
+  const working = out.providers.filter((p) => p.status === "ok").map((p) => p.name);
+  out.summary = working.length > 0
+    ? `Working: ${working.join(", ")}`
+    : "ALL PROVIDERS FAILING — see per-provider upstreamError below";
+  return res.json(out);
+});
 
 // Max turns of the LLM ↔ tool loop per request. 7 gives the model
 // enough slack to chain arxiv → semantic_scholar → wikipedia on a
@@ -35,7 +110,13 @@ router.post("/chat", requireAuth, aiLimiter, async (req, res) => {
     ? "\n\nCURRENT ARENA CHALLENGE:\n" + challengeContext + "\nHint mode: Be Socratic. Guide with questions. Never just hand over the answer.\n"
     : "";
 
-  const systemPrompt = `You are ΣBot — the dramatic, hilarious, and deeply brilliant AI math assistant of Math Collective at BMSIT.
+  const systemPrompt = `You are ΣBot (a.k.a. PANDA) — the dramatic, hilarious, and deeply brilliant AI math assistant of Math Collective at BMSIT. You are a fully-capable study buddy: calculus, linear algebra, probability, proofs, research, career advice, study roadmaps — engage with all of it, every time.
+
+GOLDEN RULE — ALWAYS ANSWER THOROUGHLY:
+- Every query gets a real, complete answer. NEVER respond with just an emoji, a one-liner, "I can't help with that", or a punt. Even a one-word query like "derivatives" gets a full mini-explainer.
+- If the question is ambiguous, pick the most likely reading and answer it. Do NOT ask the student "could you clarify?" unless their message is truly uninterpretable — pick the most likely meaning and roll with it.
+- Explain WHY, not just WHAT. Show the intuition, then the formal step, then the final answer.
+- When the student types something tiny like "explain derivatives" or "what is a matrix", give them a proper 4–6 paragraph answer with a worked example — not a single line.
 
 CRITICAL FORMATTING RULES (follow these exactly):
 - NEVER use LaTeX notation like \\[ \\boxed{} \\] or $$ $$ — students see raw symbols
@@ -43,21 +124,24 @@ CRITICAL FORMATTING RULES (follow these exactly):
 - For math: write it plainly — x^2, sqrt(x), integral of f(x), etc.
 - Use **bold** for emphasis and key terms
 - Use emoji liberally — they make math less scary
-- Keep paragraphs short. Break things up.
+- Keep paragraphs short (2–4 lines each). Break things up.
 
 PERSONALITY — you are ALL of these at once:
 - A genius who finds math genuinely funny and exciting
 - A hype man: celebrate every correct attempt like they just won the Champions League
 - A roaster (never mean): gently tease wrong approaches like a cool older sibling
 - Dramatically reference mathematicians: "Euler didn't die for this", "Newton is spinning in his grave"
-- Use internet humor: "no cap", "lowkey", "this equation is giving main character energy"
+- Use internet humor sparingly: "no cap", "lowkey", "main character energy" — one or two per reply, not every line
 - React with emoji combos: 🧮✨, 💀 (for elegant solutions), 🔥 (for correct answers), 😤 (for common mistakes)
+- NEVER let the humor crowd out the explanation — jokes are the seasoning, the math is the meal
 
 RESPONSE STRUCTURE (always follow this):
-1. One-liner reaction (funny/hype/dramatic) with emojis
-2. The actual math — clear, step by step, no LaTeX symbols
-3. Final answer highlighted with **Answer: [value]**
-4. A wild sign-off: fun fact, meme reference, or mathematician quote
+1. One-liner reaction (funny/hype/dramatic) with 1–2 emojis
+2. **The Intuition** — 2–3 lines on WHY this concept exists or matters
+3. **The Math** — step by step, each step on its own line, plain-text notation
+4. **Worked Example** — actual numbers or a concrete case so the abstraction lands
+5. **Answer: [value]** — highlighted so it's impossible to miss
+6. A wild sign-off: fun fact, meme reference, mathematician quote, or "ask me what if…" nudge
 
 TOPICS you OWN: Calculus | Linear Algebra | Differential Equations | Probability & Stats | Vector Calculus | Laplace Transforms | Fourier Series | Complex Numbers | Numerical Methods | Partial Derivatives | Number Theory | Topology | Graph Theory | Combinatorics | Algebra | Analysis | Geometry
 
@@ -179,12 +263,29 @@ For questions obviously unrelated to math or academics (celebrity gossip, dating
 
     // Fallthrough — too many iterations. Log what happened so we can
     // tell whether the model looped on the same tool or actually
-    // chained meaningfully. 502 so the frontend's single "napping"
-    // path handles it consistently.
-    logger.error({
+    // chained meaningfully. One last no-tools retry — if the model
+    // was stuck in a tool-call loop, asking it to just answer with
+    // no tools available tends to shake it loose.
+    logger.warn({
       toolsCalled,
       iterations: MAX_TOOL_ITERATIONS,
-    }, "PANDA: exhausted tool iterations without final reply");
+    }, "PANDA: exhausted tool iterations, attempting tools-off fallback");
+    try {
+      const { response: fallbackResp, provider: fallbackProvider } = await callLLM({
+        messages:    loopMessages,
+        temperature: 0.7,
+        maxTokens:   1200,
+        mode:        "chat",
+        timeoutMs:   30000,
+      });
+      lastProvider = fallbackProvider;
+      const finalMsg = fallbackResp.data?.choices?.[0]?.message;
+      if (finalMsg?.content?.trim()) {
+        return res.json({ reply: finalMsg.content, fallback: "no_tools" });
+      }
+    } catch (fallbackErr) {
+      logger.error({ err: fallbackErr, toolsCalled }, "PANDA: tools-off fallback also failed");
+    }
     return res.status(502).json({ error: "Chained too many tools without answering" });
   } catch (err) {
     // Map upstream failures to accurate status codes so logs + the
