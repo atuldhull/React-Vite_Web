@@ -23,6 +23,7 @@
     "e2e:headed": "playwright test --headed",
     "e2e:debug": "playwright test --debug",
     "e2e:ui": "playwright test --ui",
+    "test:all": "npm run test && npm run e2e",
     "typecheck": "tsc --noEmit",
     "gen:api-types": "openapi-typescript docs/openapi.yaml -o frontend/src/lib/api-types.d.ts",
     "prepare": "husky"

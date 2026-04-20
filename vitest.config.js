@@ -90,6 +90,20 @@ export default defineConfig({
         // as teacherSaveQuestion) / update / delete / toggle.
         // Guarded by challenge.test.js.
         "backend/controllers/challengeController.js",
+        // Announcements CRUD — guarded by announcements.test.js.
+        "backend/controllers/announcementController.js",
+        // Contact form email path — HTML-escapes user input, header
+        // CR/LF sanitise, nodemailer double-send (admin + auto-reply).
+        // Guarded by contact.test.js.
+        "backend/controllers/contactController.js",
+        // Event attendance — self-checkin / manual / QR-scan / list.
+        // Pins the 402 Payment-Required gate on paid events + the
+        // manual-checkin-NOT-gated intentional carve-out.
+        // Guarded by event-attendance.test.js.
+        "backend/controllers/event/attendanceController.js",
+        // Event CRUD — listing + UUID-guarded single + create/update
+        // paid-event sanity + toggle-reg. Guarded by event-crud.test.js.
+        "backend/controllers/event/eventCrudController.js",
         // Validators — each of these gates a mutating API surface.
         // All tested in tests/unit/*-validators.test.js +
         // tests/unit/all-validators.test.js.
