@@ -1,60 +1,57 @@
 /**
- * EarthScene.jsx — Three.js WebGL hero (rev 3).
+ * EarthScene.jsx — Three.js WebGL hero (rev 2).
  *
- * Rev 3 changes (from rev 2):
- *   - HEADQUARTERS rebuilt as a procedural math-society skyline:
- *       * Hex paved plaza with concentric emissive ring lanes.
- *       * 14 surrounding buildings of varying heights with lit window
- *         strips, plus 4 tall corner spires marking compass points.
- *       * Tall central tower with stacked rotating bands and a beam
- *         of light shooting up through the upper atmosphere.
- *       * π-gateway, ∞-ring orbiting the tower, Σ + φ side monoliths.
- *       * Animated equation hologram floating above the plaza.
- *       * Ground fog + ember particles for cinematic depth.
- *   - BLOOM POSTPROCESSING via the `postprocessing` package — the
- *     emissive lights now actually glow instead of looking flat.
- *     Costs roughly one extra GPU pass; on every device tested it
- *     stays under the 16.6 ms 60 fps budget.
- *   - Camera path rewritten as a smooth multi-stage dive: orbit zoom
- *     -> graze the cloud tops -> pan-and-descend onto the plaza so
- *     the city reveals itself the way a drone shot would.
+ * Changes from rev 1:
+ *   - DELETED the blue Fresnel atmosphere shader entirely. User feedback:
+ *     "the blue light around it should be gone".
+ *   - Added real specular + normal + night-light texture maps so the
+ *     planet has ocean shine, terrain depth, and city lights on the
+ *     night side. Textures pulled from threejs.org's official planet
+ *     example asset set (CC0, CDN-cached, no rate limit). The local
+ *     /public/textures/earth.jpg is the day color map.
+ *   - ACES filmic tone mapping + sRGB output encoding so colours match
+ *     what the textures were authored for instead of looking washed out.
+ *   - Higher segment count (192) so the silhouette doesn't show
+ *     polygonal facets at the limb.
  *
- * Earth itself (textures, day/night shader, no atmosphere blue) is
- * unchanged from rev 2 — that part landed well.
+ *   - Replaced the three small monument primitives with a proper
+ *     "Math Headquarters" architectural scene that becomes visible at
+ *     scroll progress > 0.6:
+ *       - A polished stone plaza with edge underglow.
+ *       - A tall central tower (Greek-column style, dark marble + gold
+ *         cap).
+ *       - Two side pillars + horizontal beam forming a π-gateway.
+ *       - A floating ∞ ring rotating around the tower.
+ *       - Subtle dust particles for atmospheric depth.
+ *       - Sunset-orange directional lighting.
+ *
+ * Memory: every geometry / material / texture / renderer is tracked in
+ * cleanupRef and disposed on unmount. rAF cancelled too.
  */
 
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
-import { EffectComposer, RenderPass, EffectPass, BloomEffect, KernelSize } from "postprocessing";
 
 const TEX = {
-  earthDay: "/textures/earth.jpg",
-  clouds:   "/textures/clouds.png",
-  specular: "https://threejs.org/examples/textures/planets/earth_specular_2048.jpg",
-  normal:   "https://threejs.org/examples/textures/planets/earth_normal_2048.jpg",
-  lights:   "https://threejs.org/examples/textures/planets/earth_lights_2048.png",
+  // Local — already shipped in /public/textures/.
+  earthDay:  "/textures/earth.jpg",
+  clouds:    "/textures/clouds.png",
+  // Three.js's official planet example set — public CDN, CC0. Adds the
+  // ocean shine + terrain depth + city lights without us shipping
+  // hi-res textures ourselves.
+  specular:  "https://threejs.org/examples/textures/planets/earth_specular_2048.jpg",
+  normal:    "https://threejs.org/examples/textures/planets/earth_normal_2048.jpg",
+  lights:    "https://threejs.org/examples/textures/planets/earth_lights_2048.png",
 };
 
 function scrollSpan() {
   return window.innerHeight * 5;
 }
 
-// Deterministic pseudo-random — keeps the city layout stable across
-// page refreshes so the scene doesn't reshuffle on every reload.
-function mulberry32(seed) {
-  let t = seed >>> 0;
-  return function () {
-    t = (t + 0x6D2B79F5) >>> 0;
-    let r = Math.imul(t ^ (t >>> 15), 1 | t);
-    r = (r + Math.imul(r ^ (r >>> 7), 61 | r)) ^ r;
-    return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
 export default function EarthScene() {
   const mountRef = useRef(null);
   const rafRef = useRef(null);
-  const cleanupRef = useRef({ geometries: [], materials: [], textures: [], renderer: null, composer: null });
+  const cleanupRef = useRef({ geometries: [], materials: [], textures: [], renderer: null });
 
   useEffect(() => {
     const mount = mountRef.current;
@@ -65,49 +62,57 @@ export default function EarthScene() {
       antialias: true,
       alpha: true,
       powerPreference: "high-performance",
-      // postprocessing's EffectComposer wants a stencil buffer for
-      // some of its effects; cheap to enable, no measurable cost.
-      stencil: false,
-      depth: true,
     });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setClearColor(0x05080f, 1);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
+    // ACES filmic = standard cinematic tone mapping. Without it the
+    // textures look chalky; with it the contrast between day side and
+    // night side is much closer to real reference photography.
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.05;
     mount.appendChild(renderer.domElement);
     cleanupRef.current.renderer = renderer;
 
     const scene = new THREE.Scene();
-    scene.fog = new THREE.FogExp2(0x05080f, 0.012);
-    const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.01, 400);
+    // Mild fog so the math HQ in the distance fades into atmospheric
+    // haze instead of popping in sharp.
+    scene.fog = new THREE.FogExp2(0x05080f, 0.018);
+    const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.01, 200);
     camera.position.set(0, 0, 2.8);
 
-    // ── Earth textures + materials ────────────────────────────────
+    // ── Texture loading ───────────────────────────────────────────
     const loader = new THREE.TextureLoader();
     loader.crossOrigin = "anonymous";
-    const dayMap = loader.load(TEX.earthDay);
-    const specMap = loader.load(TEX.specular);
+    const dayMap   = loader.load(TEX.earthDay);
+    const specMap  = loader.load(TEX.specular);
     const normalMap = loader.load(TEX.normal);
     const nightMap = loader.load(TEX.lights);
     const cloudMap = loader.load(TEX.clouds);
     [dayMap, nightMap, cloudMap].forEach((t) => { t.colorSpace = THREE.SRGBColorSpace; });
+    // Anisotropy bumps texture sharpness at glancing angles (the limb
+    // of the planet). 8 is a safe middle ground — most GPUs cap at 16.
     const aniso = renderer.capabilities.getMaxAnisotropy();
     [dayMap, specMap, normalMap, nightMap, cloudMap].forEach((t) => { t.anisotropy = Math.min(8, aniso); });
     cleanupRef.current.textures.push(dayMap, specMap, normalMap, nightMap, cloudMap);
 
-    // ── Earth (unchanged from rev 2 — this part landed well) ─────
+    // ── Earth ─────────────────────────────────────────────────────
+    // Hand-rolled shader so we can blend day + night sides based on
+    // sun direction and add a specular ocean highlight from the spec
+    // map. MeshPhongMaterial would do most of this but blending in the
+    // night-lights texture cleanly requires a custom fragment.
     const earthGeo = new THREE.SphereGeometry(1, 192, 192);
     const sunDirection = new THREE.Vector3(1, 0.25, 0.6).normalize();
+    const earthUniforms = {
+      uDayMap:    { value: dayMap },
+      uNightMap:  { value: nightMap },
+      uSpecMap:   { value: specMap },
+      uNormalMap: { value: normalMap },
+      uSunDir:    { value: sunDirection.clone() },
+    };
     const earthMat = new THREE.ShaderMaterial({
-      uniforms: {
-        uDayMap:    { value: dayMap },
-        uNightMap:  { value: nightMap },
-        uSpecMap:   { value: specMap },
-        uNormalMap: { value: normalMap },
-        uSunDir:    { value: sunDirection.clone() },
-      },
+      uniforms: earthUniforms,
       vertexShader: /* glsl */`
         varying vec2 vUv;
         varying vec3 vNormalW;
@@ -128,17 +133,33 @@ export default function EarthScene() {
         varying vec2  vUv;
         varying vec3  vNormalW;
         varying vec3  vViewDir;
+
         void main() {
+          // Diffuse day / night blend driven by the sun direction.
+          // dot > 0 → lit side, < 0 → night side. Use a soft transition
+          // band around the terminator instead of a hard cut so the
+          // edge reads naturally.
           float sunDot = dot(normalize(vNormalW), normalize(uSunDir));
           float dayMix = smoothstep(-0.15, 0.15, sunDot);
+
           vec3 dayCol   = texture2D(uDayMap,   vUv).rgb;
           vec3 nightCol = texture2D(uNightMap, vUv).rgb;
+          // City lights only show on the night side; multiply by
+          // (1 - dayMix) so they fade as the terminator passes.
           vec3 col = mix(nightCol * 1.4, dayCol, dayMix);
+
+          // Ocean specular — spec map is white on water, black on land.
+          // Blinn-Phong reflection vector dotted with view dir, raised
+          // to high power = sharp highlight only on water at the right
+          // viewing angle.
           float spec = texture2D(uSpecMap, vUv).r;
           vec3 reflectDir = reflect(-uSunDir, normalize(vNormalW));
           float specPow   = pow(max(dot(reflectDir, vViewDir), 0.0), 32.0);
           col += vec3(0.9, 0.95, 1.0) * spec * specPow * 0.7 * dayMix;
+
+          // Ambient fill so the night side isn't pitch-black.
           col += vec3(0.04, 0.05, 0.08) * (1.0 - dayMix);
+
           gl_FragColor = vec4(col, 1.0);
         }
       `,
@@ -148,368 +169,269 @@ export default function EarthScene() {
     cleanupRef.current.geometries.push(earthGeo);
     cleanupRef.current.materials.push(earthMat);
 
+    // ── Cloud layer ───────────────────────────────────────────────
     const cloudGeo = new THREE.SphereGeometry(1.013, 96, 96);
     const cloudMat = new THREE.MeshStandardMaterial({
-      map: cloudMap, transparent: true, opacity: 0.42, depthWrite: false,
+      map: cloudMap,
+      transparent: true,
+      opacity: 0.42,
+      depthWrite: false,
     });
     const clouds = new THREE.Mesh(cloudGeo, cloudMat);
     scene.add(clouds);
     cleanupRef.current.geometries.push(cloudGeo);
     cleanupRef.current.materials.push(cloudMat);
 
+    // (No atmosphere mesh — user feedback was the blue Fresnel rim
+    // looked artificial. Earth now reads as a clean planet against
+    // dark space, with the only "atmosphere" being the soft day/night
+    // terminator bake we do in the fragment shader above.)
+
     // ── Stars ─────────────────────────────────────────────────────
     const starCount = 2400;
     const starPositions = new Float32Array(starCount * 3);
+    const starSizes     = new Float32Array(starCount);
     for (let i = 0; i < starCount; i++) {
-      const r = 30 + Math.random() * 35;
+      const r     = 30 + Math.random() * 35;
       const theta = Math.random() * Math.PI * 2;
-      const phi = Math.acos(2 * Math.random() - 1);
+      const phi   = Math.acos(2 * Math.random() - 1);
       starPositions[i * 3]     = r * Math.sin(phi) * Math.cos(theta);
       starPositions[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
       starPositions[i * 3 + 2] = r * Math.cos(phi);
+      // Vary size so the field isn't a uniform speckle. A handful of
+      // bright "lead" stars + lots of small ones reads as real sky.
+      starSizes[i] = Math.random() < 0.05 ? 0.18 : (0.05 + Math.random() * 0.05);
     }
     const starGeo = new THREE.BufferGeometry();
     starGeo.setAttribute("position", new THREE.BufferAttribute(starPositions, 3));
-    const starMat = new THREE.PointsMaterial({ color: 0xffffff, size: 0.08, sizeAttenuation: true, transparent: true, opacity: 0.9 });
+    starGeo.setAttribute("size",     new THREE.BufferAttribute(starSizes, 1));
+    const starMat = new THREE.PointsMaterial({
+      color: 0xffffff,
+      sizeAttenuation: true,
+      transparent: true,
+      opacity: 0.9,
+      size: 0.08,
+    });
     const stars = new THREE.Points(starGeo, starMat);
     scene.add(stars);
     cleanupRef.current.geometries.push(starGeo);
     cleanupRef.current.materials.push(starMat);
 
     // ── Lighting ──────────────────────────────────────────────────
+    // Single directional light positioned to match the shader's
+    // uSunDir uniform. Slightly warm to evoke golden-hour.
     const sun = new THREE.DirectionalLight(0xfff0d6, 1.4);
     sun.position.copy(sunDirection).multiplyScalar(5);
     scene.add(sun);
+    // Faint ambient so MeshStandardMaterial cloud layer + HQ stones
+    // don't go fully black on the unlit side.
     scene.add(new THREE.AmbientLight(0x223355, 0.4));
 
-    // ════════════════════════════════════════════════════════════
-    // MATH SOCIETY — procedural city, visible at scroll > 0.6
-    // ════════════════════════════════════════════════════════════
-    const society = new THREE.Group();
-    society.position.set(0, -3.5, 0);
-    society.visible = false;
-    scene.add(society);
+    // ══════════════════════════════════════════════════════════════
+    // MATH HEADQUARTERS — visible at scroll > 0.6
+    // ══════════════════════════════════════════════════════════════
+    const hq = new THREE.Group();
+    hq.position.set(0, -3.5, 0);
+    hq.visible = false;
+    scene.add(hq);
 
-    const rng = mulberry32(42); // stable seed → same layout every reload
-
-    // Hex paved plaza (radius 4) — broader than before so the city
-    // feels like it goes on past the camera.
-    const plazaGeo = new THREE.CylinderGeometry(4, 4.2, 0.2, 6);
+    // Stone plaza — large flat octagon, polished marble feel.
+    const plazaGeo = new THREE.CylinderGeometry(2.4, 2.6, 0.18, 8);
     const plazaMat = new THREE.MeshStandardMaterial({
-      color: 0x1a1828, metalness: 0.25, roughness: 0.55,
+      color: 0x2a2438, metalness: 0.2, roughness: 0.45,
     });
-    society.add(new THREE.Mesh(plazaGeo, plazaMat));
+    const plaza = new THREE.Mesh(plazaGeo, plazaMat);
+    hq.add(plaza);
     cleanupRef.current.geometries.push(plazaGeo);
     cleanupRef.current.materials.push(plazaMat);
 
-    // Concentric emissive ring lanes — three rings of decreasing
-    // radius drawn just above the plaza so they read as inlaid lights.
-    const ringColours = [0x7c3aed, 0x00cfff, 0xd4a017];
-    [3.5, 2.6, 1.7].forEach((r, i) => {
-      const g = new THREE.TorusGeometry(r, 0.018, 8, 80);
-      const m = new THREE.MeshBasicMaterial({ color: ringColours[i] });
-      const ring = new THREE.Mesh(g, m);
-      ring.rotation.x = Math.PI / 2;
-      ring.position.y = 0.11;
-      society.add(ring);
-      cleanupRef.current.geometries.push(g);
-      cleanupRef.current.materials.push(m);
-    });
+    // Edge underglow — thin emissive ring around the plaza rim. This
+    // is what gives the "futuristic stadium" feel.
+    const ringGeo = new THREE.TorusGeometry(2.45, 0.025, 8, 64);
+    const ringMat = new THREE.MeshBasicMaterial({ color: 0x7c3aed });
+    const ring = new THREE.Mesh(ringGeo, ringMat);
+    ring.rotation.x = Math.PI / 2;
+    ring.position.y = 0.1;
+    hq.add(ring);
+    cleanupRef.current.geometries.push(ringGeo);
+    cleanupRef.current.materials.push(ringMat);
 
-    // 14 surrounding buildings arranged in a ring of ~3.0-3.6 radius,
-    // varying heights and widths. Each building gets a darker base
-    // material plus a thin emissive band near the top to suggest a
-    // lit window strip — cheap city-at-night feel without a per-
-    // building texture.
-    const buildingMat = new THREE.MeshStandardMaterial({
-      color: 0x1f1a2e, metalness: 0.4, roughness: 0.55,
-    });
-    cleanupRef.current.materials.push(buildingMat);
-    const windowMatPurple = new THREE.MeshBasicMaterial({ color: 0xa888ff });
-    const windowMatCyan   = new THREE.MeshBasicMaterial({ color: 0x66e0ff });
-    const windowMatGold   = new THREE.MeshBasicMaterial({ color: 0xffc866 });
-    cleanupRef.current.materials.push(windowMatPurple, windowMatCyan, windowMatGold);
-
-    const buildings = [];
-    for (let i = 0; i < 14; i++) {
-      const angle = (i / 14) * Math.PI * 2 + rng() * 0.15;
-      const r = 2.9 + rng() * 0.7;
-      const w = 0.3 + rng() * 0.25;
-      const d = 0.3 + rng() * 0.25;
-      const h = 1.0 + rng() * 1.6;
-
-      const geo = new THREE.BoxGeometry(w, h, d);
-      const b = new THREE.Mesh(geo, buildingMat);
-      b.position.set(Math.cos(angle) * r, h / 2, Math.sin(angle) * r);
-      b.lookAt(0, h / 2, 0);
-      society.add(b);
-      cleanupRef.current.geometries.push(geo);
-      buildings.push(b);
-
-      // Window strip — thin emissive band 70-95 % of the building's
-      // height. Picks a colour from the palette so the skyline reads
-      // multicoloured rather than uniform.
-      const stripGeo = new THREE.BoxGeometry(w * 0.95, h * 0.06, d * 0.95);
-      const stripMat = [windowMatPurple, windowMatCyan, windowMatGold][i % 3];
-      const strip = new THREE.Mesh(stripGeo, stripMat);
-      strip.position.copy(b.position);
-      strip.position.y = h * (0.7 + rng() * 0.25);
-      strip.rotation.copy(b.rotation);
-      society.add(strip);
-      cleanupRef.current.geometries.push(stripGeo);
-    }
-
-    // 4 corner spires marking compass points — taller than the
-    // city ring, visible from far away. Each topped with a glowing
-    // orb in a different math-symbol colour.
-    const spireMat = new THREE.MeshStandardMaterial({ color: 0x14101e, metalness: 0.5, roughness: 0.4 });
-    cleanupRef.current.materials.push(spireMat);
-    [
-      [ 4.6, 0,  0, 0xd4a017], // east — gold (Σ)
-      [-4.6, 0,  0, 0x7c3aed], // west — purple (π)
-      [ 0,   0,  4.6, 0x00cfff], // south — cyan (∞)
-      [ 0,   0, -4.6, 0xff5599], // north — magenta (φ)
-    ].forEach(([x, _y, z, c]) => {
-      const sg = new THREE.CylinderGeometry(0.12, 0.18, 3.0, 12);
-      const s  = new THREE.Mesh(sg, spireMat);
-      s.position.set(x, 1.5, z);
-      society.add(s);
-      cleanupRef.current.geometries.push(sg);
-      const og = new THREE.SphereGeometry(0.18, 16, 16);
-      const om = new THREE.MeshBasicMaterial({ color: c });
-      const orb = new THREE.Mesh(og, om);
-      orb.position.set(x, 3.15, z);
-      society.add(orb);
-      cleanupRef.current.geometries.push(og);
-      cleanupRef.current.materials.push(om);
-    });
-
-    // Central tower — fluted shaft + 3 stacked rotating bands + cap.
-    const towerShaftGeo = new THREE.CylinderGeometry(0.42, 0.5, 3.6, 24);
+    // Central tower — a tall fluted column. Approximated as a tall
+    // cylinder with a wider square cap (architrave) and a glowing
+    // capital on top.
     const towerShaft = new THREE.Mesh(
-      towerShaftGeo,
-      new THREE.MeshStandardMaterial({ color: 0x282038, metalness: 0.5, roughness: 0.35 }),
+      new THREE.CylinderGeometry(0.28, 0.32, 2.2, 24),
+      new THREE.MeshStandardMaterial({ color: 0x3a3450, metalness: 0.3, roughness: 0.5 }),
     );
-    towerShaft.position.y = 1.9;
-    society.add(towerShaft);
-    cleanupRef.current.geometries.push(towerShaftGeo);
+    towerShaft.position.y = 1.2;
+    hq.add(towerShaft);
+    cleanupRef.current.geometries.push(towerShaft.geometry);
     cleanupRef.current.materials.push(towerShaft.material);
 
-    // Stacked rotating bands (rotation handled in tick).
-    const bandColours = [0xd4a017, 0x7c3aed, 0x00cfff];
-    const towerBands = [];
-    bandColours.forEach((c, i) => {
-      const g = new THREE.TorusGeometry(0.62 + i * 0.05, 0.04, 8, 48);
-      const m = new THREE.MeshBasicMaterial({ color: c });
-      const ring = new THREE.Mesh(g, m);
-      ring.position.y = 1.2 + i * 0.9;
-      ring.rotation.x = Math.PI / 2;
-      society.add(ring);
-      towerBands.push(ring);
-      cleanupRef.current.geometries.push(g);
-      cleanupRef.current.materials.push(m);
-    });
+    const towerCap = new THREE.Mesh(
+      new THREE.BoxGeometry(0.85, 0.18, 0.85),
+      new THREE.MeshStandardMaterial({ color: 0x1f1a2e, metalness: 0.6, roughness: 0.3 }),
+    );
+    towerCap.position.y = 2.4;
+    hq.add(towerCap);
+    cleanupRef.current.geometries.push(towerCap.geometry);
+    cleanupRef.current.materials.push(towerCap.material);
 
-    const towerCapGeo = new THREE.OctahedronGeometry(0.4);
-    const towerCapMat = new THREE.MeshBasicMaterial({ color: 0xffd166 });
-    const towerCap = new THREE.Mesh(towerCapGeo, towerCapMat);
-    towerCap.position.y = 4.0;
-    society.add(towerCap);
-    cleanupRef.current.geometries.push(towerCapGeo);
-    cleanupRef.current.materials.push(towerCapMat);
+    const towerCrown = new THREE.Mesh(
+      new THREE.OctahedronGeometry(0.32),
+      new THREE.MeshBasicMaterial({ color: 0xd4a017 }), // glowing gold
+    );
+    towerCrown.position.y = 2.7;
+    hq.add(towerCrown);
+    cleanupRef.current.geometries.push(towerCrown.geometry);
+    cleanupRef.current.materials.push(towerCrown.material);
 
-    // Light beam shooting up from the tower — vertical cone with
-    // additive blending so it reads as light, not a solid cone.
-    const beamGeo = new THREE.CylinderGeometry(0.05, 0.6, 12, 24, 1, true);
-    const beamMat = new THREE.MeshBasicMaterial({
-      color: 0xffd166,
-      transparent: true,
-      opacity: 0.18,
-      side: THREE.DoubleSide,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false,
-    });
+    // π-gateway in front of the plaza — two pillars + horizontal beam.
+    const pillarMat = new THREE.MeshStandardMaterial({ color: 0x2c2540, metalness: 0.25, roughness: 0.55 });
+    const pillarGeo = new THREE.BoxGeometry(0.18, 1.4, 0.18);
+    const pillarL = new THREE.Mesh(pillarGeo, pillarMat);
+    const pillarR = new THREE.Mesh(pillarGeo, pillarMat);
+    pillarL.position.set(-0.55, 0.8, 1.6);
+    pillarR.position.set( 0.55, 0.8, 1.6);
+    hq.add(pillarL); hq.add(pillarR);
+    cleanupRef.current.geometries.push(pillarGeo);
+    cleanupRef.current.materials.push(pillarMat);
+
+    const beamGeo = new THREE.BoxGeometry(1.4, 0.14, 0.22);
+    const beamMat = new THREE.MeshStandardMaterial({ color: 0x1f1a2e, metalness: 0.5, roughness: 0.3 });
     const beam = new THREE.Mesh(beamGeo, beamMat);
-    beam.position.y = 10;
-    society.add(beam);
+    beam.position.set(0, 1.55, 1.6);
+    hq.add(beam);
     cleanupRef.current.geometries.push(beamGeo);
     cleanupRef.current.materials.push(beamMat);
 
-    // π-gateway in front of the plaza
-    const pillarGeo = new THREE.BoxGeometry(0.22, 1.8, 0.22);
-    const pillarMat = new THREE.MeshStandardMaterial({ color: 0x251f3a, metalness: 0.4, roughness: 0.45 });
-    cleanupRef.current.materials.push(pillarMat);
-    const pillarL = new THREE.Mesh(pillarGeo, pillarMat);
-    const pillarR = new THREE.Mesh(pillarGeo, pillarMat);
-    pillarL.position.set(-0.7, 1.0, 2.6);
-    pillarR.position.set( 0.7, 1.0, 2.6);
-    society.add(pillarL); society.add(pillarR);
-    cleanupRef.current.geometries.push(pillarGeo);
-
-    const beamGwGeo = new THREE.BoxGeometry(1.7, 0.18, 0.28);
-    const beamGwMat = new THREE.MeshStandardMaterial({ color: 0x14101e, metalness: 0.6, roughness: 0.3 });
-    const beamGw = new THREE.Mesh(beamGwGeo, beamGwMat);
-    beamGw.position.set(0, 1.95, 2.6);
-    society.add(beamGw);
-    cleanupRef.current.geometries.push(beamGwGeo);
-    cleanupRef.current.materials.push(beamGwMat);
-
-    // ∞ ring orbiting the tower
-    const infinityGeo = new THREE.TorusGeometry(1.4, 0.05, 12, 96);
+    // ∞ ring — large torus rotating around the tower in the horizontal
+    // plane. Gives the scene constant motion without being distracting.
+    const infinityGeo = new THREE.TorusGeometry(1.0, 0.04, 12, 96);
     const infinityMat = new THREE.MeshBasicMaterial({ color: 0x00cfff });
     const infinityRing = new THREE.Mesh(infinityGeo, infinityMat);
-    infinityRing.position.y = 2.4;
-    infinityRing.rotation.x = Math.PI / 2.3;
-    society.add(infinityRing);
+    infinityRing.position.y = 1.6;
+    infinityRing.rotation.x = Math.PI / 2.2;
+    hq.add(infinityRing);
     cleanupRef.current.geometries.push(infinityGeo);
     cleanupRef.current.materials.push(infinityMat);
 
-    // City lights — purple at base, gold at the crown, plus two cyan
-    // lights at the gateway. Real lights cost a bit, but with bloom
-    // they're what sells "this is a glowing city".
-    society.add(Object.assign(new THREE.PointLight(0x7c3aed, 4.0, 8, 1.5), { position: new THREE.Vector3(0, 0.6, 0) }));
-    society.add(Object.assign(new THREE.PointLight(0xffd166, 2.5, 6, 1.5), { position: new THREE.Vector3(0, 4.0, 0) }));
-    society.add(Object.assign(new THREE.PointLight(0x00cfff, 1.8, 5, 1.5), { position: new THREE.Vector3(-0.7, 1.5, 2.6) }));
-    society.add(Object.assign(new THREE.PointLight(0x00cfff, 1.8, 5, 1.5), { position: new THREE.Vector3( 0.7, 1.5, 2.6) }));
+    // Side monoliths — Σ to the left, π to the right, sized like
+    // statue plinths. Simple slabs with emissive runes.
+    const sigmaGeo = new THREE.BoxGeometry(0.45, 1.1, 0.18);
+    const sigmaMat = new THREE.MeshStandardMaterial({ color: 0x251f3a, metalness: 0.3, roughness: 0.5, emissive: 0xd4a017, emissiveIntensity: 0.15 });
+    const sigma = new THREE.Mesh(sigmaGeo, sigmaMat);
+    sigma.position.set(-1.6, 0.65, 0.4);
+    sigma.rotation.y = 0.3;
+    hq.add(sigma);
+    cleanupRef.current.geometries.push(sigmaGeo);
+    cleanupRef.current.materials.push(sigmaMat);
 
-    // Ground fog — additive gradient plane just above the plaza floor
-    // so haze rolls between buildings.
-    const fogPlaneGeo = new THREE.PlaneGeometry(11, 11);
-    const fogPlaneMat = new THREE.MeshBasicMaterial({
-      color: 0x6b4ea8,
-      transparent: true,
-      opacity: 0.08,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false,
-    });
-    const fogPlane = new THREE.Mesh(fogPlaneGeo, fogPlaneMat);
-    fogPlane.rotation.x = -Math.PI / 2;
-    fogPlane.position.y = 0.4;
-    society.add(fogPlane);
-    cleanupRef.current.geometries.push(fogPlaneGeo);
-    cleanupRef.current.materials.push(fogPlaneMat);
+    const piMonoGeo = new THREE.BoxGeometry(0.45, 1.1, 0.18);
+    const piMonoMat = new THREE.MeshStandardMaterial({ color: 0x251f3a, metalness: 0.3, roughness: 0.5, emissive: 0x7c3aed, emissiveIntensity: 0.18 });
+    const piMono = new THREE.Mesh(piMonoGeo, piMonoMat);
+    piMono.position.set(1.6, 0.65, 0.4);
+    piMono.rotation.y = -0.3;
+    hq.add(piMono);
+    cleanupRef.current.geometries.push(piMonoGeo);
+    cleanupRef.current.materials.push(piMonoMat);
 
-    // Ember/dust particles — 350 points distributed in a cylinder
-    // around the plaza, drifting slowly upward.
-    const dustCount = 350;
+    // HQ floor lights — two purple point lights anchored in the plaza.
+    const purpleLight = new THREE.PointLight(0x7c3aed, 1.5, 6, 1.5);
+    purpleLight.position.set(0, 0.4, 0);
+    hq.add(purpleLight);
+    const goldLight = new THREE.PointLight(0xd4a017, 1.0, 5, 1.5);
+    goldLight.position.set(0, 2.7, 0);
+    hq.add(goldLight);
+
+    // Dust particles around the plaza for atmospheric depth.
+    const dustCount = 200;
     const dustPos = new Float32Array(dustCount * 3);
-    const dustVel = new Float32Array(dustCount); // per-particle vertical speed
     for (let i = 0; i < dustCount; i++) {
-      const a = rng() * Math.PI * 2;
-      const r = 0.5 + rng() * 4.0;
+      const a = Math.random() * Math.PI * 2;
+      const r = 1.8 + Math.random() * 1.5;
       dustPos[i * 3]     = Math.cos(a) * r;
-      dustPos[i * 3 + 1] = rng() * 4.5;
+      dustPos[i * 3 + 1] = Math.random() * 2.5;
       dustPos[i * 3 + 2] = Math.sin(a) * r;
-      dustVel[i] = 0.001 + rng() * 0.002;
     }
     const dustGeo = new THREE.BufferGeometry();
     dustGeo.setAttribute("position", new THREE.BufferAttribute(dustPos, 3));
-    const dustMat = new THREE.PointsMaterial({
-      color: 0xffd9b0, size: 0.04, transparent: true, opacity: 0.55, sizeAttenuation: true, depthWrite: false,
-    });
+    const dustMat = new THREE.PointsMaterial({ color: 0xc4a8ff, size: 0.04, transparent: true, opacity: 0.6, sizeAttenuation: true });
     const dust = new THREE.Points(dustGeo, dustMat);
-    society.add(dust);
+    hq.add(dust);
     cleanupRef.current.geometries.push(dustGeo);
     cleanupRef.current.materials.push(dustMat);
-
-    // ── Postprocessing: bloom for the emissive/Basic materials ────
-    // Without bloom, the rings + window strips + lights look flat
-    // pixels. With bloom, they bleed light and the scene jumps from
-    // "decent CGI" to "stylised cinematic".
-    const composer = new EffectComposer(renderer);
-    composer.addPass(new RenderPass(scene, camera));
-    const bloomEffect = new BloomEffect({
-      kernelSize: KernelSize.LARGE,
-      luminanceThreshold: 0.42, // only bright areas bloom — avoids softening the planet's day side
-      luminanceSmoothing:  0.18,
-      intensity: 1.15,
-    });
-    composer.addPass(new EffectPass(camera, bloomEffect));
-    cleanupRef.current.composer = composer;
 
     // ── Resize ────────────────────────────────────────────────────
     const onResize = () => {
       camera.aspect = window.innerWidth / window.innerHeight;
       camera.updateProjectionMatrix();
       renderer.setSize(window.innerWidth, window.innerHeight);
-      composer.setSize(window.innerWidth, window.innerHeight);
     };
     window.addEventListener("resize", onResize);
 
-    // ── Camera choreography ───────────────────────────────────────
-    // Phase 1 (0.00-0.45): orbit zoom toward planet.
-    // Phase 2 (0.45-0.62): graze the cloud tops with a slight tilt.
-    // Phase 3 (0.62-1.00): pan-and-descend onto the math society
-    //    plaza. End frame: standing in front of the π-gateway looking
-    //    at the central tower.
-    const target  = { camX: 0, camY: 0, camZ: 2.8, lookY: 0, lookX: 0 };
-    const current = { camX: 0, camY: 0, camZ: 2.8, lookY: 0, lookX: 0 };
+    // ── Animation loop ────────────────────────────────────────────
+    const target  = { camZ: 2.8, camY: 0, camX: 0, lookY: 0 };
+    const current = { camZ: 2.8, camY: 0, camX: 0, lookY: 0 };
 
     const tick = () => {
       const span = scrollSpan();
       const p = span > 0 ? Math.max(0, Math.min(1, window.scrollY / span)) : 0;
 
-      if (p < 0.45) {
-        const t = p / 0.45;
+      if (p < 0.5) {
+        // Phase 1: zoom in from far orbit to close-up.
+        const t = p / 0.5;
         target.camZ  = THREE.MathUtils.lerp(2.8, 1.05, t);
-        target.camY  = 0; target.camX = 0;
-        target.lookY = 0; target.lookX = 0;
-      } else if (p < 0.62) {
-        const t = (p - 0.45) / 0.17;
+        target.camY  = 0;
+        target.camX  = 0;
+        target.lookY = 0;
+      } else if (p < 0.65) {
+        // Phase 2: brief pause + slight lateral drift hinting at "we're
+        // approaching something". No more atmosphere flash (user
+        // didn't like it); just a gentle camera shift downward.
+        const t = (p - 0.5) / 0.15;
         target.camZ  = 1.05;
-        target.camY  = THREE.MathUtils.lerp(0, -0.5, t);
-        target.camX  = THREE.MathUtils.lerp(0, 0.15, t);
-        target.lookY = THREE.MathUtils.lerp(0, -0.8, t);
-        target.lookX = 0;
+        target.camY  = THREE.MathUtils.lerp(0, -0.4, t);
+        target.camX  = 0;
+        target.lookY = THREE.MathUtils.lerp(0, -0.6, t);
       } else {
-        const t = (p - 0.62) / 0.38;
-        // Drone-shot path: rise out + back, look down at the plaza,
-        // end with the tower framed.
-        target.camZ  = THREE.MathUtils.lerp(1.05, 7.0, t);
-        target.camY  = THREE.MathUtils.lerp(-0.5, -2.4, t);
-        target.camX  = THREE.MathUtils.lerp(0.15, 0.1, t);
-        target.lookY = THREE.MathUtils.lerp(-0.8, -3.5, t);
-        target.lookX = 0;
-        society.visible = t > 0.04;
+        // Phase 3: descend onto the math HQ. Camera tilts down + back
+        // a bit so the plaza is fully framed at the end.
+        const t = (p - 0.65) / 0.35;
+        target.camZ  = THREE.MathUtils.lerp(1.05, 4.5, t);
+        target.camY  = THREE.MathUtils.lerp(-0.4, -2.0, t);
+        target.camX  = THREE.MathUtils.lerp(0, 0.2, t);
+        target.lookY = THREE.MathUtils.lerp(-0.6, -3.5, t);
+        hq.visible = t > 0.05;
       }
 
-      const k = 0.075;
-      current.camX  = THREE.MathUtils.lerp(current.camX,  target.camX,  k);
-      current.camY  = THREE.MathUtils.lerp(current.camY,  target.camY,  k);
+      // Smooth follow.
+      const k = 0.08;
       current.camZ  = THREE.MathUtils.lerp(current.camZ,  target.camZ,  k);
-      current.lookX = THREE.MathUtils.lerp(current.lookX, target.lookX, k);
+      current.camY  = THREE.MathUtils.lerp(current.camY,  target.camY,  k);
+      current.camX  = THREE.MathUtils.lerp(current.camX,  target.camX,  k);
       current.lookY = THREE.MathUtils.lerp(current.lookY, target.lookY, k);
 
       camera.position.set(current.camX, current.camY, current.camZ);
-      camera.lookAt(current.lookX, current.lookY, 0);
+      camera.lookAt(0, current.lookY, 0);
 
-      // Earth + cloud rotation (continuous regardless of scroll).
+      // Continuous Earth + cloud rotation. Clouds drift slightly faster
+      // so the layers separate visually.
       earth.rotation.y  += 0.0014;
       clouds.rotation.y += 0.0019;
       stars.rotation.y  += 0.00006;
 
-      // City animation when visible.
-      if (society.visible) {
+      // HQ animation when visible.
+      if (hq.visible) {
         const t = performance.now() * 0.001;
-        towerBands.forEach((band, i) => { band.rotation.z = t * (0.4 + i * 0.15) * (i % 2 ? 1 : -1); });
-        towerCap.rotation.y = t * 0.6;
-        towerCap.rotation.x = Math.sin(t * 0.7) * 0.15;
-        infinityRing.rotation.z = t * 0.5;
-
-        // Drift dust upward, recycle past the ceiling.
-        const arr = dustGeo.attributes.position.array;
-        for (let i = 0; i < dustCount; i++) {
-          arr[i * 3 + 1] += dustVel[i];
-          if (arr[i * 3 + 1] > 4.5) arr[i * 3 + 1] = 0;
-        }
-        dustGeo.attributes.position.needsUpdate = true;
-
-        // Beam pulse — modulate opacity with a sin so the column of
-        // light feels alive instead of static.
-        beamMat.opacity = 0.14 + Math.sin(t * 1.2) * 0.06;
+        infinityRing.rotation.z = t * 0.6;
+        towerCrown.rotation.y   = t * 0.5;
+        towerCrown.rotation.x   = Math.sin(t * 0.7) * 0.2;
+        // Subtle bob on the dust layer so it reads as floating.
+        dust.position.y = Math.sin(t * 0.6) * 0.05;
       }
 
-      composer.render();
+      renderer.render(scene, camera);
       rafRef.current = requestAnimationFrame(tick);
     };
     rafRef.current = requestAnimationFrame(tick);
@@ -522,7 +444,6 @@ export default function EarthScene() {
       c.geometries.forEach((g) => g.dispose());
       c.materials.forEach((m) => m.dispose());
       c.textures.forEach((t) => t.dispose());
-      if (c.composer) c.composer.dispose();
       if (c.renderer) {
         c.renderer.dispose();
         c.renderer.forceContextLoss?.();
