@@ -1,4 +1,4 @@
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { cn } from "@/lib/cn";
 
 const variantMap = {
@@ -13,15 +13,43 @@ export default function Card({
   description,
   variant = "glass",
   interactive = false,
+  // When true, skip the scroll-in entrance — useful when a parent
+  // already manages a stagger sequence for its children and we don't
+  // want a second tween fighting it.
+  noEntrance = false,
   footer,
   className,
   children,
   ...props
 }) {
+  // prefers-reduced-motion: respect OS-level reduced-motion setting,
+  // matching the rest of the app (ExperienceShell already gates Lenis
+  // smooth-scroll on this same flag).
+  const reduced = useReducedMotion();
+  // jsdom (the test environment) doesn't ship IntersectionObserver, and
+  // framer-motion's whileInView depends on it. Skip the entrance when
+  // the API is missing so the component renders synchronously in unit
+  // tests without us having to shim the observer in the test setup.
+  const hasIO = typeof window !== "undefined" && typeof window.IntersectionObserver !== "undefined";
+  const useEntrance = !noEntrance && !reduced && hasIO;
+
+  // Phase 7: every Card gets a subtle scroll-triggered entrance
+  // (opacity + small lift) the FIRST time it enters the viewport.
+  // `viewport.once: true` so re-scrolling past doesn't replay it.
+  // The values are intentionally small — 14 px lift, 0.55 s duration —
+  // so it reads as polish rather than animation theatre, and stacks
+  // gracefully under any parent stagger that's already running.
+  const entranceProps = useEntrance ? {
+    initial: { opacity: 0, y: 14 },
+    whileInView: { opacity: 1, y: 0 },
+    viewport: { once: true, margin: "-40px" },
+    transition: { duration: 0.55, ease: [0.16, 1, 0.3, 1] },
+  } : {};
+
   return (
     <motion.article
-      whileHover={interactive ? { y: -6, scale: 1.01 } : undefined}
-      transition={{ duration: 0.25, ease: "easeOut" }}
+      {...entranceProps}
+      whileHover={interactive ? { y: -6, scale: 1.01, transition: { duration: 0.25, ease: "easeOut" } } : undefined}
       data-cursor={interactive ? "interactive" : undefined}
       className={cn(
         "group relative overflow-hidden border p-5 backdrop-blur-2xl sm:p-6",

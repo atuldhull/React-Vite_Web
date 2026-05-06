@@ -23,6 +23,34 @@
 [data-theme="light"] .token-chip { @apply bg-black/[0.03]; }
 [data-theme="light"] .section-shell { @apply bg-surface/90; }
 
+/* ─────────────────────────────────────────────────────────────────
+   Light-mode text-white repair (Phase 6).
+   The codebase uses Tailwind's `text-white` (= #fff) on ~87 components.
+   In dark mode that's correct — title text on a deep-slate page is
+   legible. In light mode, a bare `text-white` on a near-white surface
+   is an accessibility bug.
+   Doing 87 file edits to replace each `text-white` with `text-text-primary`
+   would create regressions (some text-white usages ARE on dark gradient
+   buttons, image overlays, hero banners — those should stay white).
+   This rule fixes the audit's actual concern surgically: ONLY override
+   text-white when it descends from a theme-flipping container (a card,
+   glass panel, section shell, or known surface class). Pure-white text
+   on `bg-primary` buttons or hero gradients is left alone.
+   ───────────────────────────────────────────────────────────────── */
+[data-theme="light"] .glass-panel .text-white,
+[data-theme="light"] .section-shell .text-white,
+[data-theme="light"] [class*="bg-surface"] .text-white,
+[data-theme="light"] [class*="bg-panel"] .text-white,
+[data-theme="light"] [class*="bg-obsidian"] .text-white {
+  color: rgb(var(--color-text-primary));
+}
+/* Same for hardcoded white-via-style — not strictly necessary today but
+   future-proofs against the pattern creeping in. */
+[data-theme="light"] .glass-panel [style*="color: white"],
+[data-theme="light"] .section-shell [style*="color: white"] {
+  color: rgb(var(--color-text-primary)) !important;
+}
+
 /* PANDA Bot animations */
 @keyframes pandaRipple { 0% { transform: scale(1); opacity: 0.6; } 100% { transform: scale(4); opacity: 0; } }
 @keyframes pandaParticle { 0% { transform: translateX(0) translateY(0); opacity: 1; } 100% { transform: translateX(var(--px,40px)) translateY(var(--py,-40px)); opacity: 0; } }
