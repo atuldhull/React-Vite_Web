@@ -7,6 +7,7 @@ import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import Loader from "@/components/ui/Loader";
 import { arena, challenges, leaderboard, comments as commentsApi } from "@/lib/api";
+import MathRender from "@/components/math/MathRender";
 
 function getDiffBadgeStyle(d) {
   const key = (d || "medium").toLowerCase();
@@ -256,9 +257,13 @@ export default function ArenaPage() {
                     </Button>
                   </div>
 
-                  {/* Question */}
+                  {/* Question — math segments rendered via KaTeX so
+                      authored $\int_0^1 x\,dx$ shows as a real integral. */}
                   <h2 className="mt-4 font-display text-2xl font-bold text-white">{challenge.title}</h2>
-                  <p className="mt-3 text-sm leading-7 text-text-muted whitespace-pre-wrap">{challenge.question}</p>
+                  <MathRender
+                    source={String(challenge.question || "")}
+                    className="mt-3 text-sm leading-7 text-text-muted [&_.katex]:text-text-muted"
+                  />
 
                   {/* Options */}
                   {!result && (
@@ -280,7 +285,7 @@ export default function ArenaPage() {
                           style={{ clipPath: "var(--clip-notch)" }}
                         >
                           <span className="math-text mr-3 text-xs text-primary">{String.fromCharCode(65 + i)}.</span>
-                          {opt}
+                          <MathRender source={String(opt || "")} className="inline [&_.katex]:text-current" />
                         </motion.button>
                       ))}
                       <Button

@@ -7,6 +7,8 @@ import Loader from "@/components/ui/Loader";
 import { challenges, teacher } from "@/lib/api";
 import MonumentBackground from "@/components/backgrounds/MonumentBackground";
 import { useMonument } from "@/hooks/useMonument";
+import LaTeXEditor from "@/components/math/LaTeXEditor";
+import MathRender from "@/components/math/MathRender";
 
 const difficultyColors = { easy: "text-success", medium: "text-warning", hard: "text-danger", extreme: "text-glow" };
 
@@ -182,7 +184,15 @@ export default function AdminChallengesPage() {
             <form onSubmit={handleCreate} className="space-y-4">
               <h3 className="font-display text-lg font-bold text-white">New Challenge</h3>
               <InputField label="Title" placeholder="Challenge title" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required />
-              <InputField label="Question" placeholder="The math problem" value={form.question} onChange={(e) => setForm({ ...form, question: e.target.value })} multiline required />
+              <div>
+                <label className="mb-2 block font-mono text-[11px] uppercase tracking-wider text-text-muted">Question</label>
+                <LaTeXEditor
+                  value={form.question}
+                  onChange={(e) => setForm({ ...form, question: e.target.value })}
+                  placeholder="Type the question. Wrap math in $...$ (inline) or $$...$$ (display). Click toolbar buttons to insert common LaTeX."
+                  required
+                />
+              </div>
               <div className="space-y-3">
                 <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-text-muted">Options (click letter = correct)</p>
                 {form.options.map((opt, i) => (
@@ -206,7 +216,15 @@ export default function AdminChallengesPage() {
                 </div>
                 <InputField label="Points" type="number" value={form.points} onChange={(e) => setForm({ ...form, points: Number(e.target.value) })} />
               </div>
-              <InputField label="Solution (optional)" placeholder="Explain the answer" value={form.solution} onChange={(e) => setForm({ ...form, solution: e.target.value })} multiline />
+              <div>
+                <label className="mb-2 block font-mono text-[11px] uppercase tracking-wider text-text-muted">Solution (optional)</label>
+                <LaTeXEditor
+                  value={form.solution}
+                  onChange={(e) => setForm({ ...form, solution: e.target.value })}
+                  placeholder="Explain the answer. Math goes between $...$ or $$...$$"
+                  rows={3}
+                />
+              </div>
               <Button type="submit" loading={saving}>Save Challenge</Button>
             </form>
           </Card>
@@ -243,17 +261,21 @@ export default function AdminChallengesPage() {
               <div className="rounded-xl border border-primary/20 bg-primary/5 p-5">
                 <p className="font-mono text-[10px] uppercase tracking-wider text-primary">Generated Preview</p>
                 <h4 className="mt-2 text-lg font-bold text-white">{generated.title}</h4>
-                <p className="mt-2 text-sm leading-relaxed text-text-muted">{generated.question}</p>
+                <MathRender source={generated.question || ""} className="mt-2 text-sm leading-relaxed text-text-muted [&_.katex]:text-white" />
                 {generated.options && (
                   <div className="mt-3 space-y-2">
-                    {generated.options.map((opt, i) => (
-                      <div key={i} className={`rounded-lg border px-3 py-2 text-sm ${
-                        i === generated.correct_index || i === generated.correctIndex
-                          ? "border-success/30 bg-success/10 text-success" : "border-line/10 bg-black/10 text-text-muted"
-                      }`}>
-                        <span className="mr-2 font-mono text-xs">{String.fromCharCode(65 + i)}.</span>{opt}
-                      </div>
-                    ))}
+                    {generated.options.map((opt, i) => {
+                      const isCorrect = i === generated.correct_index || i === generated.correctIndex;
+                      return (
+                        <div key={i} className={`rounded-lg border px-3 py-2 text-sm ${
+                          isCorrect
+                            ? "border-success/30 bg-success/10 text-success" : "border-line/10 bg-black/10 text-text-muted"
+                        }`}>
+                          <span className="mr-2 font-mono text-xs">{String.fromCharCode(65 + i)}.</span>
+                          <MathRender source={String(opt || "")} className={`inline ${isCorrect ? "[&_.katex]:text-success" : "[&_.katex]:text-white"}`} />
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
                 {(generated.solution || generated.explanation) && (

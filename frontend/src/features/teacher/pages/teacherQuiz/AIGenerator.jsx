@@ -1,6 +1,7 @@
 import { motion, AnimatePresence } from "framer-motion";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
+import MathRender from "@/components/math/MathRender";
 
 const DIFFICULTY_OPTIONS = ["Easy", "Medium", "Hard", "Extreme"];
 
@@ -117,9 +118,12 @@ export default function AIGenerator({
                         key={i}
                         className="rounded-lg border border-line/10 bg-black/10 px-3 py-2"
                       >
-                        <p className="text-sm text-white">
-                          {i + 1}. {q.title || q.question || q.text}
-                        </p>
+                        {/* Render through MathRender so AI-generated $\\frac{a}{b}$
+                            shows as a real fraction instead of raw LaTeX source. */}
+                        <div className="text-sm text-white">
+                          <span className="mr-2 font-mono text-text-dim">{i + 1}.</span>
+                          <MathRender source={String(q.title || q.question || q.text || "")} className="inline [&_.katex]:text-white" />
+                        </div>
                         <p className="mt-1 font-mono text-[10px] text-text-dim">
                           {q.difficulty || aiDifficulty} &middot; {q.topic || "General"}
                         </p>

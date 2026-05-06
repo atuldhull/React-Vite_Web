@@ -1,6 +1,7 @@
 import { motion, AnimatePresence } from "framer-motion";
 import SpaceBackground from "@/components/backgrounds/SpaceBackground";
 import Card from "@/components/ui/Card";
+import MathRender from "@/components/math/MathRender";
 
 const optionLetters = "ABCDEFGH";
 const optionColors = [
@@ -110,9 +111,13 @@ export default function QuestionScreen({
                   {question.title}
                 </p>
               )}
-              <h2 className="mt-3 font-display text-xl font-bold leading-8 text-white sm:text-2xl">
-                {question.question}
-              </h2>
+              {/* MathRender so questions authored with $...$ / $$...$$
+                  delimiters render as actual maths instead of raw LaTeX
+                  source. Plain-text questions pass through unchanged. */}
+              <MathRender
+                source={String(question.question || "")}
+                className="mt-3 font-display text-xl font-bold leading-8 text-white sm:text-2xl [&_.katex]:text-white"
+              />
 
               {/* Options */}
               <div className="mt-8 grid gap-3 sm:grid-cols-2">
@@ -146,9 +151,10 @@ export default function QuestionScreen({
                         >
                           {optionLetters[oi]}
                         </span>
-                        <span className={`text-sm font-medium ${isSelected ? "text-white" : "text-text-muted"}`}>
-                          {typeof option === "string" ? option : option.text || option.label}
-                        </span>
+                        <MathRender
+                          source={String(typeof option === "string" ? option : (option.text || option.label || ""))}
+                          className={`text-sm font-medium ${isSelected ? "text-white [&_.katex]:text-white" : "text-text-muted [&_.katex]:text-text-muted"}`}
+                        />
                       </div>
                       {isSelected && answerSubmitted && (
                         <motion.span

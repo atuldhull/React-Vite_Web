@@ -170,15 +170,23 @@ export const teacherGenerateQuestion = async (req, res) => {
 Topic: ${topic}
 Difficulty: ${difficulty}
 
+LATEX FORMATTING (mandatory wherever the content involves math):
+- Inline math:  $\\frac{1}{2}$, $\\int_0^1 x\\,dx$, $\\alpha + \\beta$
+- Display math: $$E = mc^2$$
+- Use real LaTeX (\\frac, \\sqrt, \\int, \\sum, \\lim, \\sin/\\cos, ^, _);
+  do NOT write fractions as "1/2" or integrals as "integral of ...".
+- Every backslash inside JSON must be escaped as \\\\ (so a fraction is "\\\\frac{1}{2}").
+- Plain prose stays plain — only the maths needs LaTeX.
+
 Return ONLY this JSON:
 {
   "title": "short title",
-  "question": "full question",
+  "question": "full question with LaTeX where it makes sense",
   "options": ["A", "B", "C", "D"],
   "correct_index": 0,
   "difficulty": "${difficulty}",
   "points": ${points},
-  "solution": "explanation"
+  "solution": "explanation, also with LaTeX"
 }`;
 
   let rawText = "";

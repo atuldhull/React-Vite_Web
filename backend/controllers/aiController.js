@@ -36,15 +36,22 @@ export const generateAndStoreQuestion = async (req, res) => {
 Topic: ${topic}
 Difficulty: ${difficulty}
 
+LATEX FORMATTING (mandatory whenever the content involves math):
+- Wrap inline math in single dollar signs:  $\\frac{1}{2}$, $\\int_0^1 x\\,dx$, $\\alpha + \\beta$
+- Wrap display equations in double dollar signs:  $$E = mc^2$$
+- Use real LaTeX commands (\\frac, \\sqrt, \\int, \\sum, \\lim, \\sin, \\cos, ^, _) — do NOT write fractions as "1/2" or integrals as "integral of x dx" when math notation is appropriate.
+- Inside JSON, every backslash MUST be escaped as \\\\  (so a fraction becomes "\\\\frac{1}{2}"). The frontend renders the string with KaTeX.
+- Plain prose stays plain — only the mathematical parts need LaTeX.
+
 Return ONLY this JSON (no markdown, no extra text):
 {
   "title": "short title",
-  "question": "full question text",
+  "question": "full question text with LaTeX where appropriate",
   "options": ["option A", "option B", "option C", "option D"],
   "correct_index": 0,
   "difficulty": "${difficulty}",
   "points": ${difficulty === "easy" ? 20 : difficulty === "hard" ? 100 : 50},
-  "solution": "brief explanation of the correct answer"
+  "solution": "brief explanation, also with LaTeX for math"
 }`;
 
     const response = await axios.post(
@@ -133,6 +140,12 @@ export const previewQuestion = async (req, res) => {
     const prompt = `Generate ONE engineering mathematics MCQ.
 Topic: ${topic}
 Difficulty: ${difficulty}
+
+LATEX FORMATTING:
+- Inline math:  $\\frac{1}{2}$, $\\int_0^1 x\\,dx$, $\\alpha + \\beta$
+- Display math: $$E = mc^2$$
+- Use real LaTeX commands; NOT "1/2" or "sqrt(x)" when notation suits.
+- Every backslash MUST be JSON-escaped as \\\\ (e.g. "\\\\frac{1}{2}").
 
 Return ONLY this JSON:
 {

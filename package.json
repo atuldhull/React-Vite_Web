@@ -69,6 +69,7 @@
     "howler": "2.2.4",
     "html5-qrcode": "2.3.8",
     "jsonwebtoken": "9.0.3",
+    "katex": "0.16.45",
     "lenis": "1.3.21",
     "leva": "0.10.1",
     "mathjs": "15.1.1",
