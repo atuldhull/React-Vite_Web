@@ -85,12 +85,17 @@ describe.skipIf(!HAS_SPEC)("docs/openapi.yaml", () => {
 describe.skipIf(!HAS_SPEC)("/api/docs mount", () => {
   let app;
 
+  // 30 s instead of the default 10 s — under coverage instrumentation
+  // on Windows, importing app.js (which transitively pulls in the full
+  // backend tree + sentry + supabase init) can take longer than 10 s
+  // even though the same import is sub-second without coverage. The
+  // flake is purely instrumentation overhead, not a real bug.
   beforeAll(async () => {
     process.env.NODE_ENV = "development";
     process.env.SESSION_SECRET = "test-secret-test-secret-test";
     const { createApp } = await import("../../backend/app.js");
     app = createApp();
-  });
+  }, 30000);
 
   it("serves Swagger UI HTML at /api/docs/", async () => {
     const html = await request(app).get("/api/docs/").redirects(2);

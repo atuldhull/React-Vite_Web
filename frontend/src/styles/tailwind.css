@@ -18,37 +18,69 @@
   .section-shell { @apply rounded-[2rem] border border-line/20 bg-surface/65 p-6 shadow-panel backdrop-blur-2xl sm:p-8; }
 }
 
-/* Light mode overrides for glass/surface components */
-[data-theme="light"] .glass-panel { @apply bg-surface/90 shadow-[0_4px_20px_rgba(0,0,0,0.04)]; }
-[data-theme="light"] .token-chip { @apply bg-black/[0.03]; }
-[data-theme="light"] .section-shell { @apply bg-surface/90; }
+/* ═════════════════════════════════════════════════════════════════
+   LIGHT MODE — Phase 6 + 8.
+   Light-on-light combinations are the audit's main complaint. Strategy
+   in two layers:
+     1. Make theme-flipping surfaces actually opaque so cards are
+        readable on a white body. The default `bg-surface/60` reads
+        as 60% white on white = ~invisible.
+     2. Map text-white -> text-text-primary inside those containers so
+        any titles/buttons inside the cards stay legible.
+   Pure-white text on solid coloured buttons (bg-primary, gradient
+   heroes, image overlays) is intentionally left alone — those cases
+   are correct.
+   ═════════════════════════════════════════════════════════════════ */
 
-/* ─────────────────────────────────────────────────────────────────
-   Light-mode text-white repair (Phase 6).
-   The codebase uses Tailwind's `text-white` (= #fff) on ~87 components.
-   In dark mode that's correct — title text on a deep-slate page is
-   legible. In light mode, a bare `text-white` on a near-white surface
-   is an accessibility bug.
-   Doing 87 file edits to replace each `text-white` with `text-text-primary`
-   would create regressions (some text-white usages ARE on dark gradient
-   buttons, image overlays, hero banners — those should stay white).
-   This rule fixes the audit's actual concern surgically: ONLY override
-   text-white when it descends from a theme-flipping container (a card,
-   glass panel, section shell, or known surface class). Pure-white text
-   on `bg-primary` buttons or hero gradients is left alone.
-   ───────────────────────────────────────────────────────────────── */
+/* Surface opacity — solid backgrounds for cards in light mode. */
+[data-theme="light"] .glass-panel    { @apply bg-surface; box-shadow: var(--shadow-panel); }
+[data-theme="light"] .token-chip     { @apply bg-black/[0.04] border-black/[0.08]; }
+[data-theme="light"] .section-shell  { @apply bg-surface; box-shadow: var(--shadow-panel); }
+
+/* Tailwind's bg-surface/N opacity classes still let the body show
+   through. Bump common ones to fully opaque for light mode. The
+   :is() selectors keep specificity reasonable. */
+[data-theme="light"] :is(.bg-surface\/60, .bg-surface\/65, .bg-surface\/70, .bg-surface\/80, .bg-surface\/90) {
+  background-color: rgb(var(--color-surface)) !important;
+}
+[data-theme="light"] :is(.bg-panel\/60, .bg-panel\/70, .bg-panel\/80) {
+  background-color: rgb(var(--color-panel)) !important;
+}
+/* Cards stamped with bg-obsidian (dark wrappers) need the same
+   treatment — the body IS the obsidian colour in light mode. */
+[data-theme="light"] :is(.bg-obsidian\/40, .bg-obsidian\/60, .bg-obsidian\/80) {
+  background-color: rgb(var(--color-panel)) !important;
+}
+
+/* Text-white repair — broader matcher than Phase 6: also catches
+   white text inside any element with a light-mode-flipped background. */
 [data-theme="light"] .glass-panel .text-white,
 [data-theme="light"] .section-shell .text-white,
 [data-theme="light"] [class*="bg-surface"] .text-white,
 [data-theme="light"] [class*="bg-panel"] .text-white,
-[data-theme="light"] [class*="bg-obsidian"] .text-white {
+[data-theme="light"] [class*="bg-obsidian"] .text-white,
+[data-theme="light"] [class*="bg-white"] .text-white {
   color: rgb(var(--color-text-primary));
 }
-/* Same for hardcoded white-via-style — not strictly necessary today but
-   future-proofs against the pattern creeping in. */
+/* Inline hardcoded white via style attribute. */
 [data-theme="light"] .glass-panel [style*="color: white"],
-[data-theme="light"] .section-shell [style*="color: white"] {
+[data-theme="light"] .section-shell [style*="color: white"],
+[data-theme="light"] [class*="bg-surface"] [style*="color: white"] {
   color: rgb(var(--color-text-primary)) !important;
+}
+[data-theme="light"] .glass-panel [style*="color:#fff"],
+[data-theme="light"] .glass-panel [style*="color: #fff"],
+[data-theme="light"] [class*="bg-surface"] [style*="color:#fff"],
+[data-theme="light"] [class*="bg-surface"] [style*="color: #fff"] {
+  color: rgb(var(--color-text-primary)) !important;
+}
+
+/* Borders that pulled saturated purple (--color-line was 100/80/200)
+   used to overpower light-mode cards. With --color-line now soft gray
+   they're calm by default, but border-line/15 etc. may still render
+   too pale in light mode on a white surface. Bump alpha for visibility. */
+[data-theme="light"] :is(.border-line\/10, .border-line\/15, .border-line\/20) {
+  border-color: rgba(20, 24, 40, 0.10);
 }
 
 /* PANDA Bot animations */

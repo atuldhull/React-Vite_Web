@@ -155,10 +155,15 @@
 ══════════════════════════════════════ */
 [data-theme="light"] {
   color-scheme: light;
-  --color-obsidian: 248 249 252;
+  --color-obsidian: 244 246 250;
   --color-surface: 255 255 255;
-  --color-panel: 243 244 248;
-  --color-line: 100 80 200;
+  --color-panel: 248 249 253;
+  /* --color-line was 100 80 200 (saturated purple) — every card border
+     across the app pulled from this var, so the entire UI looked like
+     a 2009 grape-flavoured blog. A neutral cool gray keeps cards
+     defined without screaming for attention; the brand accent still
+     comes through via --page-accent on Card's border-top. */
+  --color-line: 218 222 232;
   --color-primary: 109 60 230;
   --color-secondary: 20 160 230;
   --color-glow: 30 180 220;
@@ -171,9 +176,19 @@
      4.5:1 for body text. 100/110/130 is ~5:1 on white, passes AA, and still
      reads visibly "dimmer" than muted (which is ~6.8:1). */
   --color-text-dim: 100 110 130;
-  --shadow-orbit: 0 24px 60px rgba(109, 60, 230, 0.08), 0 0 0 1px rgba(109, 60, 230, 0.06);
-  --shadow-panel: 0 8px 30px rgba(0, 0, 0, 0.06), 0 0 0 1px rgba(0, 0, 0, 0.04);
-  --shadow-pulse: 0 0 0 1px rgba(20, 160, 230, 0.1), 0 8px 24px rgba(20, 160, 230, 0.08);
+  /* Slightly stronger shadow elevation in light mode — surface-on-surface
+     cards need more contrast to read as floating, otherwise they
+     dissolve into the body bg. */
+  --shadow-orbit: 0 18px 50px rgba(20, 24, 40, 0.07), 0 0 0 1px rgba(20, 24, 40, 0.05);
+  --shadow-panel: 0 12px 36px rgba(20, 24, 40, 0.08), 0 0 0 1px rgba(20, 24, 40, 0.05);
+  --shadow-pulse: 0 0 0 1px rgba(20, 160, 230, 0.12), 0 10px 28px rgba(20, 160, 230, 0.10);
+
+  /* Page-accent fallback. Without this, dark-mode monument data-attrs
+     keep their saturated values and look harsh on a white card border-
+     top. This overrides them to a calmer brand-purple. Per-page data-
+     monument rules can still override this for that page. */
+  --page-accent: #6d3ce6;
+  --page-glow:   rgba(109, 60, 230, 0.10);
 }
 
 /* ══════════════════════════════════════
