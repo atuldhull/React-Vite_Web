@@ -7,7 +7,11 @@ import Button from "@/components/ui/Button";
 import MonumentBackground from "@/components/backgrounds/MonumentBackground";
 import { useMonument } from "@/hooks/useMonument";
 import { usePublicStats, formatStat } from "@/hooks/usePublicStats";
-import MonumentVideo from "@/features/home/components/MonumentGround";
+// Phase-1 hero was a 180-frame Cloudinary scrubber (MonumentGround).
+// Phase-3 replacement: a Three.js WebGL Earth + atmosphere + monument
+// scene driven by scroll progress. Same `<MonumentVideo />` interface,
+// brand-new internals.
+import MonumentVideo from "@/features/home/components/EarthScene";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 40 },
