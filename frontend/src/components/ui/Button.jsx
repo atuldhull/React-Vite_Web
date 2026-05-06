@@ -56,8 +56,19 @@ export default function Button({
   return (
     <motion.button
       type="button"
-      whileHover={isDisabled ? undefined : { y: -2, scale: 1.01 }}
-      whileTap={isDisabled ? undefined : { scale: 0.985 }}
+      // Spring on hover gives the button a tactile, slightly bouncy
+      // feel instead of the default linear ease. whileTap drops scale
+      // a touch more aggressively (0.96 vs 0.985) so the press read
+      // is clearer on the new lift+spring combination.
+      whileHover={isDisabled ? undefined : {
+        y: -2,
+        scale: 1.02,
+        transition: { type: "spring", stiffness: 420, damping: 24 },
+      }}
+      whileTap={isDisabled ? undefined : {
+        scale: 0.96,
+        transition: { type: "spring", stiffness: 600, damping: 30 },
+      }}
       data-cursor={isDisabled ? undefined : "interactive"}
       className={cn(
         "group relative inline-flex items-center justify-center overflow-hidden border font-mono uppercase transition-all duration-200 ease-in-out hover:shadow-[0_0_16px_var(--page-glow)]",

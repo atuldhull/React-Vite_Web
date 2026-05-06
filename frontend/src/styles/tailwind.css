@@ -87,3 +87,52 @@
 @keyframes pandaRipple { 0% { transform: scale(1); opacity: 0.6; } 100% { transform: scale(4); opacity: 0; } }
 @keyframes pandaParticle { 0% { transform: translateX(0) translateY(0); opacity: 1; } 100% { transform: translateX(var(--px,40px)) translateY(var(--py,-40px)); opacity: 0; } }
 .scrollbar-none::-webkit-scrollbar { display: none; }
+
+/* ═════════════════════════════════════════════════════════════════
+   GLOBAL TACTILE FEEDBACK
+   Every <button> and role="button" / [data-press] element on the
+   site gets a tiny press-scale on :active and a hover-lift on
+   :hover. framer-motion-wrapped buttons (Button.jsx) already do this
+   per-component with springs; THIS rule covers the long tail of
+   plain DOM buttons (icon buttons, dropdown items, chip selectors)
+   that would otherwise feel dead.
+   The transform-origin/transition combination is cheap (composited
+   on the GPU, no layout thrash) so this scales across hundreds of
+   buttons without performance cost.
+   Opt-out: add .no-fx or [data-press="off"].
+   ═════════════════════════════════════════════════════════════════ */
+@media (prefers-reduced-motion: no-preference) {
+  button:not(.no-fx, [data-press="off"]),
+  [role="button"]:not(.no-fx, [data-press="off"]),
+  [data-press]:not([data-press="off"]) {
+    transition: transform 180ms cubic-bezier(0.16, 1, 0.3, 1), filter 180ms ease;
+    will-change: transform;
+  }
+  button:not(.no-fx, [data-press="off"]):active,
+  [role="button"]:not(.no-fx, [data-press="off"]):active,
+  [data-press]:not([data-press="off"]):active {
+    transform: scale(0.96);
+    transition-duration: 90ms;
+  }
+  /* Disabled buttons should NOT scale or filter — skips the hover
+     glow and the active scale. */
+  button[disabled]:active,
+  [role="button"][aria-disabled="true"]:active {
+    transform: none;
+  }
+  /* Hover-lift opt-in via [data-hover-lift]. Subtle so it composes
+     well with existing whileHover springs on motion components. */
+  [data-hover-lift]:not(.no-fx):hover {
+    transform: translateY(-2px);
+  }
+  /* Anchor links opt-in to the same press feedback when marked. */
+  a[data-press]:active { transform: scale(0.97); }
+}
+
+/* Scroll-driven utility: a class consumers can apply to anchor a
+   smooth focus-ring transition on any focusable element. */
+:where(button, a, input, select, textarea):focus-visible {
+  outline: 2px solid var(--page-accent);
+  outline-offset: 2px;
+  transition: outline-offset 120ms ease;
+}

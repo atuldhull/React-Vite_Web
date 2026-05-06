@@ -49,7 +49,17 @@ export default function Card({
   return (
     <motion.article
       {...entranceProps}
-      whileHover={interactive ? { y: -6, scale: 1.01, transition: { duration: 0.25, ease: "easeOut" } } : undefined}
+      // Subtle lift on hover for ALL cards (not just interactive),
+      // because passive cards still benefit from a tiny "I see you"
+      // response. Interactive cards get a more pronounced movement +
+      // scale to signal they're clickable. Reduced-motion users get
+      // none of it.
+      whileHover={
+        reduced ? undefined :
+        interactive
+          ? { y: -6, scale: 1.012, transition: { type: "spring", stiffness: 360, damping: 22 } }
+          : { y: -2,                transition: { duration: 0.22, ease: "easeOut" } }
+      }
       data-cursor={interactive ? "interactive" : undefined}
       className={cn(
         "group relative overflow-hidden border p-5 backdrop-blur-2xl sm:p-6",
