@@ -5,6 +5,7 @@ import { aiLimiter } from "../middleware/rateLimiter.js";
 import { logger } from "../config/logger.js";
 import { PANDA_TOOLS, executeTool } from "../lib/pandaTools.js";
 import { callLLM, listProviders } from "../lib/llm.js";
+import { findBannedWord } from "../lib/contentFilter.js";
 
 const router = express.Router();
 
@@ -124,6 +125,21 @@ router.post("/chat", requireAuth, aiLimiter, async (req, res) => {
   const totalLen = messages.reduce((sum, m) => sum + (m?.content?.length || 0), 0);
   if (totalLen > 20000) {
     return res.status(413).json({ error: "Message payload too large" });
+  }
+
+  // Profanity gate on the LATEST user message only — historical
+  // messages may contain quoted material from earlier in the session.
+  // Refuse the whole turn (don't redact) so we don't silently send
+  // a different message than the user typed.
+  const lastUser = [...messages].reverse().find((m) => m?.role === "user");
+  if (lastUser?.content) {
+    const bad = findBannedWord(lastUser.content);
+    if (bad) {
+      return res.status(400).json({
+        error: "Let's keep it school-friendly — that message has a word PANDA won't engage with. Try rephrasing?",
+        code: "CONTENT_BLOCKED",
+      });
+    }
   }
 
   const challengeSection = challengeContext

@@ -11,6 +11,7 @@
 
 import nodemailer from "nodemailer";
 import { logger } from "../config/logger.js";
+import { findBannedWord } from "../lib/contentFilter.js";
 
 // Escape HTML special characters to prevent injection in rendered emails
 function escapeHtml(s) {
@@ -35,6 +36,16 @@ function arenaUrl() {
 ───────────────────────────────────── */
 export const sendContactMessage = async (req, res) => {
   const { name, email, subject, message } = req.body;
+
+  // Profanity gate before we put student input in an email that
+  // lands in a teacher / admin inbox. Reject so the sender knows;
+  // redaction would silently rewrite their message.
+  const bad = findBannedWord(`${name || ""} ${subject || ""} ${message || ""}`);
+  if (bad) {
+    return res.status(400).json({
+      error: "Your message contains banned content. Please rephrase before sending.",
+    });
+  }
 
   // Escape all user input before embedding in HTML
   const safeName    = escapeHtml(name || "Anonymous");

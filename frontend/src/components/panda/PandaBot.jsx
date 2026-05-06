@@ -1,10 +1,15 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import PandaChatPanel from "./PandaChatPanel";
 
 export default function PandaBot() {
   const [open, setOpen] = useState(false);
   const [jumping, setJumping] = useState(false);
+  // Launcher ref so the panel's click-outside listener can ignore clicks
+  // on the panda button itself — otherwise toggle() would race with the
+  // outside-click close (panel sees the click as outside, closes; then
+  // the button's onClick re-opens).
+  const launcherRef = useRef(null);
 
   const toggle = useCallback(() => {
     if (!open) {
@@ -15,9 +20,11 @@ export default function PandaBot() {
     }
   }, [open]);
 
+  const handleClose = useCallback(() => setOpen(false), []);
+
   return (
     <>
-      <PandaChatPanel open={open} />
+      <PandaChatPanel open={open} onClose={handleClose} launcherRef={launcherRef} />
 
       {/* The panda face itself IS the floating bot — no circle container */}
       <div className="fixed bottom-5 right-5 z-50">
@@ -46,6 +53,7 @@ export default function PandaBot() {
           }
         >
           <motion.button
+            ref={launcherRef}
             onClick={toggle}
             whileHover={{ scale: 1.15, y: -4 }}
             whileTap={{ scale: 0.85 }}

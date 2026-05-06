@@ -12,6 +12,7 @@
 // was identical in every function and swallowed the stack trace.
 
 import { catchAsync } from "../lib/asyncHandler.js";
+import { findBannedWord } from "../lib/contentFilter.js";
 
 /* GET ACTIVE ANNOUNCEMENTS — GET /api/announcements */
 export const getAnnouncements = catchAsync(async (req, res) => {
@@ -32,6 +33,14 @@ export const createAnnouncement = catchAsync(async (req, res) => {
   const userId = req.session?.user?.id;
   const { title, body, target_role = "all" } = req.body;
   if (!title || !body) return res.status(400).json({ error: "title and body required" });
+
+  // Profanity gate. Announcements are broadcast to every student in
+  // the org, so a single bad post has organisational reach — strict
+  // reject (no redact) is the safer default here.
+  const bad = findBannedWord(`${title} ${body}`);
+  if (bad) {
+    return res.status(400).json({ error: "Announcement contains banned content. Please rephrase." });
+  }
 
   const { data, error } = await req.db.from("announcements").insert({
     title, body, target_role, created_by: userId, is_active: true,

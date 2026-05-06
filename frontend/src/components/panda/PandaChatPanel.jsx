@@ -46,7 +46,7 @@ function renderMd(text) {
   return html;
 }
 
-export default function PandaChatPanel({ open }) {
+export default function PandaChatPanel({ open, onClose, launcherRef }) {
   // The /api/bot/chat endpoint requires auth (added during the Phase 8
   // security pass — bot was a public abuse vector against our OpenRouter
   // credits). So we need to know who's logged in to give a useful UX.
@@ -60,6 +60,7 @@ export default function PandaChatPanel({ open }) {
   const [loading, setLoading] = useState(false);
   const scrollRef = useRef(null);
   const inputRef = useRef(null);
+  const panelRef = useRef(null);
 
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -68,6 +69,29 @@ export default function PandaChatPanel({ open }) {
   useEffect(() => {
     if (open && !isGuest) setTimeout(() => inputRef.current?.focus(), 400);
   }, [open, isGuest]);
+
+  // Click-outside-to-close + Escape-to-close. We listen on document
+  // mousedown so the panel closes BEFORE any click handler on the
+  // background can fire — otherwise clicking, say, the "ARENA" nav link
+  // while the panel was open would navigate AND leave the panel open.
+  // The launcher button is excluded from "outside" because the parent
+  // already toggles via its own onClick.
+  useEffect(() => {
+    if (!open) return;
+    const onMouseDown = (e) => {
+      if (!panelRef.current) return;
+      if (panelRef.current.contains(e.target)) return;
+      if (launcherRef?.current?.contains(e.target)) return;
+      onClose?.();
+    };
+    const onKey = (e) => { if (e.key === "Escape") onClose?.(); };
+    document.addEventListener("mousedown", onMouseDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onMouseDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open, onClose, launcherRef]);
 
   const send = async () => {
     const text = input.trim();
@@ -103,6 +127,7 @@ export default function PandaChatPanel({ open }) {
     <AnimatePresence>
       {open && (
         <motion.div
+          ref={panelRef}
           initial={{ opacity: 0, y: 24, scale: 0.95 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: 24, scale: 0.95 }}
@@ -122,6 +147,12 @@ export default function PandaChatPanel({ open }) {
             border: "1px solid rgba(0,255,200,0.2)",
             borderTop: "2px solid var(--monument-abyss)",
             boxShadow: "0 25px 80px rgba(0,0,0,0.6), 0 0 30px rgba(0,255,200,0.1)",
+            // overscroll-behavior: contain stops a wheel/touch scroll on
+            // the chat panel from "leaking" to the page beneath when the
+            // inner scroll hits its top/bottom edge. With this, hovering
+            // the panel and scrolling moves the chat history only; the
+            // dashboard doesn't lurch underneath.
+            overscrollBehavior: "contain",
           }}
         >
           {/* Header */}
@@ -155,7 +186,11 @@ export default function PandaChatPanel({ open }) {
           </div>
 
           {/* Messages */}
-          <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto px-4 py-4 [scrollbar-width:thin] [scrollbar-color:rgba(0,255,200,0.15)_transparent]">
+          <div
+            ref={scrollRef}
+            className="flex-1 space-y-3 overflow-y-auto px-4 py-4 [scrollbar-width:thin] [scrollbar-color:rgba(0,255,200,0.15)_transparent]"
+            style={{ overscrollBehavior: "contain" }}
+          >
             {messages.map((msg, i) => (
               <motion.div
                 key={i}

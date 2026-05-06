@@ -1,6 +1,8 @@
 import { useEffect, useState, useRef } from "react";
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
+import { useGSAP } from "@gsap/react";
+import gsap from "@/lib/gsap-setup";
 import Button from "@/components/ui/Button";
 import MonumentBackground from "@/components/backgrounds/MonumentBackground";
 import { useMonument } from "@/hooks/useMonument";
@@ -106,6 +108,27 @@ export default function HomePage() {
   const showScroll = p < 0.05;
   const titleOpacity = p < 0.08 ? 1 : p < 0.18 ? 1 - (p - 0.08) / 0.1 : 0;
 
+  // GSAP entrance for the fixed-position hero title + subtitle. Runs
+  // once on mount, scoped to the page so the cleanup function from
+  // useGSAP kills only these tweens on navigation. The scroll-driven
+  // titleOpacity above continues to drive the fade-out — we only own
+  // the FIRST 1.4 seconds of motion.
+  const heroRef = useRef(null);
+  useGSAP(() => {
+    if (!heroRef.current) return;
+    const title    = heroRef.current.querySelector("[data-gsap-title]");
+    const subtitle = heroRef.current.querySelector("[data-gsap-subtitle]");
+    if (!title || !subtitle) return;
+    gsap.from(title, {
+      autoAlpha: 0, y: 60, scale: 0.92,
+      duration: 1.2, ease: "expo.out",
+    });
+    gsap.from(subtitle, {
+      autoAlpha: 0, y: 24,
+      duration: 0.9, delay: 0.45, ease: "power3.out",
+    });
+  }, { scope: heroRef });
+
   // Real platform totals from /api/stats/public — true counts (head:true,
   // count:exact) for each underlying table. Em-dashes until loaded so we
   // never render a placeholder/fake number. The previous implementation
@@ -128,7 +151,7 @@ export default function HomePage() {
 
       {/* ── HERO OVERLAY (title + scroll hint) ── */}
       {showTitle && (
-        <div style={{
+        <div ref={heroRef} style={{
           position: "fixed", inset: 0, zIndex: 10,
           pointerEvents: "none",
           display: "flex", flexDirection: "column",
@@ -136,7 +159,7 @@ export default function HomePage() {
           opacity: titleOpacity,
           willChange: "opacity",
         }}>
-          <h1 style={{
+          <h1 data-gsap-title style={{
             fontFamily: "'Space Grotesk', sans-serif",
             // Lower minimum so the title doesn't overflow ~375px
             // viewports. 7vw on a 375px screen is 26px, below the old
@@ -148,7 +171,7 @@ export default function HomePage() {
           }}>
             Math Collective
           </h1>
-          <p style={{
+          <p data-gsap-subtitle style={{
             fontFamily: "'Space Grotesk', sans-serif",
             fontSize: "clamp(0.85rem, 2vw, 1.3rem)",
             color: "rgba(255,255,255,0.5)", marginTop: "0.75rem",
