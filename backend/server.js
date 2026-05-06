@@ -42,6 +42,7 @@ import http from "http";
 import { Server } from "socket.io";
 import { createApp }    from "./app.js";
 import { attachSocket } from "./socket/index.js";
+import { attachRedisAdapter, detachRedisAdapter } from "./socket/redisAdapter.js";
 
 const isProd = env.isProd;
 const app    = createApp();
@@ -63,7 +64,27 @@ const io = new Server(server, {
   },
 });
 
+// Attach the Redis pub/sub adapter BEFORE attachSocket so the per-event
+// listeners are bound to the multi-instance-capable adapter from the
+// first message. attachRedisAdapter is async + best-effort: when
+// REDIS_URL is unset (single-instance / dev) it no-ops; if Redis is
+// unreachable it logs + falls through to the default adapter so the
+// server still boots.
+await attachRedisAdapter(io);
 attachSocket(io);
+
+// Graceful shutdown — close Redis clients before the process exits so
+// pending pub/sub messages are flushed and the connections aren't left
+// in a half-closed state.
+const shutdown = async (signal) => {
+  console.log(`\n[server] ${signal} received, shutting down...`);
+  await detachRedisAdapter();
+  server.close(() => process.exit(0));
+  // Force-exit if close() hangs more than 10s.
+  setTimeout(() => process.exit(1), 10000).unref();
+};
+process.on("SIGTERM", () => shutdown("SIGTERM"));
+process.on("SIGINT",  () => shutdown("SIGINT"));
 
 /* ── START ── */
 server.listen(env.port, () => {
