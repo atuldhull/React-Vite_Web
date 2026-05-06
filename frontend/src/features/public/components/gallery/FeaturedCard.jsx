@@ -1,5 +1,6 @@
 import { motion, useScroll, useTransform } from "framer-motion";
 import { useRef } from "react";
+import { cloudinaryImg } from "@/lib/cloudinary";
 
 export default function FeaturedCard({ file, label, sublabel, onClick, variant = "gold" }) {
   const ref = useRef(null);
@@ -28,9 +29,11 @@ export default function FeaturedCard({ file, label, sublabel, onClick, variant =
     >
       <div className="relative h-[340px] overflow-hidden sm:h-[440px] lg:h-[520px]">
         <motion.img
-          src={file.url}
+          src={cloudinaryImg(file.url, 1400, { quality: "best" })}
           alt={label}
           loading="lazy"
+          decoding="async"
+          fetchpriority="high"
           style={{ y: imgY }}
           className="h-[120%] w-full object-cover transition-transform duration-[1s] group-hover:scale-105"
         />

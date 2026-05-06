@@ -1,7 +1,7 @@
 import { motion } from "framer-motion";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { superAdminNavigation } from "@/app/navigation";
-import MatrixBackground from "@/components/backgrounds/MatrixBackground";
+import GridBackground from "@/components/backgrounds/GridBackground";
 import BrandMark from "@/components/navigation/BrandMark";
 import { cn } from "@/lib/cn";
 
@@ -48,7 +48,7 @@ export default function SuperAdminLayout() {
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-obsidian text-text-primary">
-      <MatrixBackground />
+      <GridBackground accent="super" />
 
       <div className="relative z-10 mx-auto flex min-h-screen max-w-[1560px] flex-col gap-4 px-4 py-4 lg:flex-row">
         {/* Sidebar */}

@@ -4,6 +4,7 @@ import BackgroundEffects from "@/features/public/components/gallery/BackgroundEf
 import GalleryHero from "@/features/public/components/gallery/GalleryHero";
 import GallerySection from "@/features/public/components/gallery/GallerySection";
 import TreasureHuntSection from "@/features/public/components/gallery/TreasureHuntSection";
+import { cloudinaryImg } from "@/lib/cloudinary";
 
 const inaugFiles = [
   { url: "https://res.cloudinary.com/dd0pler5u/image/upload/v1774176825/in1_eiu6oo.jpg", type: "img", label: "The Stage" },
@@ -112,8 +113,9 @@ export default function GalleryPage() {
                 animate={{ scale: 1, opacity: 1 }}
                 exit={{ scale: 0.8, opacity: 0 }}
                 transition={{ type: "spring", bounce: 0.15, duration: 0.4 }}
-                src={lightbox}
+                src={cloudinaryImg(lightbox, 1800, { quality: "best" })}
                 alt="Gallery"
+                decoding="async"
                 className="relative z-10 max-h-[88vh] max-w-[90vw] rounded-2xl object-contain shadow-[0_0_100px_rgba(0,0,0,0.5)]"
                 onClick={(e) => e.stopPropagation()}
               />

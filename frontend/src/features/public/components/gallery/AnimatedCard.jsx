@@ -1,5 +1,17 @@
 import { motion, useMotionValue, useSpring, useTransform } from "framer-motion";
 import { useRef, useState } from "react";
+import { cloudinaryImg, cloudinaryVideoPoster } from "@/lib/cloudinary";
+
+// Map card size to a sensible Cloudinary target width. The gallery
+// cards never exceed ~700px on common viewports — going past 800px
+// just wastes bytes for indistinguishable visual quality.
+const SIZE_TO_WIDTH = {
+  hero:   1200,
+  tall:   600,
+  wide:   900,
+  normal: 600,
+  fill:   700,
+};
 
 export default function AnimatedCard({ file, index, onClick, variant = "gold", size = "normal" }) {
   const ref = useRef(null);
@@ -61,20 +73,30 @@ export default function AnimatedCard({ file, index, onClick, variant = "gold", s
           </div>
         )}
 
-        {/* Image / Video */}
+        {/* Image / Video — Cloudinary URL transforms shrink originals
+            from ~3-4 MB down to a few hundred KB at the size we render,
+            and serve WebP/AVIF where supported. decoding=async lets
+            the browser decode off the main thread. fetchPriority=low
+            on non-featured cards so the featured hero gets first dibs. */}
         {file.type === "img" ? (
           <motion.img
-            src={file.url}
+            src={cloudinaryImg(file.url, SIZE_TO_WIDTH[size] || 600, { quality: size === "hero" ? "best" : "good" })}
             alt={file.label || `Photo ${index + 1}`}
             loading="lazy"
+            decoding="async"
+            fetchpriority={size === "hero" ? "high" : "low"}
             onLoad={() => setLoaded(true)}
             className="h-full w-full object-cover transition-transform duration-[800ms] ease-out group-hover:scale-[1.12]"
             style={{ transform: "translateZ(0)" }}
           />
         ) : (
-          <video controls muted playsInline preload="metadata"
+          <video
+            controls muted playsInline
+            preload="metadata"
+            poster={cloudinaryVideoPoster(file.url, SIZE_TO_WIDTH[size] || 600) || undefined}
             onLoadedData={() => setLoaded(true)}
-            className="h-full w-full object-cover">
+            className="h-full w-full object-cover"
+          >
             <source src={file.url} type="video/mp4" />
           </video>
         )}

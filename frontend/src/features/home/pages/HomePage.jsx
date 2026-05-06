@@ -17,9 +17,42 @@ const fadeUp = {
   }),
 };
 
+// Heroicons-style outline SVGs replacing the emoji icons. Render at
+// 28px inside the 56px badge, take currentColor so the existing
+// per-feature `accent` class (text-primary / text-warning / etc.)
+// drives the hue without me hand-coding 4 colour variants.
+const IconBolt = (props) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6}
+       strokeLinecap="round" strokeLinejoin="round" {...props}>
+    <path d="M13 2L3 14h7l-1 8 10-12h-7l1-8z" />
+  </svg>
+);
+const IconChart = (props) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6}
+       strokeLinecap="round" strokeLinejoin="round" {...props}>
+    <path d="M3 3v18h18" />
+    <path d="M7 14l4-4 4 4 5-7" />
+  </svg>
+);
+const IconCalendarStar = (props) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6}
+       strokeLinecap="round" strokeLinejoin="round" {...props}>
+    <rect x="3" y="5" width="18" height="16" rx="2" />
+    <path d="M16 3v4M8 3v4M3 11h18" />
+    <path d="M12 13.5l1 2 2.2.3-1.6 1.5.4 2.2L12 18.5l-2 1 .4-2.2L8.8 15.8l2.2-.3 1-2z" fill="currentColor" stroke="none" />
+  </svg>
+);
+const IconTrophy = (props) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6}
+       strokeLinecap="round" strokeLinejoin="round" {...props}>
+    <path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 11-10 0V4z" />
+    <path d="M17 5h3v3a3 3 0 01-3 3M7 5H4v3a3 3 0 003 3" />
+  </svg>
+);
+
 const features = [
   {
-    icon: "\u{1F9EE}",
+    Icon: IconBolt,
     title: "Challenge Arena",
     description: "Battle through weekly math challenges ranked by difficulty. Solve problems, earn points, climb the leaderboard.",
     to: "/arena",
@@ -30,7 +63,7 @@ const features = [
     glow:   "group-hover:shadow-[0_0_40px_rgba(131,82,255,0.25)]",
   },
   {
-    icon: "\u{1F4CA}",
+    Icon: IconChart,
     title: "Live Dashboard",
     description: "Track your progress, view streaks, monitor your ranking, and see how you compare to the collective.",
     to: "/dashboard",
@@ -40,7 +73,7 @@ const features = [
     glow:   "group-hover:shadow-[0_0_40px_rgba(251,191,36,0.25)]",
   },
   {
-    icon: "\u{1F3AF}",
+    Icon: IconCalendarStar,
     title: "Events & Competitions",
     description: "Join live quizzes, treasure hunts, and math competitions. Compete in real-time with students across universities.",
     to: "/events",
@@ -50,7 +83,7 @@ const features = [
     glow:   "group-hover:shadow-[0_0_40px_rgba(45,212,191,0.25)]",
   },
   {
-    icon: "\u{1F3C6}",
+    Icon: IconTrophy,
     title: "Leaderboards",
     description: "Weekly and all-time rankings. See top performers, your personal best, and earn recognition for your skills.",
     to: "/leaderboard",
@@ -261,13 +294,12 @@ export default function HomePage() {
                   <article
                     className={`group relative flex h-full flex-col overflow-hidden rounded-2xl border border-line/15 bg-surface/60 p-6 backdrop-blur-xl transition-all duration-300 hover:-translate-y-1 hover:border-line/30 hover:bg-surface/80 ${feature.glow}`}
                   >
-                    {/* Icon badge — a proper pill instead of a bare emoji */}
+                    {/* Icon badge — SVG icon, takes currentColor from the
+                        accent class so each card hue stays distinct. */}
                     <div
-                      className={`flex h-14 w-14 items-center justify-center rounded-xl ring-1 ${feature.bg} ${feature.ring}`}
+                      className={`flex h-14 w-14 items-center justify-center rounded-xl ring-1 ${feature.bg} ${feature.ring} ${feature.accent}`}
                     >
-                      <span className="text-3xl leading-none" aria-hidden>
-                        {feature.icon}
-                      </span>
+                      <feature.Icon className="h-7 w-7" aria-hidden />
                     </div>
 
                     <h3 className="mt-6 font-display text-2xl font-bold tracking-[-0.02em] text-white">
