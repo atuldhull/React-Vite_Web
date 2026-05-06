@@ -16,6 +16,7 @@ function revealAnswer(io, code) {
   const session = quizStore.get(code);
   if (!session) return;
   session.status = "results";
+  quizStore.touch?.(code);
 
   const q = session.questions[session.currentQ];
   const podium = Object.values(session.players)
@@ -105,6 +106,7 @@ export function attachQuiz(io, socket, { pushNotification }) {
     if (session.status !== "lobby") { socket.emit("join_error", "Quiz already started"); return; }
 
     session.players[socket.id] = { name: playerName, score: 0, answers: [], lastAnswer: null };
+    quizStore.touch?.(code);
     socket.join(code);
 
     socket.emit("joined", { code, playerName });
@@ -153,6 +155,9 @@ export function attachQuiz(io, socket, { pushNotification }) {
 
     if (session.timer) clearTimeout(session.timer);
     session.timer = setTimeout(() => revealAnswer(io, code), (q.timeLimit || 30) * 1000 + 2000);
+    // Snapshot AFTER the question advances so a restart resumes on the
+    // current question instead of replaying the previous one.
+    quizStore.touch?.(code);
   });
 
   /* Student submits an answer. */
@@ -175,6 +180,7 @@ export function attachQuiz(io, socket, { pushNotification }) {
 
     player.score += earned;
     player.answers.push({ questionIndex: session.currentQ, answerIndex, correct: isCorrect, earned });
+    quizStore.touch?.(code);
 
     socket.emit("answer_received", { received: true });
 

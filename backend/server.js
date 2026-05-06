@@ -43,6 +43,8 @@ import { Server } from "socket.io";
 import { createApp }    from "./app.js";
 import { attachSocket } from "./socket/index.js";
 import { attachRedisAdapter, detachRedisAdapter } from "./socket/redisAdapter.js";
+import { attachRedisToQuizStore, quizStore } from "./socket/store/quizStore.js";
+import { createClient as createRedisClient } from "redis";
 
 const isProd = env.isProd;
 const app    = createApp();
@@ -71,13 +73,41 @@ const io = new Server(server, {
 // unreachable it logs + falls through to the default adapter so the
 // server still boots.
 await attachRedisAdapter(io);
+
+// Quiz-state persistence — third Redis client (the adapter's pub + sub
+// clients are dedicated to Socket.IO's pub/sub pipes, can't reuse them
+// for general HSET/HGET). Best-effort: if Redis is missing or unreachable,
+// quizStore stays in-memory and only loses state on instance restart.
+let quizRedisClient = null;
+if (process.env.REDIS_URL) {
+  try {
+    quizRedisClient = createRedisClient({ url: process.env.REDIS_URL });
+    quizRedisClient.on("error", (err) => {
+      // Don't kill the server on an intermittent Redis blip; the
+      // snapshot layer already handles transient failures by re-marking
+      // sessions dirty for the next tick.
+      console.error("[quizStore Redis] connection error:", err.message);
+    });
+    await quizRedisClient.connect();
+    await attachRedisToQuizStore(quizRedisClient);
+  } catch (err) {
+    console.warn("[quizStore Redis] attach failed, falling back to in-memory only:", err.message);
+    quizRedisClient = null;
+  }
+}
+
 attachSocket(io);
 
-// Graceful shutdown — close Redis clients before the process exits so
-// pending pub/sub messages are flushed and the connections aren't left
-// in a half-closed state.
+// Graceful shutdown — drain the quiz snapshot, close Redis clients
+// (adapter pub/sub + quizStore client), then close the HTTP server.
+// Order matters: we want the in-flight quiz state safely persisted
+// BEFORE the connections drop.
 const shutdown = async (signal) => {
   console.log(`\n[server] ${signal} received, shutting down...`);
+  try { await quizStore.drain?.(); } catch { /* swallow — best-effort */ }
+  if (quizRedisClient) {
+    try { await quizRedisClient.quit(); } catch { /* swallow */ }
+  }
   await detachRedisAdapter();
   server.close(() => process.exit(0));
   // Force-exit if close() hangs more than 10s.
