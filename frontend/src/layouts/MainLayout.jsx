@@ -307,7 +307,15 @@ export default function MainLayout() {
           </nav>
         </motion.header>
 
-        <main className="flex-1">
+        {/* `flex flex-col [&>*]:flex-1` — Tailwind arbitrary-variant rule
+            that says: stretch the FIRST child of <main> to fill all
+            remaining vertical space. Without this, a short page (404,
+            empty list, login form) sits at the top with empty space
+            below it because <main className="flex-1"> only pushes the
+            footer down — it doesn't expand the page content itself.
+            With it, every page's root div fills the viewport between
+            the sticky header and the footer. */}
+        <main className="flex flex-1 flex-col [&>*]:flex-1">
           <Outlet />
         </main>
 

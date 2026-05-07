@@ -127,7 +127,11 @@ export default function AdminLayout() {
             </div>
           </motion.header>
 
-          <main className="pb-8">
+          {/* flex-1 + [&>*]:flex-1 — same trick as MainLayout: stretch
+              the page's root element to fill remaining height so short
+              admin pages (empty user list, etc.) don't sit cramped at
+              the top with empty space below. */}
+          <main className="flex flex-1 flex-col pb-8 [&>*]:flex-1">
             <Outlet />
           </main>
         </div>

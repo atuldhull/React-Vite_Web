@@ -125,7 +125,7 @@ export default function SuperAdminLayout() {
             </div>
           </motion.header>
 
-          <main className="pb-8">
+          <main className="flex flex-1 flex-col pb-8 [&>*]:flex-1">
             <Outlet />
           </main>
         </div>
