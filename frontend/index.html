@@ -31,6 +31,18 @@
     <meta name="twitter:title"        content="Math Collective — Where Math Becomes Epic" />
     <meta name="twitter:description"  content="Competitive math for university students. Challenge arena, live quizzes, E2EE chat, QR-verifiable certificates." />
     <meta name="twitter:image"        content="https://math-collective.onrender.com/app/icons/icon-512.png" />
+    <!-- Premium font stack via Fontshare CDN.
+         Satoshi   — body / UI (modern minimal sans, replaces Outfit)
+         Clash Display — headings (luxury display, replaces Space Grotesk)
+         Both ship as variable fonts so we get all weights in two HTTP
+         requests. preconnect cuts ~200 ms off the cold-load font swap.
+         IBM Plex Mono (already loaded by theme.css) stays for monospace. -->
+    <link rel="preconnect" href="https://api.fontshare.com" crossorigin />
+    <link rel="preconnect" href="https://cdn.fontshare.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://api.fontshare.com/v2/css?f%5B%5D=satoshi@300,400,500,600,700,800,900&f%5B%5D=clash-display@500,600,700&display=swap"
+    />
     <link rel="manifest" href="/app/manifest.json" />
     <meta name="theme-color" content="#7c3aed" />
     <!-- Older iOS Safari still looks at this meta. The spec name is

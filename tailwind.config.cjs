@@ -22,9 +22,13 @@ module.exports = {
         "text-dim": "rgb(var(--color-text-dim) / <alpha-value>)",
       },
       fontFamily: {
-        sans: ["Outfit", "sans-serif"],
-        display: ["Syne", "sans-serif"],
-        mono: ["IBM Plex Mono", "monospace"],
+        // Phase 16 — Satoshi (body) + Clash Display (headings), both
+        // loaded via Fontshare CDN in frontend/index.html. Outfit / Syne
+        // / system-ui kept as fallback chains so a slow CDN doesn't
+        // blow up the typography on first paint.
+        sans:    ["Satoshi", "Outfit", "system-ui", "sans-serif"],
+        display: ["Clash Display", "Syne", "Space Grotesk", "sans-serif"],
+        mono:    ["IBM Plex Mono", "JetBrains Mono", "monospace"],
       },
       spacing: {
         "space-2xs": "var(--space-2xs)",
