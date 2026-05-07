@@ -1,4 +1,5 @@
 import { motion, useReducedMotion } from "framer-motion";
+import { useRef } from "react";
 import { cn } from "@/lib/cn";
 
 const variantMap = {
@@ -17,11 +18,23 @@ export default function Card({
   // already manages a stagger sequence for its children and we don't
   // want a second tween fighting it.
   noEntrance = false,
+  // Glassmorphism cursor-tracked spotlight: when on, a soft radial
+  // gradient inside the card follows the cursor — same trick used on
+  // shadcn-cards / Aceternity / Magic UI. Opt-in to avoid a per-frame
+  // CSS variable update on cards where the effect would be wasted.
+  spotlight = false,
   footer,
   className,
   children,
   ...props
 }) {
+  const cardRef = useRef(null);
+  const handleSpotlightMove = (e) => {
+    if (!spotlight || !cardRef.current) return;
+    const rect = cardRef.current.getBoundingClientRect();
+    cardRef.current.style.setProperty("--spotlight-x", `${e.clientX - rect.left}px`);
+    cardRef.current.style.setProperty("--spotlight-y", `${e.clientY - rect.top}px`);
+  };
   // prefers-reduced-motion: respect OS-level reduced-motion setting,
   // matching the rest of the app (ExperienceShell already gates Lenis
   // smooth-scroll on this same flag).
@@ -48,6 +61,8 @@ export default function Card({
 
   return (
     <motion.article
+      ref={cardRef}
+      onMouseMove={spotlight && !reduced ? handleSpotlightMove : undefined}
       {...entranceProps}
       // Subtle lift on hover for ALL cards (not just interactive),
       // because passive cards still benefit from a tiny "I see you"
@@ -61,6 +76,7 @@ export default function Card({
           : { y: -2,                transition: { duration: 0.22, ease: "easeOut" } }
       }
       data-cursor={interactive ? "interactive" : undefined}
+      data-spotlight={spotlight ? "on" : undefined}
       className={cn(
         "group relative overflow-hidden border p-5 backdrop-blur-2xl sm:p-6",
         variantMap[variant],
@@ -73,6 +89,21 @@ export default function Card({
       }}
       {...props}
     >
+      {/* Cursor-tracked spotlight — a soft radial gradient that follows
+          the cursor inside the card. CSS-only (driven by the
+          --spotlight-x / --spotlight-y custom properties updated by
+          handleSpotlightMove). Always renders when spotlight=on so we
+          don't do a per-frame paint on cards that didn't opt in. */}
+      {spotlight && !reduced && (
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 z-[1] opacity-0 transition-opacity duration-500 group-hover:opacity-100"
+          style={{
+            background:
+              "radial-gradient(420px circle at var(--spotlight-x, -1000px) var(--spotlight-y, -1000px), rgba(124,58,237,0.18), transparent 60%)",
+          }}
+        />
+      )}
       {/* Notch corner accent triangle */}
       <span
         className="pointer-events-none absolute top-0 right-0 z-[2]"

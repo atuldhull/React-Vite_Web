@@ -395,7 +395,7 @@ export default function EventsPage() {
             </div>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {recs.slice(0, 3).map(ev => (
-                <Card key={ev.id} variant="glass" interactive className="cursor-pointer" onClick={() => {
+                <Card key={ev.id} variant="glass" interactive spotlight className="cursor-pointer" onClick={() => {
                   const el = document.getElementById(`event-${ev.id}`);
                   el?.scrollIntoView({ behavior: "smooth", block: "center" });
                 }}>
@@ -457,7 +457,7 @@ export default function EventsPage() {
                         data-active={status === "active" || status === "registering"} />
                     </div>
 
-                    <Card variant={status === "active" ? "glow" : "glass"}>
+                    <Card variant={status === "active" ? "glow" : "glass"} spotlight>
                       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                         {/* Left: Event info */}
                         <div className="flex-1 min-w-0">
