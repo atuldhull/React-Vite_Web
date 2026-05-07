@@ -41,10 +41,14 @@ const BOOK_COLOURS = [
   0x533424, 0x6a523c, 0xb8893d, 0x8a6f3a,
 ];
 
-const SHELF_DEPTH  = 30;   // along -Z
-const SHELVES      = 5;    // vertical levels
-const BOOKS_PER_LV = 110;  // along the shelf
-// Total instances per side = 5 × 110 = 550. Two sides = 1100 books.
+const SHELF_DEPTH  = 36;   // along -Z (was 30 — extends corridor)
+const SHELVES      = 9;    // vertical levels (was 5 — TALLER + cathedral feel)
+const BOOKS_PER_LV = 130;  // along the shelf (was 110 — denser)
+// Total instances per side = 9 × 130 = 1170. Two sides = 2340 books.
+// Still one InstancedMesh per side, so just 2 draw calls for everything.
+const SHELF_LV_HEIGHT = 0.55;   // distance between shelves
+const FIRST_LV_Y      = 0.55;   // bottom shelf height off the floor
+const TOP_OF_SHELVES  = FIRST_LV_Y + (SHELVES - 1) * SHELF_LV_HEIGHT + 0.5; // ~5.45m
 
 function scrollSpan() { return window.innerHeight * 5; }
 
@@ -112,14 +116,19 @@ export default function LibraryScene() {
       const inst = new THREE.InstancedMesh(bookGeo, bookMat, SHELVES * BOOKS_PER_LV);
       let idx = 0;
       for (let lv = 0; lv < SHELVES; lv++) {
-        const y = 0.5 + lv * 0.55;
+        const y = FIRST_LV_Y + lv * SHELF_LV_HEIGHT;
         for (let i = 0; i < BOOKS_PER_LV; i++) {
-          // Books packed along Z from z=0 backward.
           const zNominal = -i * (SHELF_DEPTH / BOOKS_PER_LV) - 0.05;
           const z = zNominal + (Math.random() - 0.5) * 0.02;
-          const tilt = (Math.random() - 0.5) * 0.04; // tiny lean
-          const heightJitter = 1 + (Math.random() - 0.5) * 0.18;
-          dummy.position.set(side * 2.6, y, z);
+          const tilt = (Math.random() - 0.5) * 0.05;
+          // Wider height jitter than rev 5: some books are short paperbacks,
+          // some are tall folios. Reads as a real archive vs identical
+          // matchsticks.
+          const heightJitter = 0.78 + Math.random() * 0.42;
+          // Slight depth jitter: ~10 % of books recede 1-2 cm into the
+          // shelf, suggesting they've been pushed back further.
+          const depthShift = Math.random() < 0.10 ? -0.018 : 0;
+          dummy.position.set(side * 2.6 + depthShift * side, y, z);
           dummy.rotation.set(0, side > 0 ? Math.PI : 0, tilt);
           dummy.scale.set(1, heightJitter, 1);
           dummy.updateMatrix();
@@ -145,50 +154,112 @@ export default function LibraryScene() {
       for (let lv = 0; lv < SHELVES; lv++) {
         const plankGeo = new THREE.BoxGeometry(0.32, 0.03, SHELF_DEPTH);
         const plank = new THREE.Mesh(plankGeo, shelfMat);
-        plank.position.set(side * 2.6, 0.32 + lv * 0.55, -SHELF_DEPTH / 2);
+        plank.position.set(
+          side * 2.6,
+          (FIRST_LV_Y - 0.18) + lv * SHELF_LV_HEIGHT,
+          -SHELF_DEPTH / 2,
+        );
         scene.add(plank);
         cleanupRef.current.geometries.push(plankGeo);
       }
-      // Vertical posts every 5m so the bookcase has structure.
-      for (let z = 0; z >= -SHELF_DEPTH; z -= 5) {
-        const postGeo = new THREE.BoxGeometry(0.36, SHELVES * 0.55 + 0.4, 0.07);
+      // Vertical posts every 4m so the taller bookcase reads as
+      // architecturally framed. Posts now span the full TOP_OF_SHELVES
+      // height so 9 levels still feel structurally supported.
+      for (let z = 0; z >= -SHELF_DEPTH; z -= 4) {
+        const postGeo = new THREE.BoxGeometry(0.36, TOP_OF_SHELVES, 0.08);
         const post = new THREE.Mesh(postGeo, shelfMat);
-        post.position.set(side * 2.6, (SHELVES * 0.55) / 2 + 0.3, z);
+        post.position.set(side * 2.6, TOP_OF_SHELVES / 2, z);
         scene.add(post);
         cleanupRef.current.geometries.push(postGeo);
       }
     }
 
-    // ── Candle-tone point lights along the corridor ─────────────
-    // CRITICAL: light.position.set(...) — never Object.assign({ position: new Vector3 }).
+    // ── Cathedral ceiling beams — perpendicular wooden beams across
+    //    the corridor at TOP_OF_SHELVES + 0.6, every ~3.5m. Reads as
+    //    "vaulted hall" rather than "endless tunnel". The fog hides
+    //    the ones far down the corridor so the depth still feels
+    //    infinite. ────────────────────────────────────────────────
+    const beamMat = new THREE.MeshStandardMaterial({
+      color: 0x1f1108, roughness: 0.9, metalness: 0.05,
+    });
+    cleanupRef.current.materials.push(beamMat);
+    for (let z = -1; z >= -SHELF_DEPTH; z -= 3.5) {
+      const beamGeo = new THREE.BoxGeometry(6.0, 0.18, 0.22);
+      const beam = new THREE.Mesh(beamGeo, beamMat);
+      beam.position.set(0, TOP_OF_SHELVES + 0.45, z);
+      scene.add(beam);
+      cleanupRef.current.geometries.push(beamGeo);
+    }
+    // Continuous longitudinal beams running the corridor's length on
+    // each side, sitting on top of the bookcases.
+    for (const side of [-1, +1]) {
+      const longBeamGeo = new THREE.BoxGeometry(0.45, 0.22, SHELF_DEPTH);
+      const longBeam = new THREE.Mesh(longBeamGeo, beamMat);
+      longBeam.position.set(side * 2.6, TOP_OF_SHELVES + 0.20, -SHELF_DEPTH / 2);
+      scene.add(longBeam);
+      cleanupRef.current.geometries.push(longBeamGeo);
+    }
+
+    // ── Hanging candelabra — twin candles dangling from ceiling
+    //    beams every ~3.5m. Brass chain stand-in (thin cylinder) +
+    //    cup + 3 candle stems with flames + a strong warm point light
+    //    at the cluster centre. CRITICAL: light.position.set(x, y, z)
+    //    — never Object.assign({ position: new Vector3 }).
     const candleLights = [];
     const flameVisuals = [];
-    for (let i = 0; i < 7; i++) {
-      const z = -i * 4.5;
-      const light = new THREE.PointLight(0xffb15c, 4.0, 9, 1.6);
-      light.position.set(0, 2.6, z);
+    const CANDLE_Y = TOP_OF_SHELVES - 1.4; // hangs below the ceiling beams
+    const stemMatShared = new THREE.MeshStandardMaterial({ color: 0xe9d6a3, roughness: 0.7 });
+    const flameMatShared = new THREE.MeshBasicMaterial({ color: 0xffd28a });
+    const chainMatShared = new THREE.MeshStandardMaterial({ color: 0x4a3a20, roughness: 0.4, metalness: 0.7 });
+    const cupMatShared   = new THREE.MeshStandardMaterial({ color: 0x4a3520, roughness: 0.45, metalness: 0.5 });
+    cleanupRef.current.materials.push(stemMatShared, flameMatShared, chainMatShared, cupMatShared);
+
+    for (let i = 0; i < 10; i++) {
+      const z = -i * 3.5 - 0.5;
+      // Strong warm point light at the cluster centre.
+      const light = new THREE.PointLight(0xffb15c, 6.5, 12, 1.5);
+      light.position.set(0, CANDLE_Y, z);
       scene.add(light);
       candleLights.push(light);
 
-      const flameGeo = new THREE.SphereGeometry(0.045, 12, 12);
-      const flameMat = new THREE.MeshBasicMaterial({ color: 0xffd28a });
-      const flame = new THREE.Mesh(flameGeo, flameMat);
-      flame.position.set(0, 2.6, z);
-      scene.add(flame);
-      flameVisuals.push(flame);
-      cleanupRef.current.geometries.push(flameGeo);
-      cleanupRef.current.materials.push(flameMat);
+      // Brass chain from ceiling beam down to candelabra cup.
+      const chainGeo = new THREE.CylinderGeometry(0.006, 0.006, TOP_OF_SHELVES + 0.45 - CANDLE_Y, 6);
+      const chain = new THREE.Mesh(chainGeo, chainMatShared);
+      chain.position.set(0, (TOP_OF_SHELVES + 0.45 + CANDLE_Y) / 2, z);
+      scene.add(chain);
+      cleanupRef.current.geometries.push(chainGeo);
 
-      const stemGeo = new THREE.CylinderGeometry(0.022, 0.028, 0.16, 8);
-      const stemMat = new THREE.MeshStandardMaterial({ color: 0xe9d6a3, roughness: 0.7 });
-      const stem = new THREE.Mesh(stemGeo, stemMat);
-      stem.position.set(0, 2.46, z);
-      scene.add(stem);
-      cleanupRef.current.geometries.push(stemGeo);
-      cleanupRef.current.materials.push(stemMat);
+      // Candelabra cup — small bowl shape via a flat cylinder.
+      const cupGeo = new THREE.CylinderGeometry(0.18, 0.12, 0.05, 12);
+      const cup = new THREE.Mesh(cupGeo, cupMatShared);
+      cup.position.set(0, CANDLE_Y - 0.02, z);
+      scene.add(cup);
+      cleanupRef.current.geometries.push(cupGeo);
+
+      // Three candle stems + flames per cluster, arranged in a small
+      // triangle. Adds visual richness vs single-flame.
+      const offsets = [[0, 0], [0.10, 0.05], [-0.10, 0.05]];
+      offsets.forEach(([dx, dz]) => {
+        const stemGeo = new THREE.CylinderGeometry(0.022, 0.028, 0.16, 8);
+        const stem = new THREE.Mesh(stemGeo, stemMatShared);
+        stem.position.set(dx, CANDLE_Y + 0.07, z + dz);
+        scene.add(stem);
+        cleanupRef.current.geometries.push(stemGeo);
+
+        const flameGeo = new THREE.SphereGeometry(0.045, 12, 12);
+        const flame = new THREE.Mesh(flameGeo, flameMatShared);
+        flame.position.set(dx, CANDLE_Y + 0.18, z + dz);
+        scene.add(flame);
+        flameVisuals.push(flame);
+        cleanupRef.current.geometries.push(flameGeo);
+      });
     }
 
-    scene.add(new THREE.AmbientLight(0x553322, 0.55));
+    // Lower ambient than rev 5 — with the taller bookcases + more
+    // candelabra, the candles need to clearly dominate the light. Too
+    // much ambient flattens the depth and the shadows that make the
+    // corridor feel real.
+    scene.add(new THREE.AmbientLight(0x2a1810, 0.30));
 
     // ── Holographic equation glyphs (revealed in phase 2) ───────
     function makeGlyphTexture(text) {
@@ -330,7 +401,7 @@ export default function LibraryScene() {
       const t = performance.now() * 0.001;
       // Per-light flicker + master phase intensity.
       candleLights.forEach((l, i) => {
-        l.intensity = 4.0 * current.candleI * (0.92 + 0.08 * Math.sin(t * 4 + i * 1.7));
+        l.intensity = 6.5 * current.candleI * (0.92 + 0.08 * Math.sin(t * 4 + i * 1.7));
       });
       flameVisuals.forEach((f) => {
         f.material.opacity = 1; // basic material ignores opacity unless transparent — kept for symmetry
