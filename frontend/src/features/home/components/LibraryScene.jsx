@@ -316,6 +316,70 @@ export default function LibraryScene() {
     const flameGeoShared = new THREE.PlaneGeometry(0.16, 0.28);
     cleanupRef.current.geometries.push(flameGeoShared);
 
+    // ── Volumetric halo / god-rays around each candle cluster ──
+    // A larger billboard plane behind each candelabra with a radial
+    // gradient + scrolling noise fragment shader. With bloom + fog,
+    // this reads as 'shaft of light catching the dust'. Kept as plain
+    // additive geometry instead of a postprocessing GodRaysEffect
+    // because the postprocessing version needs a depth-tested light
+    // mesh and can be finicky on some GPUs (rev 3 lesson).
+    const HALO_VERT = /* glsl */`
+      varying vec2 vUv;
+      void main() {
+        vUv = uv;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `;
+    const HALO_FRAG = /* glsl */`
+      precision highp float;
+      varying vec2 vUv;
+      uniform float uTime;
+      uniform float uSeed;
+      uniform float uOpacity;
+      uniform vec3  uColour;
+
+      float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+      float noise(vec2 p) {
+        vec2 i = floor(p), f = fract(p);
+        float a = hash(i), b = hash(i + vec2(1.0, 0.0)),
+              c = hash(i + vec2(0.0, 1.0)), d = hash(i + vec2(1.0, 1.0));
+        vec2 u = f * f * (3.0 - 2.0 * f);
+        return mix(a, b, u.x) + (c - a) * u.y * (1.0 - u.x) + (d - b) * u.x * u.y;
+      }
+
+      void main() {
+        vec2 c = vUv - 0.5;
+        float r = length(c);
+        float radial = pow(1.0 - smoothstep(0.0, 0.5, r), 1.4);
+        float angle  = atan(c.y, c.x);
+        float streak = 0.5 + 0.5 * sin(angle * 12.0 + uTime * 0.6 + uSeed * 6.0);
+        streak *= noise(vec2(angle * 4.0, uTime * 0.4 + uSeed));
+        float intensity = radial * (0.65 + streak * 0.35);
+        gl_FragColor = vec4(uColour, intensity * 0.7 * uOpacity);
+      }
+    `;
+    function buildHaloMaterial(seed, colour) {
+      const m = new THREE.ShaderMaterial({
+        uniforms: {
+          uTime:    { value: 0 },
+          uSeed:    { value: seed },
+          uOpacity: { value: 1 },
+          uColour:  { value: new THREE.Color(colour) },
+        },
+        vertexShader:   HALO_VERT,
+        fragmentShader: HALO_FRAG,
+        transparent:    true,
+        depthWrite:     false,
+        blending:       THREE.AdditiveBlending,
+      });
+      cleanupRef.current.materials.push(m);
+      return m;
+    }
+    const haloGeoShared = new THREE.PlaneGeometry(2.4, 2.4);
+    cleanupRef.current.geometries.push(haloGeoShared);
+    const haloMaterials = []; // for per-frame uTime updates
+    const haloMeshes    = []; // for camera billboard
+
     for (let i = 0; i < 10; i++) {
       const z = -i * 3.5 - 0.5;
       // Strong warm point light at the cluster centre.
@@ -323,6 +387,17 @@ export default function LibraryScene() {
       light.position.set(0, CANDLE_Y, z);
       scene.add(light);
       candleLights.push(light);
+
+      // God-ray halo — large billboard plane behind the candelabra,
+      // shader-painted radial + streaks, additive blended. Bloom +
+      // fog complete the volumetric look.
+      const haloMat = buildHaloMaterial(Math.random(), 0xffb15c);
+      const halo = new THREE.Mesh(haloGeoShared, haloMat);
+      halo.position.set(0, CANDLE_Y + 0.1, z);
+      halo.renderOrder = -50; // behind books + flames, in front of fractal
+      scene.add(halo);
+      haloMaterials.push(haloMat);
+      haloMeshes.push(halo);
 
       // Brass chain from ceiling beam down to candelabra cup.
       const chainGeo = new THREE.CylinderGeometry(0.006, 0.006, TOP_OF_SHELVES + 0.45 - CANDLE_Y, 6);
@@ -673,6 +748,18 @@ export default function LibraryScene() {
       flameVisuals.forEach((mat) => { mat.uniforms.uTime.value = t; });
       flameMeshes.forEach((mesh) => {
         mesh.visible = current.candleI > 0.05;
+        if (mesh.visible) mesh.lookAt(camera.position);
+      });
+
+      // God-ray halos: same uTime update, same billboard. Halo
+      // intensity is gated by current.candleI so they fade together
+      // with the flames during the library → cosmos transition.
+      haloMaterials.forEach((mat) => {
+        mat.uniforms.uTime.value    = t;
+        mat.uniforms.uOpacity.value = current.candleI;
+      });
+      haloMeshes.forEach((mesh) => {
+        mesh.visible = current.candleI > 0.02;
         if (mesh.visible) mesh.lookAt(camera.position);
       });
 
