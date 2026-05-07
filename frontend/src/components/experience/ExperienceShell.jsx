@@ -6,6 +6,7 @@ import HovercardRoot from "@/components/social/HovercardRoot";
 import ChatButton from "@/components/chat/ChatButton";
 import IdentityModalsRoot from "@/components/identity/IdentityModalsRoot";
 import ScrollProgressBar from "@/components/experience/ScrollProgressBar";
+import AmbientCursorGlow from "@/components/experience/AmbientCursorGlow";
 import { useReducedMotionPreference } from "@/hooks/useReducedMotionPreference";
 import { useScrollEffects } from "@/hooks/useScrollEffects";
 import { useSmoothScroll } from "@/hooks/useSmoothScroll";
@@ -36,6 +37,7 @@ export default function ExperienceShell({ children }) {
     <>
       <LoadingScreen visible={booting} />
       <ScrollProgressBar />
+      <AmbientCursorGlow />
       <InteractiveCursor enabled={!reducedMotion} />
       {children}
       <PandaBot />

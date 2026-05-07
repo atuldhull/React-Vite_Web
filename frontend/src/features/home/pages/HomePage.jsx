@@ -6,7 +6,8 @@ import gsap from "@/lib/gsap-setup";
 import Button from "@/components/ui/Button";
 import MonumentBackground from "@/components/backgrounds/MonumentBackground";
 import { useMonument } from "@/hooks/useMonument";
-import { usePublicStats, formatStat } from "@/hooks/usePublicStats";
+import { usePublicStats } from "@/hooks/usePublicStats";
+import AnimatedNumber from "@/components/ui/AnimatedNumber";
 // Hero scene history:
 //   rev 1: 180-frame Cloudinary scrub (laggy, blurry)
 //   rev 2-4: Three.js WebGL Earth + monument anchored on surface
@@ -176,11 +177,14 @@ export default function HomePage() {
   // .limit(20), so the count was capped at 20 — masked with a misleading
   // "+". Now it's the real students.is_active count.
   const platformStats = usePublicStats();
+  // Raw numbers (not formatStat strings) so AnimatedNumber can drive
+  // the count-up. Falls through to null on first render → AnimatedNumber
+  // renders the placeholder em-dash.
   const stats = [
-    { value: formatStat(platformStats.members),     label: "Active Members" },
-    { value: formatStat(platformStats.challenges),  label: "Challenges" },
-    { value: formatStat(platformStats.events),      label: "Events" },
-    { value: formatStat(platformStats.submissions), label: "Submissions" },
+    { value: platformStats.members,     label: "Active Members" },
+    { value: platformStats.challenges,  label: "Challenges" },
+    { value: platformStats.events,      label: "Events" },
+    { value: platformStats.submissions, label: "Submissions" },
   ];
 
   return (
@@ -257,7 +261,9 @@ export default function HomePage() {
           className="relative z-[1] mx-auto flex max-w-5xl flex-wrap items-center justify-center gap-8 sm:gap-14">
           {stats.map((stat) => (
             <div key={stat.label} className="text-center">
-              <p className="math-text text-3xl font-bold tracking-tight text-white sm:text-4xl">{stat.value}</p>
+              <p className="math-text text-3xl font-bold tracking-tight text-white sm:text-4xl">
+                <AnimatedNumber value={stat.value} duration={1.4} />
+              </p>
               <p className="mt-1 font-mono text-[11px] uppercase tracking-[0.2em] text-text-dim">{stat.label}</p>
             </div>
           ))}
