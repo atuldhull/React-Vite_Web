@@ -32,6 +32,18 @@
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
 
+// Postprocessing — bloom for candles + emissive flames + vignette for
+// cinematic falloff. The EffectComposer pipeline is built inside a
+// try/catch (see below) and the per-frame render flips between
+// composer.render() and plain renderer.render() based on whether
+// init succeeded, so a GPU that can't run the pipeline falls cleanly
+// back to plain rendering instead of crashing the React tree
+// (rev 3 lesson — the unguarded EffectComposer killed the page).
+import {
+  EffectComposer, RenderPass, EffectPass,
+  BloomEffect, VignetteEffect, KernelSize,
+} from "postprocessing";
+
 // Leather-bound palette — desaturated browns, oxblood, forest, navy
 // with a few gold accents. No saturated rainbow colours: the corridor
 // reads "ancient archive", not "kindergarten library".
@@ -340,11 +352,53 @@ export default function LibraryScene() {
     cleanupRef.current.geometries.push(starGeo);
     cleanupRef.current.materials.push(starMat);
 
+    // ── Postprocessing pipeline (best-effort) ───────────────────
+    // Wrapped in try / catch + a smoke-test render so a GPU that
+    // can't run BloomEffect doesn't take down the page. On failure
+    // we discard the composer and fall back to plain renderer.render
+    // in the tick loop. The "_smokeOk" flag below is set only after
+    // we've successfully rendered ONE frame through the composer —
+    // some GPUs accept the composer at construction but throw on
+    // first draw, so the smoke test catches that case too.
+    let composer = null;
+    try {
+      const c = new EffectComposer(renderer);
+      c.addPass(new RenderPass(scene, camera));
+
+      const bloom = new BloomEffect({
+        kernelSize:        KernelSize.LARGE,
+        // Conservative threshold — only flames, candle cups, glyph
+        // planes, and stars bloom. The wood / books / floor stay
+        // clean. Lowering this below ~0.55 in rev 3 was what blew out
+        // exposure on the planet's day side.
+        luminanceThreshold: 0.62,
+        luminanceSmoothing: 0.20,
+        intensity:          1.05,
+      });
+      const vignette = new VignetteEffect({
+        // Cinematic edge darkening — matches the candle-lit mood by
+        // pulling the corners into shadow.
+        offset:    0.45,
+        darkness:  0.55,
+      });
+      c.addPass(new EffectPass(camera, bloom, vignette));
+
+      // Smoke-test render. If this throws, we leave composer = null.
+      c.render(0.016);
+      composer = c;
+      cleanupRef.current.composer = composer;
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.warn("[LibraryScene] postprocessing init failed, plain renderer.render() fallback:", err?.message);
+      composer = null;
+    }
+
     // ── Resize ───────────────────────────────────────────────────
     const onResize = () => {
       camera.aspect = window.innerWidth / window.innerHeight;
       camera.updateProjectionMatrix();
       renderer.setSize(window.innerWidth, window.innerHeight);
+      if (composer) composer.setSize(window.innerWidth, window.innerHeight);
     };
     window.addEventListener("resize", onResize);
 
@@ -431,7 +485,12 @@ export default function LibraryScene() {
       dustGeo.attributes.position.needsUpdate = true;
       dustMat.opacity = 0.7 * current.candleI + 0.3 * (1 - current.candleI);
 
-      renderer.render(scene, camera);
+      // Composer when available (bloom + vignette), else plain render.
+      if (composer) {
+        composer.render();
+      } else {
+        renderer.render(scene, camera);
+      }
       rafRef.current = requestAnimationFrame(tick);
     };
     rafRef.current = requestAnimationFrame(tick);
@@ -443,6 +502,7 @@ export default function LibraryScene() {
       c.geometries.forEach((g) => g.dispose());
       c.materials.forEach((m) => m.dispose());
       c.textures.forEach((t) => t.dispose());
+      if (c.composer) c.composer.dispose();
       if (c.renderer) {
         c.renderer.dispose();
         c.renderer.forceContextLoss?.();
