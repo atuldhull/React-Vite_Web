@@ -7,11 +7,14 @@ import Button from "@/components/ui/Button";
 import MonumentBackground from "@/components/backgrounds/MonumentBackground";
 import { useMonument } from "@/hooks/useMonument";
 import { usePublicStats, formatStat } from "@/hooks/usePublicStats";
-// Phase-1 hero was a 180-frame Cloudinary scrubber (MonumentGround).
-// Phase-3 replacement: a Three.js WebGL Earth + atmosphere + monument
-// scene driven by scroll progress. Same `<MonumentVideo />` interface,
-// brand-new internals.
-import MonumentVideo from "@/features/home/components/EarthScene";
+// Hero scene history:
+//   rev 1: 180-frame Cloudinary scrub (laggy, blurry)
+//   rev 2-4: Three.js WebGL Earth + monument anchored on surface
+//   rev 5: "The Infinite Library of Mathematics" — corridor of books,
+//          warm candle light, transitions to a holographic glyph cosmos.
+// Same <MonumentVideo /> alias used at the call-site so this swap
+// doesn't ripple through the rest of HomePage.
+import MonumentVideo from "@/features/home/components/LibraryScene";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 40 },
@@ -196,25 +199,27 @@ export default function HomePage() {
           opacity: titleOpacity,
           willChange: "opacity",
         }}>
+          {/* Title scaled down a touch since the new tagline is a
+              full sentence vs the previous two-word brand. clamp keeps
+              it readable on 375 px viewports without overflow. */}
           <h1 data-gsap-title style={{
             fontFamily: "'Space Grotesk', sans-serif",
-            // Lower minimum so the title doesn't overflow ~375px
-            // viewports. 7vw on a 375px screen is 26px, below the old
-            // 2.5rem (40px) floor — which forced overflow.
-            fontSize: "clamp(1.75rem, 7vw, 5rem)",
+            fontSize: "clamp(1.5rem, 5.5vw, 4.25rem)",
             fontWeight: 800, color: "white", margin: 0,
             letterSpacing: "-0.04em", lineHeight: 1.1,
-            textShadow: "0 0 80px rgba(0,0,0,0.6), 0 0 160px rgba(79,195,247,0.1)",
+            maxWidth: "min(90vw, 60ch)",
+            textShadow: "0 0 80px rgba(0,0,0,0.6), 0 0 160px rgba(255,177,92,0.10)",
           }}>
-            Math Collective
+            Mathematics is the Language of the Infinite.
           </h1>
           <p data-gsap-subtitle style={{
             fontFamily: "'Space Grotesk', sans-serif",
-            fontSize: "clamp(0.85rem, 2vw, 1.3rem)",
-            color: "rgba(255,255,255,0.5)", marginTop: "0.75rem",
+            fontSize: "clamp(0.85rem, 2vw, 1.25rem)",
+            color: "rgba(255,255,255,0.55)", marginTop: "1rem",
             letterSpacing: "0.04em",
+            maxWidth: "min(90vw, 50ch)",
           }}>
-            Where Mathematics Becomes Monument
+            The Infinite Library of Mathematics — Math Collective at BMSIT.
           </p>
         </div>
       )}
