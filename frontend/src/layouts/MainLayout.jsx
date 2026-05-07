@@ -55,12 +55,17 @@ export default function MainLayout() {
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-obsidian text-text-primary">
-      <div className="relative mx-auto flex min-h-screen w-full max-w-7xl flex-col px-4 pb-10 pt-4 sm:px-8 lg:px-10">
+      {/* Outer is now FULL WIDTH (no max-w cap on the wrapper). Pages
+          stretch edge-to-edge like Linear / Vercel / Stripe. The header
+          and footer keep their own max-w-7xl + horizontal padding so
+          they stay nicely centred + readable on ultra-wide displays —
+          only the page area between them is allowed to bleed. */}
+      <div className="relative flex min-h-screen w-full flex-col">
         <motion.header
           initial={{ y: -20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ duration: 0.5 }}
-          className="sticky top-3 z-40 mb-6"
+          className="sticky top-3 z-40 mx-auto mb-6 w-full max-w-7xl px-4 pt-4 sm:px-8 lg:px-10"
         >
           <nav className="rounded-2xl border border-line/15 bg-surface/60 px-4 py-3 shadow-panel backdrop-blur-2xl sm:px-5">
             <div className="flex items-center justify-between gap-3">
@@ -319,7 +324,7 @@ export default function MainLayout() {
           <Outlet />
         </main>
 
-        <footer className="mt-16 border-t border-line/10 pt-8">
+        <footer className="mx-auto mt-16 w-full max-w-7xl border-t border-line/10 px-4 pb-10 pt-8 sm:px-8 lg:px-10">
           <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
             <BrandMark />
             <div className="flex flex-wrap justify-center gap-4 font-mono text-[11px] text-text-dim sm:gap-6">

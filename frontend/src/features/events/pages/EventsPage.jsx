@@ -343,7 +343,10 @@ export default function EventsPage() {
   return (
     <div style={{ position: "relative" }}>
       <MonumentBackground monument="jungle" intensity={0.15} />
-      <div className="relative z-10 pb-16">
+      {/* Outer wraps the whole page; inner sections set their own
+          max-width. The padding here gives a consistent gutter so
+          content never touches the screen edge on small viewports. */}
+      <div className="relative z-10 pb-16 px-4 sm:px-6 lg:px-10">
         {/* Cinematic Entry Hero */}
         <EventHero stats={heroStats} onExplore={scrollToTimeline} />
 
@@ -384,7 +387,7 @@ export default function EventsPage() {
 
         {/* Recommended for You */}
         {recs.length > 0 && filter === "all" && (
-          <motion.section initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mx-auto max-w-4xl">
+          <motion.section initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mx-auto max-w-6xl">
             <div className="flex items-center gap-3 mb-4">
               <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-secondary">Recommended for You</p>
               {recPrefs?.top_type && (
@@ -426,7 +429,7 @@ export default function EventsPage() {
         )}
 
         {/* Event Timeline */}
-        <div className="relative mx-auto max-w-4xl">
+        <div className="relative mx-auto max-w-6xl">
           {/* Timeline vertical line */}
           <div className="absolute left-6 top-0 hidden h-full md:block event-timeline-line" />
 
