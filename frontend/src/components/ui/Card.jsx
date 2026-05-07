@@ -18,11 +18,16 @@ export default function Card({
   // already manages a stagger sequence for its children and we don't
   // want a second tween fighting it.
   noEntrance = false,
-  // Glassmorphism cursor-tracked spotlight: when on, a soft radial
-  // gradient inside the card follows the cursor — same trick used on
-  // shadcn-cards / Aceternity / Magic UI. Opt-in to avoid a per-frame
-  // CSS variable update on cards where the effect would be wasted.
-  spotlight = false,
+  // Glassmorphism cursor-tracked spotlight: a soft radial gradient
+  // inside the card follows the cursor — same trick used on
+  // shadcn-cards / Aceternity / Magic UI.
+  // ON BY DEFAULT now (Phase 21). The handler only fires while the
+  // mouse is over the card, the gradient layer is invisible until
+  // group-hover triggers, and the per-mousemove cost is two CSS-var
+  // writes — cheap enough to be on for every Card site-wide.
+  // Opt OUT via spotlight={false} on cards where the effect doesn't
+  // suit (e.g. tiny stat tiles).
+  spotlight = true,
   footer,
   className,
   children,
