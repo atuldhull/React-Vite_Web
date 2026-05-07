@@ -218,13 +218,103 @@ export default function LibraryScene() {
     //    at the cluster centre. CRITICAL: light.position.set(x, y, z)
     //    — never Object.assign({ position: new Vector3 }).
     const candleLights = [];
-    const flameVisuals = [];
+    const flameVisuals = [];   // each entry is the flame ShaderMaterial — needed for per-frame uTime updates
+    const flameMeshes  = [];   // each flame mesh — needed to billboard toward the camera
     const CANDLE_Y = TOP_OF_SHELVES - 1.4; // hangs below the ceiling beams
     const stemMatShared = new THREE.MeshStandardMaterial({ color: 0xe9d6a3, roughness: 0.7 });
-    const flameMatShared = new THREE.MeshBasicMaterial({ color: 0xffd28a });
     const chainMatShared = new THREE.MeshStandardMaterial({ color: 0x4a3a20, roughness: 0.4, metalness: 0.7 });
     const cupMatShared   = new THREE.MeshStandardMaterial({ color: 0x4a3520, roughness: 0.45, metalness: 0.5 });
-    cleanupRef.current.materials.push(stemMatShared, flameMatShared, chainMatShared, cupMatShared);
+    cleanupRef.current.materials.push(stemMatShared, chainMatShared, cupMatShared);
+
+    // Flame shader — procedurally drawn teardrop on a small Plane, with
+    // an internal noise field that scrolls upward to give the flicker /
+    // licking-flame effect. Each flame instance gets its OWN material
+    // so its uSeed varies (otherwise all 30 flames flicker in perfect
+    // sync — looks fake). uTime is updated every frame for all of them.
+    const FLAME_VERT = /* glsl */`
+      varying vec2 vUv;
+      void main() {
+        vUv = uv;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `;
+    const FLAME_FRAG = /* glsl */`
+      precision highp float;
+      varying vec2 vUv;
+      uniform float uTime;
+      uniform float uSeed;
+
+      // Fast hash — good enough for a flame flicker, no need for full
+      // Perlin / simplex noise.
+      float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+      float noise(vec2 p) {
+        vec2 i = floor(p), f = fract(p);
+        float a = hash(i), b = hash(i + vec2(1.0, 0.0)),
+              c = hash(i + vec2(0.0, 1.0)), d = hash(i + vec2(1.0, 1.0));
+        vec2 u = f * f * (3.0 - 2.0 * f);
+        return mix(a, b, u.x) + (c - a) * u.y * (1.0 - u.x) + (d - b) * u.x * u.y;
+      }
+      float fbm(vec2 p) {
+        float v = 0.0, a = 0.5;
+        for (int i = 0; i < 4; i++) { v += a * noise(p); p *= 2.0; a *= 0.5; }
+        return v;
+      }
+
+      void main() {
+        // Centre horizontally; vUv.y goes 0 (bottom) → 1 (top).
+        vec2 cuv = vec2(vUv.x - 0.5, vUv.y);
+
+        // Flame silhouette: parabolic taper, narrow at top.
+        float taper = 0.5 - cuv.y * 0.45;
+        float distFromAxis = abs(cuv.x) / max(taper, 0.01);
+
+        // Noise scrolls upward at uTime * 1.5; uSeed gives each flame a
+        // different starting phase so the field doesn't sync.
+        float t = uTime * 1.6 + uSeed * 6.28;
+        float n = fbm(vec2(cuv.x * 6.0 + uSeed, (cuv.y - t * 0.5) * 5.0));
+
+        // Distort silhouette horizontally with the noise so the flame
+        // licks and wobbles instead of being a static teardrop.
+        float shape = smoothstep(1.15, 0.35, distFromAxis + (n - 0.5) * 0.45);
+
+        // Soften top and bottom edges so the flame doesn't read as a
+        // hard cut-out.
+        float topFade    = smoothstep(0.96, 0.65, cuv.y);
+        float bottomFade = smoothstep(0.0,  0.10, cuv.y);
+        shape *= topFade * bottomFade;
+
+        // Vertical colour gradient: deep blue/purple base → warm orange
+        // mid → white-hot top. Matches the way real candles look at close range.
+        vec3 baseCol = vec3(0.30, 0.10, 0.55);
+        vec3 midCol  = vec3(1.00, 0.50, 0.10);
+        vec3 topCol  = vec3(1.00, 0.95, 0.75);
+        vec3 col = mix(baseCol, midCol, smoothstep(0.05, 0.45, cuv.y));
+        col      = mix(col,    topCol, smoothstep(0.50, 0.92, cuv.y));
+
+        // Hot inner core boost so the very centre reads white.
+        float core = smoothstep(0.55, 0.0, distFromAxis);
+        col = mix(col, vec3(1.0, 0.95, 0.7), core * 0.45);
+
+        gl_FragColor = vec4(col, shape);
+      }
+    `;
+    function buildFlameMaterial(seed) {
+      const m = new THREE.ShaderMaterial({
+        uniforms: {
+          uTime: { value: 0 },
+          uSeed: { value: seed },
+        },
+        vertexShader:   FLAME_VERT,
+        fragmentShader: FLAME_FRAG,
+        transparent:    true,
+        depthWrite:     false,
+        blending:       THREE.AdditiveBlending,
+      });
+      cleanupRef.current.materials.push(m);
+      return m;
+    }
+    const flameGeoShared = new THREE.PlaneGeometry(0.16, 0.28);
+    cleanupRef.current.geometries.push(flameGeoShared);
 
     for (let i = 0; i < 10; i++) {
       const z = -i * 3.5 - 0.5;
@@ -258,12 +348,16 @@ export default function LibraryScene() {
         scene.add(stem);
         cleanupRef.current.geometries.push(stemGeo);
 
-        const flameGeo = new THREE.SphereGeometry(0.045, 12, 12);
-        const flame = new THREE.Mesh(flameGeo, flameMatShared);
-        flame.position.set(dx, CANDLE_Y + 0.18, z + dz);
+        // Flame: shader-painted billboard plane. Each flame gets its
+        // own ShaderMaterial so its uSeed differs (otherwise the whole
+        // corridor flickers in perfect sync — uncanny). Material is
+        // tracked + disposed; the geometry is shared across all flames.
+        const flameMat = buildFlameMaterial(Math.random());
+        const flame = new THREE.Mesh(flameGeoShared, flameMat);
+        flame.position.set(dx, CANDLE_Y + 0.20, z + dz);
         scene.add(flame);
-        flameVisuals.push(flame);
-        cleanupRef.current.geometries.push(flameGeo);
+        flameMeshes.push(flame);
+        flameVisuals.push(flameMat); // populate uTime per-frame
       });
     }
 
@@ -573,9 +667,13 @@ export default function LibraryScene() {
       candleLights.forEach((l, i) => {
         l.intensity = 6.5 * current.candleI * (0.92 + 0.08 * Math.sin(t * 4 + i * 1.7));
       });
-      flameVisuals.forEach((f) => {
-        f.material.opacity = 1; // basic material ignores opacity unless transparent — kept for symmetry
-        f.visible = current.candleI > 0.05;
+      // Flames: shader-driven. Update uTime so the noise field scrolls,
+      // then billboard the mesh toward camera + hide it when candles are
+      // off (phase 2+).
+      flameVisuals.forEach((mat) => { mat.uniforms.uTime.value = t; });
+      flameMeshes.forEach((mesh) => {
+        mesh.visible = current.candleI > 0.05;
+        if (mesh.visible) mesh.lookAt(camera.position);
       });
 
       // Glyph pulse + drift + billboard toward camera.
