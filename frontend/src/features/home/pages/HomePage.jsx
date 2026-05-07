@@ -16,6 +16,7 @@ import AnimatedNumber from "@/components/ui/AnimatedNumber";
 // Same <MonumentVideo /> alias used at the call-site so this swap
 // doesn't ripple through the rest of HomePage.
 import MonumentVideo from "@/features/home/components/LibraryScene";
+import EvolutionTimeline from "@/features/home/components/EvolutionTimeline";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 40 },
@@ -285,6 +286,9 @@ export default function HomePage() {
             </motion.div>
           </motion.div>
         </section>
+
+        {/* ── EVOLUTION OF MATHEMATICS — vertical timeline ── */}
+        <EvolutionTimeline />
 
         <section className="relative z-[1] mx-auto max-w-6xl">
           <motion.div initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: "-100px" }} transition={{ duration: 0.7 }} className="text-center">
