@@ -53,8 +53,13 @@ export function applyHelmet(app) {
   // beyond the third-party we actually load.
   const scriptSrcProd = ["'self'", "checkout.razorpay.com"];
   const scriptSrcDev  = ["'self'", "'unsafe-inline'", "cdn.jsdelivr.net", "cdnjs.cloudflare.com", "unpkg.com", "esm.sh", "checkout.razorpay.com"];
-  const styleSrcProd  = ["'self'", "'unsafe-inline'", "fonts.googleapis.com"];
-  const styleSrcDev   = ["'self'", "'unsafe-inline'", "fonts.googleapis.com", "cdn.jsdelivr.net", "cdnjs.cloudflare.com"];
+  // Fontshare (api.fontshare.com for the CSS bundle, cdn.fontshare.com
+  // for the woff2 files it links to) is the source for Satoshi + Clash
+  // Display added in Phase 16. Without these on style-src + font-src,
+  // the CSP blocks the stylesheet and the Playwright smoke test catches
+  // the console error.
+  const styleSrcProd  = ["'self'", "'unsafe-inline'", "fonts.googleapis.com", "api.fontshare.com"];
+  const styleSrcDev   = ["'self'", "'unsafe-inline'", "fonts.googleapis.com", "api.fontshare.com", "cdn.jsdelivr.net", "cdnjs.cloudflare.com"];
 
   app.use(helmet({
     contentSecurityPolicy: {
@@ -67,7 +72,7 @@ export function applyHelmet(app) {
         // tests when CSP blocked them). Data-URI fonts aren't a
         // meaningful XSS vector — CSP doesn't add real protection
         // here — and blocking them just degrades typography.
-        fontSrc:        ["'self'", "data:", "fonts.gstatic.com", "cdn.jsdelivr.net"],
+        fontSrc:        ["'self'", "data:", "fonts.gstatic.com", "cdn.jsdelivr.net", "cdn.fontshare.com"],
         imgSrc:         ["'self'", "data:", "blob:", "api.dicebear.com", "*.supabase.co", "res.cloudinary.com", "*.razorpay.com"],
         mediaSrc:       ["'self'", "blob:", "res.cloudinary.com"],
         // Razorpay's checkout widget talks to api.razorpay.com +
