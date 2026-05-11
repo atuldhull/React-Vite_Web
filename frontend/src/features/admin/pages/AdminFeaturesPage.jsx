@@ -86,7 +86,7 @@ export default function AdminFeaturesPage() {
         {/* Header */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h2 className="font-display text-2xl font-bold text-white" style={{ fontFamily: "'Space Grotesk'" }}>Feature Management</h2>
+            <h2 className="font-display text-2xl font-bold text-white">Feature Management</h2>
             <p className="mt-1 text-sm text-text-muted">Toggle features for your organisation</p>
           </div>
           <div className="flex items-center gap-3">

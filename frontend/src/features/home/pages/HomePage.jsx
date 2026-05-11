@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from "react";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { Link } from "react-router-dom";
 import { useGSAP } from "@gsap/react";
 import gsap from "@/lib/gsap-setup";
@@ -140,6 +140,7 @@ function useScrollVideo(scrollRange) {
 
 export default function HomePage() {
   useMonument("desert");
+  const shouldReduceMotion = useReducedMotion();
 
   // Single scroll progress for the entire page video
   const progressRef = useScrollVideo(window.innerHeight * 5);
@@ -158,6 +159,10 @@ export default function HomePage() {
   const heroRef = useRef(null);
   useGSAP(() => {
     if (!heroRef.current) return;
+    // Reduced-motion: skip the entrance entirely — the title and subtitle
+    // start fully visible (their natural opacity/transform state), so the
+    // page settles immediately without any animation.
+    if (shouldReduceMotion) return;
     const title    = heroRef.current.querySelector("[data-gsap-title]");
     const subtitle = heroRef.current.querySelector("[data-gsap-subtitle]");
     if (!title || !subtitle) return;
@@ -169,7 +174,7 @@ export default function HomePage() {
       autoAlpha: 0, y: 24,
       duration: 0.9, delay: 0.45, ease: "power3.out",
     });
-  }, { scope: heroRef });
+  }, { scope: heroRef, dependencies: [shouldReduceMotion] });
 
   // Real platform totals from /api/stats/public — true counts (head:true,
   // count:exact) for each underlying table. Em-dashes until loaded so we
@@ -207,8 +212,12 @@ export default function HomePage() {
           {/* Title scaled down a touch since the new tagline is a
               full sentence vs the previous two-word brand. clamp keeps
               it readable on 375 px viewports without overflow. */}
-          <h1 data-gsap-title style={{
-            fontFamily: "'Space Grotesk', sans-serif",
+          {/* font-display uses the Clash Display stack from tailwind.config —
+              the inline fontFamily that used to live here was hard-coding
+              Space Grotesk, which sidestepped the display font that the rest
+              of the site uses for headings. Clash Display reads more
+              architectural — appropriate for the cathedral library hero. */}
+          <h1 data-gsap-title className="font-display" style={{
             fontSize: "clamp(1.5rem, 5.5vw, 4.25rem)",
             fontWeight: 800, color: "white", margin: 0,
             letterSpacing: "-0.04em", lineHeight: 1.1,
@@ -217,8 +226,7 @@ export default function HomePage() {
           }}>
             Mathematics is the Language of the Infinite.
           </h1>
-          <p data-gsap-subtitle style={{
-            fontFamily: "'Space Grotesk', sans-serif",
+          <p data-gsap-subtitle className="font-sans" style={{
             fontSize: "clamp(0.85rem, 2vw, 1.25rem)",
             color: "rgba(255,255,255,0.55)", marginTop: "1rem",
             letterSpacing: "0.04em",
@@ -241,8 +249,8 @@ export default function HomePage() {
             SCROLL TO EXPLORE
           </span>
           <motion.div
-            animate={{ y: [0, 10, 0] }}
-            transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+            animate={shouldReduceMotion ? undefined : { y: [0, 10, 0] }}
+            transition={shouldReduceMotion ? undefined : { duration: 2, repeat: Infinity, ease: "easeInOut" }}
             style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}
           >
             <div style={{ width: 1.5, height: 20, borderRadius: 1, background: "linear-gradient(to bottom, rgba(255,255,255,0.3), transparent)" }} />

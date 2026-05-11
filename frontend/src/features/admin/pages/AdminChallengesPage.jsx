@@ -160,7 +160,7 @@ export default function AdminChallengesPage() {
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="font-display text-2xl font-bold text-white" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>Challenge Management</h2>
+          <h2 className="font-display text-2xl font-bold text-white">Challenge Management</h2>
           <div className="mt-1 flex gap-4 font-mono text-[11px] text-text-dim">
             <span>{stats.total} total</span>
             <span className="text-success">{stats.active} active</span>

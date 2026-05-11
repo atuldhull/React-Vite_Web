@@ -37,7 +37,7 @@ export default function AdminDataPage() {
     <div style={{ position: "relative" }}><MonumentBackground monument="magma" intensity={0.1} />
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <h2 className="font-display text-2xl font-bold text-white" style={{ fontFamily: "'Space Grotesk'" }}>Data & Teams</h2>
+        <h2 className="font-display text-2xl font-bold text-white">Data & Teams</h2>
         <Button
           size="sm"
           variant="secondary"

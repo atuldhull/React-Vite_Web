@@ -328,11 +328,8 @@ export default function MonumentHero({
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.5, duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-              className="mt-3 text-4xl font-extrabold tracking-[-0.05em] text-white sm:text-5xl lg:text-6xl"
-              style={{
-                fontFamily: "'Space Grotesk', sans-serif",
-                textShadow: `0 0 40px ${config.glowColor}`,
-              }}
+              className="mt-3 font-display text-4xl font-extrabold tracking-[-0.05em] text-white sm:text-5xl lg:text-6xl"
+              style={{ textShadow: `0 0 40px ${config.glowColor}` }}
             >
               {title}
             </motion.h1>

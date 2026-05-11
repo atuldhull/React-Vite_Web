@@ -365,7 +365,7 @@ export default function ChatPanel({ open, onClose, initialPeerUserId = null, onT
               {mySigil && identityStatus === "ready" && (
                 <IdentityGlyph sigil={mySigil} size={22} inline title="Your identity" />
               )}
-              <h3 className="text-sm font-semibold text-white" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
+              <h3 className="font-display text-sm font-semibold text-white">
                 Messages {totalUnread > 0 && <span className="ml-1 rounded-full bg-primary px-1.5 py-0.5 text-[10px] text-white">{totalUnread}</span>}
               </h3>
             </div>

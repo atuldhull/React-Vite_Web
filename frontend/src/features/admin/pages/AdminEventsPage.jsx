@@ -372,7 +372,7 @@ export default function AdminEventsPage() {
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="font-display text-2xl font-bold text-white" style={{ fontFamily: "'Space Grotesk'" }}>Event Management</h2>
+          <h2 className="font-display text-2xl font-bold text-white">Event Management</h2>
           <div className="mt-1 flex gap-4 font-mono text-[11px] text-text-dim">
             <span>{stats.total} total</span><span className="text-secondary">{stats.upcoming} upcoming</span>
             <span className="text-success">{stats.live} live</span><span className="text-primary">{stats.totalRegs} regs</span>

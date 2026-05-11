@@ -141,8 +141,7 @@ export default function RegisterPage() {
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.5 }}
-                className="mt-6 text-2xl font-extrabold tracking-[-0.03em] text-white sm:text-3xl"
-                style={{ fontFamily: "'Space Grotesk', sans-serif" }}
+                className="mt-6 font-display text-2xl font-extrabold tracking-[-0.03em] text-white sm:text-3xl"
               >
                 Registrations Closed
               </motion.h1>
@@ -223,7 +222,7 @@ export default function RegisterPage() {
 
           <div className="mb-8">
             <p className="font-mono text-xs uppercase tracking-[0.3em] text-secondary">Join the Collective</p>
-            <h1 className="mt-3 text-3xl font-extrabold tracking-[-0.05em] text-white sm:text-4xl" style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: "2rem" }}>
+            <h1 className="mt-3 font-display text-[2rem] font-extrabold tracking-[-0.05em] text-white sm:text-4xl">
               Create your account
             </h1>
             <p className="mt-3 text-sm text-text-muted">

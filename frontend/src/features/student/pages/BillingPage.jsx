@@ -16,7 +16,7 @@ export default function BillingPage() {
       <div className="relative z-10 space-y-8 pb-16">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
           <p className="font-mono text-xs uppercase tracking-[0.3em] text-primary">Subscription</p>
-          <h1 className="mt-2 text-4xl font-extrabold tracking-[-0.05em] text-white" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>Your Plan</h1>
+          <h1 className="mt-2 font-display text-4xl font-extrabold tracking-[-0.05em] text-white">Your Plan</h1>
         </motion.div>
 
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>

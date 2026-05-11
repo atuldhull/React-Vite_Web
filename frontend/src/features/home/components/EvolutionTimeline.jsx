@@ -93,10 +93,7 @@ export default function EvolutionTimeline() {
         <p className="font-mono text-xs uppercase tracking-[0.32em] text-primary/85">
           The Long Lineage
         </p>
-        <h2
-          className="mt-4 text-4xl font-bold tracking-[-0.04em] text-white sm:text-5xl"
-          style={{ fontFamily: "'Clash Display', 'Space Grotesk', sans-serif" }}
-        >
+        <h2 className="mt-4 font-display text-4xl font-bold tracking-[-0.04em] text-white sm:text-5xl">
           Evolution of Mathematics
         </h2>
         <p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-text-muted">
@@ -163,10 +160,7 @@ export default function EvolutionTimeline() {
                         {m.domain}
                       </span>
                     </div>
-                    <h3
-                      className="mt-2 text-2xl font-bold tracking-[-0.02em] text-white"
-                      style={{ fontFamily: "'Clash Display', 'Space Grotesk', sans-serif" }}
-                    >
+                    <h3 className="mt-2 font-display text-2xl font-bold tracking-[-0.02em] text-white">
                       {m.name}
                     </h3>
                     <p className="mt-2 text-sm leading-6 text-text-muted">{m.note}</p>

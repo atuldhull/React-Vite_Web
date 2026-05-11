@@ -46,7 +46,7 @@ export default function AdminSettingsPage() {
   return (
     <div style={{ position: "relative" }}><MonumentBackground monument="magma" intensity={0.1} />
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
-      <h2 className="font-display text-2xl font-bold text-white" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>System Settings</h2>
+      <h2 className="font-display text-2xl font-bold text-white">System Settings</h2>
 
       {msg && (
         <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
@@ -65,7 +65,7 @@ export default function AdminSettingsPage() {
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <p className="text-lg font-bold text-white" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
+                  <p className="font-display text-lg font-bold text-white">
                     Student Registrations
                   </p>
                   <span className={`rounded-full px-2.5 py-0.5 font-mono text-[10px] uppercase tracking-wider ${

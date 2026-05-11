@@ -31,8 +31,7 @@ export default function ForbiddenPage() {
           initial={{ opacity: 0, scale: 0.85 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: 0.1, duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
-          className="mt-6 flex items-center justify-center gap-4 sm:gap-6"
-          style={{ fontFamily: "'Space Grotesk', sans-serif" }}
+          className="mt-6 flex items-center justify-center gap-4 font-display sm:gap-6"
         >
           <span className="text-[6.5rem] font-extrabold leading-none tracking-[-0.08em] text-white drop-shadow-[0_8px_30px_rgba(239,68,68,0.35)] sm:text-[9.5rem]">4</span>
 
@@ -72,7 +71,6 @@ export default function ForbiddenPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.25, duration: 0.7 }}
           className="mt-8 font-display text-3xl font-extrabold tracking-tight text-white sm:text-4xl"
-          style={{ fontFamily: "'Space Grotesk', sans-serif" }}
         >
           Access denied.
         </motion.h1>

@@ -76,6 +76,17 @@ export default function LibraryScene() {
     const mount = mountRef.current;
     if (!mount) return;
 
+    // Phase 28 — respect prefers-reduced-motion. The scroll-driven camera
+    // glide + flame flicker + dust drift are the main vestibular triggers
+    // here. When the user has reduced-motion preferred, we render exactly
+    // one static frame at the library starting position and skip the rAF
+    // loop entirely (the candelabra still bloom because we keep the
+    // postprocessing pipeline — bloom is a single pass, no motion).
+    // Resize still re-renders so the canvas stays correctly sized.
+    const prefersReducedMotion =
+      typeof window !== "undefined" &&
+      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+
     let renderer;
     try {
       renderer = new THREE.WebGLRenderer({
@@ -580,12 +591,23 @@ export default function LibraryScene() {
       composer = null;
     }
 
+    // Single-frame render helper — used by the resize handler, and by
+    // the reduced-motion path below so the page still gets one paint of
+    // the cathedral library backdrop without any rAF loop running.
+    const renderOnce = () => {
+      if (composer) composer.render();
+      else renderer.render(scene, camera);
+    };
+
     // ── Resize ───────────────────────────────────────────────────
     const onResize = () => {
       camera.aspect = window.innerWidth / window.innerHeight;
       camera.updateProjectionMatrix();
       renderer.setSize(window.innerWidth, window.innerHeight);
       if (composer) composer.setSize(window.innerWidth, window.innerHeight);
+      // Reduced-motion has no rAF loop running, so resize would leave a
+      // stale framebuffer at the old aspect. Force one paint here.
+      if (prefersReducedMotion) renderOnce();
     };
     window.addEventListener("resize", onResize);
 
@@ -697,7 +719,16 @@ export default function LibraryScene() {
       }
       rafRef.current = requestAnimationFrame(tick);
     };
-    rafRef.current = requestAnimationFrame(tick);
+
+    if (prefersReducedMotion) {
+      // One static frame at the library starting position. No camera
+      // glide, no flame flicker, no dust drift, no glyph pulse — every
+      // animated property stays at its initial value. The user still
+      // sees the cathedral so the page doesn't read as broken.
+      renderOnce();
+    } else {
+      rafRef.current = requestAnimationFrame(tick);
+    }
 
     return () => {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);

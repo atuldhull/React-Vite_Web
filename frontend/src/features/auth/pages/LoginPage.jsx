@@ -125,7 +125,7 @@ export default function LoginPage() {
             </span>
 
             <p className="font-mono text-xs uppercase tracking-[0.3em] text-success">Password Recovery</p>
-            <h1 className="mt-3 text-3xl font-extrabold tracking-[-0.05em] text-white" style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: "2rem" }}>
+            <h1 className="mt-3 font-display text-[2rem] font-extrabold tracking-[-0.05em] text-white">
               Set New Password
             </h1>
             <p className="mt-3 text-sm text-text-muted">Enter your new password below.</p>
@@ -176,7 +176,7 @@ export default function LoginPage() {
 
           <div className="mb-8">
             <p className="font-mono text-xs uppercase tracking-[0.3em] text-primary">Welcome Back</p>
-            <h1 className="mt-3 text-3xl font-extrabold tracking-[-0.05em] text-white sm:text-4xl" style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: "2rem" }}>
+            <h1 className="mt-3 font-display text-[2rem] font-extrabold tracking-[-0.05em] text-white sm:text-4xl">
               Sign in to your account
             </h1>
             <p className="mt-3 text-sm text-text-muted">

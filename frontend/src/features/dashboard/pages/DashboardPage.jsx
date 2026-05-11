@@ -245,7 +245,7 @@ export default function DashboardPage() {
               <motion.section initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}>
                 <Card variant="solid">
                   <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-primary">Progression</p>
-                  <h2 className="mt-2 text-2xl font-bold text-white" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>XP Title Ladder</h2>
+                  <h2 className="mt-2 font-display text-2xl font-bold text-white">XP Title Ladder</h2>
                   <div className="mt-4 space-y-2">
                     {(Array.isArray(stats.xpTitles) ? stats.xpTitles : []).map((t) => {
                       const isCurrent = t.title === (stats.title || profile?.title);
@@ -271,7 +271,7 @@ export default function DashboardPage() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-secondary">Activity Log</p>
-                    <h2 className="mt-2 text-2xl font-bold text-white" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>Recent Attempts</h2>
+                    <h2 className="mt-2 font-display text-2xl font-bold text-white">Recent Attempts</h2>
                   </div>
                   <Link to="/history" className="font-mono text-[11px] text-primary hover:text-secondary transition">
                     View all

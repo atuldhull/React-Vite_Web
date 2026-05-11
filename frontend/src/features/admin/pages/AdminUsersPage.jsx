@@ -139,7 +139,7 @@ export default function AdminUsersPage() {
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="font-display text-2xl font-bold text-white" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>User Management</h2>
+          <h2 className="font-display text-2xl font-bold text-white">User Management</h2>
           <p className="text-sm text-text-muted">{total} total users</p>
         </div>
         <div className="flex gap-3">
