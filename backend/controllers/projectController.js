@@ -98,7 +98,7 @@ export const submitProject = async (req, res) => {
   if (!userId) return res.status(401).json({ error: "Login required" });
 
   try {
-    const { teamId, title, description, category, github_url, demo_url } = req.body;
+    const { teamId, title, description, category, github_url, demo_url, slides_url } = req.body;
     if (!title || !description || !category || !teamId) {
       return res.status(400).json({ error: "title, description, category, teamId required" });
     }
@@ -117,7 +117,9 @@ export const submitProject = async (req, res) => {
 
     const { data, error } = await req.db.from("projects").insert({
       team_id: teamId, title, description, category,
-      github_url: github_url || null, demo_url: demo_url || null,
+      github_url: github_url || null,
+      demo_url:   demo_url   || null,
+      slides_url: slides_url || null,
       is_approved: false,  // teacher must approve
     }).select().single();
 

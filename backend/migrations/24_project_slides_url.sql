@@ -1,0 +1,41 @@
+-- ═══════════════════════════════════════════════════════════════
+--  MATH COLLECTIVE — SLIDES URL FOR PROJECTS
+--  Run this in Supabase SQL Editor.
+--
+--  WHAT THIS DOES
+--  ──────────────
+--  Adds `slides_url` to the projects table so teams can attach a
+--  presentation deck (Google Slides, Pitch, Notion, etc.) alongside
+--  the existing github_url and demo_url. Optional — empty/null is
+--  the normal state for teams that submit only code + a live demo.
+--
+--  Frontend already wires the form input + card display; the
+--  feature lights up the moment this migration runs.
+--
+--  COLUMN ADDED
+--  ────────────
+--    projects.slides_url  TEXT  NULLABLE
+--      - NULL for every existing row (no backfill needed — slides
+--        are an optional artefact, not a missing required value)
+--      - Validated client + server side: must be a valid HTTP(S)
+--        URL ≤500 chars when provided, blank/null allowed
+--      - No index — looked up only as part of `SELECT * FROM projects`
+--        which already pulls every column; no filter ever queries on
+--        slides_url
+--
+--  SAFETY
+--  ──────
+--    IF NOT EXISTS guard makes this re-runnable. If you re-apply by
+--    mistake, the statement is a no-op rather than an error.
+--
+--    Adding a NULLABLE column is non-locking in Postgres — no
+--    downtime, no migration window required.
+-- ═══════════════════════════════════════════════════════════════
+
+ALTER TABLE projects
+  ADD COLUMN IF NOT EXISTS slides_url TEXT;
+
+-- Verify the column landed (this row should appear once):
+--   SELECT column_name, data_type, is_nullable
+--   FROM information_schema.columns
+--   WHERE table_name = 'projects' AND column_name = 'slides_url';

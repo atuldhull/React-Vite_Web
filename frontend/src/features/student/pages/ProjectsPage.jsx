@@ -36,15 +36,17 @@ export default function ProjectsPage() {
   const [teamMemberEmails, setTeamMemberEmails] = useState(["", "", ""]);
   const [teamLoading, setTeamLoading] = useState(false);
 
-  // Submit project form. The schema has two URL columns (github_url,
-  // demo_url); the form now exposes both instead of stuffing one into
-  // the other. A third slides URL would need a migration — deferred.
+  // Submit project form. Three URL columns on the projects row —
+  // github_url, demo_url, slides_url — all optional. Teams typically
+  // submit at least one (code or live demo); slides are common for
+  // class showcases where there's a presentation component.
   const [showProjectForm, setShowProjectForm] = useState(false);
   const [projectTitle, setProjectTitle] = useState("");
   const [projectDescription, setProjectDescription] = useState("");
   const [projectCategory, setProjectCategory] = useState("");
   const [projectGithub, setProjectGithub] = useState("");
   const [projectDemo, setProjectDemo] = useState("");
+  const [projectSlides, setProjectSlides] = useState("");
   const [submitLoading, setSubmitLoading] = useState(false);
 
   // Voting
@@ -139,6 +141,7 @@ export default function ProjectsPage() {
         category: projectCategory,
         github_url: projectGithub || "",
         demo_url:   projectDemo   || "",
+        slides_url: projectSlides || "",
       });
       setShowProjectForm(false);
       setProjectTitle("");
@@ -146,6 +149,7 @@ export default function ProjectsPage() {
       setProjectCategory("");
       setProjectGithub("");
       setProjectDemo("");
+      setProjectSlides("");
       fetchAll();
     } catch (err) {
       alert(err.response?.data?.error || err.response?.data?.message || "Failed to submit project");
@@ -403,9 +407,12 @@ export default function ProjectsPage() {
                   onChange={(e) => setProjectDemo(e.target.value)}
                   placeholder="https://your-deployed-site.com"
                 />
-                <p className="-mt-2 text-xs text-text-dim">
-                  Want to share slides or a video too? Put the link in the description for now — a dedicated field is coming next.
-                </p>
+                <InputField
+                  label="Slides / pitch-deck URL (optional)"
+                  value={projectSlides}
+                  onChange={(e) => setProjectSlides(e.target.value)}
+                  placeholder="https://docs.google.com/presentation/..."
+                />
                 <Button type="submit" size="sm" loading={submitLoading}>
                   Submit Project
                 </Button>
@@ -499,15 +506,45 @@ export default function ProjectsPage() {
                     </p>
                   )}
 
-                  {project.link && (
-                    <a
-                      href={project.link}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="mt-2 inline-block font-mono text-[11px] text-secondary underline underline-offset-4 hover:text-white"
-                    >
-                      View Project
-                    </a>
+                  {/* Three optional links — github / demo / slides. The
+                      previous `project.link` ternary referenced a column
+                      that doesn't exist on the row, so it was always
+                      hidden. Now each populated URL renders as its own
+                      labelled link so judges can jump to the right
+                      artefact without guessing. */}
+                  {(project.github_url || project.demo_url || project.slides_url) && (
+                    <div className="mt-3 flex flex-wrap items-center gap-3">
+                      {project.github_url && (
+                        <a
+                          href={project.github_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-mono text-[11px] text-secondary underline underline-offset-4 hover:text-white"
+                        >
+                          Code
+                        </a>
+                      )}
+                      {project.demo_url && (
+                        <a
+                          href={project.demo_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-mono text-[11px] text-secondary underline underline-offset-4 hover:text-white"
+                        >
+                          Live Demo
+                        </a>
+                      )}
+                      {project.slides_url && (
+                        <a
+                          href={project.slides_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-mono text-[11px] text-secondary underline underline-offset-4 hover:text-white"
+                        >
+                          Slides
+                        </a>
+                      )}
+                    </div>
                   )}
 
                   <div className="mt-4 flex items-center justify-between">

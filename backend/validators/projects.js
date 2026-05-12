@@ -31,6 +31,12 @@ export const submitProjectSchema = z.object({
   category:    z.string().trim().min(1, "category required").max(60),
   github_url:  z.string().trim().url().max(500).optional().nullable().or(z.literal("")),
   demo_url:    z.string().trim().url().max(500).optional().nullable().or(z.literal("")),
+  // Optional pitch-deck / presentation URL — same shape as the other
+  // two links. Teams commonly attach a slide deck (Google Slides,
+  // Pitch, Notion page); keeping it as a free-form URL avoids hard-
+  // coding any one provider. Empty string and null both accepted so
+  // the form can submit a blank value without tripping validation.
+  slides_url:  z.string().trim().url().max(500).optional().nullable().or(z.literal("")),
 });
 
 export const addCategorySchema = z.object({
