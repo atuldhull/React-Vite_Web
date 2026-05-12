@@ -10,6 +10,7 @@ import path from "path";
 import fs from "node:fs";
 import { fileURLToPath } from "url";
 import express from "express";
+import compression from "compression";
 import cookieParser from "cookie-parser";
 import yaml from "yaml";
 import swaggerUi from "swagger-ui-express";
@@ -102,6 +103,17 @@ export function createApp() {
   applyCors(app);            // Allowlist: localhost + FRONTEND_URL only
   applyHPP(app);             // Collapse duplicated query keys to last value
   applyRequestLogger(app);   // 400 on path-traversal / SQL-injection / scanner patterns
+
+  /* ── COMPRESSION ──
+     gzip (or brotli when the client advertises it) on every response.
+     Phase 32 — Lighthouse against the local preview server showed the
+     three-vendor + app + gsap-vendor JS chunks summing to ~440KB raw
+     transferred. With compression that drops to ~140KB. Render's
+     edge proxy DOES compress on its own, so on the live deploy this
+     is partly redundant — but having it in the app layer means the
+     win shows up identically in local preview, in any future hosting
+     migration, and on direct hits to /api/* that bypass any CDN. */
+  app.use(compression());
 
   /* ── PARSERS + SESSION ── */
   // Block source-map files in production before static serves them.

@@ -126,7 +126,7 @@ export default function MainLayout() {
                 <button
                   onClick={toggleTheme}
                   className="hidden items-center gap-1.5 rounded-full border border-line/15 bg-white/[0.03] px-2.5 py-1.5 font-mono text-[9px] uppercase tracking-wider text-text-muted transition hover:border-primary/25 hover:text-white sm:flex"
-                  aria-label="Toggle theme"
+                  aria-label={`${theme} theme — click to switch`}
                 >
                   {theme === "light" ? (
                     <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><circle cx="12" cy="12" r="5" /><path d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72l1.42 1.42M1 12h2m18 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" /></svg>
@@ -327,13 +327,13 @@ export default function MainLayout() {
         <footer className="mx-auto mt-16 w-full max-w-7xl border-t border-line/10 px-4 pb-10 pt-8 sm:px-8 lg:px-10">
           <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
             <BrandMark />
-            <div className="flex flex-wrap justify-center gap-4 font-mono text-[11px] text-text-dim sm:gap-6">
-              <Link to="/leaderboard" className="transition hover:text-text-muted">Leaderboard</Link>
-              <Link to="/events" className="transition hover:text-text-muted">Events</Link>
-              <Link to="/gallery" className="transition hover:text-text-muted">Gallery</Link>
-              <Link to="/contact" className="transition hover:text-text-muted">Contact</Link>
+            <div className="flex flex-wrap justify-center gap-4 font-mono text-[11px] text-text-muted sm:gap-6">
+              <Link to="/leaderboard" className="transition hover:text-white">Leaderboard</Link>
+              <Link to="/events" className="transition hover:text-white">Events</Link>
+              <Link to="/gallery" className="transition hover:text-white">Gallery</Link>
+              <Link to="/contact" className="transition hover:text-white">Contact</Link>
             </div>
-            <p className="font-mono text-[10px] text-text-dim">&copy; 2026 Math Collective</p>
+            <p className="font-mono text-[10px] text-text-muted">&copy; 2026 Math Collective</p>
           </div>
         </footer>
       </div>

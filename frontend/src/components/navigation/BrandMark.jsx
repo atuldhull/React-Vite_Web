@@ -34,7 +34,7 @@ export default function BrandMark({ to = "/", compact = false, className }) {
         <span className="font-display text-lg font-bold tracking-[-0.06em] text-white">
           Math Collective
         </span>
-        <span className="font-mono text-[11px] uppercase tracking-[0.28em] text-text-dim">
+        <span className="font-mono text-[11px] uppercase tracking-[0.28em] text-text-muted">
           {orgName || "BMSIT Chapter"}
         </span>
       </span>

@@ -22,7 +22,12 @@ import AnimatedNumber from "@/components/ui/AnimatedNumber";
 // matching the scene's clear color so the hero doesn't flash white
 // while the chunk loads.
 const MonumentVideo = lazy(() => import("@/features/home/components/LibraryScene"));
-import EvolutionTimeline from "@/features/home/components/EvolutionTimeline";
+// Phase 32 — EvolutionTimeline is also lazy-loaded. It pulls in
+// MathRender + KaTeX (~260KB) for formula rendering. The timeline
+// sits below the scroll-spacer so users scroll past 500vh of hero
+// before it enters the viewport — plenty of time to fetch the chunk
+// invisibly. Saves ~76KB gzipped from the initial HomePage payload.
+const EvolutionTimeline = lazy(() => import("@/features/home/components/EvolutionTimeline"));
 
 // Suspense fallback while the WebGL hero chunk loads. Same fixed-fullscreen
 // dimensions + a dark gradient that mimics the cathedral library's amber-on-
@@ -322,8 +327,13 @@ export default function HomePage() {
           </motion.div>
         </section>
 
-        {/* ── EVOLUTION OF MATHEMATICS — vertical timeline ── */}
-        <EvolutionTimeline />
+        {/* ── EVOLUTION OF MATHEMATICS — vertical timeline ──
+            Lazy-loaded; falls through to a slim placeholder while the
+            chunk + KaTeX deps fetch. Placeholder height is approximate
+            so layout doesn't jump when the real timeline arrives. */}
+        <Suspense fallback={<div style={{ minHeight: "60vh" }} aria-hidden="true" />}>
+          <EvolutionTimeline />
+        </Suspense>
 
         <section className="relative z-[1] mx-auto max-w-6xl">
           <motion.div initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: "-100px" }} transition={{ duration: 0.7 }} className="text-center">
