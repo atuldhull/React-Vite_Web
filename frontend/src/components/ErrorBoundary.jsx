@@ -45,10 +45,7 @@ export default class ErrorBoundary extends Component {
             </div>
 
             {/* Heading */}
-            <h1
-              className="mt-8 text-3xl font-extrabold tracking-tight text-white"
-              style={{ fontFamily: "var(--font-display, sans-serif)" }}
-            >
+            <h1 className="mt-8 font-display text-3xl font-extrabold tracking-tight text-white">
               Something went wrong
             </h1>
 
@@ -60,10 +57,7 @@ export default class ErrorBoundary extends Component {
             {/* Error details (collapsed) */}
             {this.state.error?.message && (
               <div className="mt-6 rounded-2xl border border-line/10 bg-white/[0.02] px-4 py-3">
-                <p
-                  className="truncate text-xs text-white/30"
-                  style={{ fontFamily: "var(--font-mono, monospace)" }}
-                >
+                <p className="truncate font-mono text-xs text-white/30">
                   {this.state.error.message}
                 </p>
               </div>
@@ -73,8 +67,7 @@ export default class ErrorBoundary extends Component {
             <div className="mt-8 flex items-center justify-center gap-3">
               <button
                 onClick={this.handleReload}
-                className="inline-flex h-12 items-center justify-center gap-2 rounded-full border border-primary/40 bg-gradient-to-r from-primary via-secondary to-glow px-6 text-xs font-bold uppercase tracking-[0.28em] text-white shadow-orbit transition hover:-translate-y-0.5 hover:shadow-lg"
-                style={{ fontFamily: "var(--font-mono, monospace)" }}
+                className="inline-flex h-12 items-center justify-center gap-2 rounded-full border border-primary/40 bg-gradient-to-r from-primary via-secondary to-glow px-6 font-mono text-xs font-bold uppercase tracking-[0.28em] text-white shadow-orbit transition hover:-translate-y-0.5 hover:shadow-lg"
               >
                 Try Again
               </button>
@@ -84,8 +77,7 @@ export default class ErrorBoundary extends Component {
                   this.setState({ hasError: false, error: null });
                   window.history.back();
                 }}
-                className="inline-flex h-12 items-center justify-center rounded-full border border-line/20 bg-white/[0.03] px-6 text-xs font-bold uppercase tracking-[0.28em] text-white/60 transition hover:-translate-y-0.5 hover:text-white"
-                style={{ fontFamily: "var(--font-mono, monospace)" }}
+                className="inline-flex h-12 items-center justify-center rounded-full border border-line/20 bg-white/[0.03] px-6 font-mono text-xs font-bold uppercase tracking-[0.28em] text-white/60 transition hover:-translate-y-0.5 hover:text-white"
               >
                 Go Back
               </button>

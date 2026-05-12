@@ -420,7 +420,16 @@ export default function EventsPage() {
         {/* Empty state */}
         {filtered.length === 0 && (
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="py-20 text-center">
-            <p className="text-4xl">📅</p>
+            <svg
+              aria-hidden="true"
+              className="mx-auto h-14 w-14 text-text-dim/50"
+              viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" strokeWidth={1.4}
+              strokeLinecap="round" strokeLinejoin="round"
+            >
+              <rect x="3" y="5" width="18" height="16" rx="2" />
+              <path d="M16 3v4M8 3v4M3 11h18" />
+            </svg>
             <p className="mt-4 text-lg text-text-muted">No events found</p>
             <p className="mt-2 text-sm text-text-dim">
               {filter !== "all" ? "Try a different filter." : "Check back later for new events!"}

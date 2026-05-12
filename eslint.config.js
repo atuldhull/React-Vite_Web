@@ -80,6 +80,23 @@ export default [
       "react-hooks/rules-of-hooks": "error",
       "react-hooks/exhaustive-deps": "warn",
       "no-empty": "off",
+      // Ban inline `style={{ fontFamily: ... }}` site-wide. Phase 28
+      // discovered ~17 files where an inline fontFamily was silently
+      // overriding the `font-display` Tailwind class — the design
+      // system was bypassed for months without anyone noticing. This
+      // rule makes that pattern impossible to land again. Legitimate
+      // exceptions (the math-font in EvolutionTimeline, ErrorBoundary
+      // fallback CSS-var fonts) carry an explicit eslint-disable-
+      // next-line comment so the intent is documented.
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector:
+            "JSXAttribute[name.name='style'] > JSXExpressionContainer > ObjectExpression Property[key.name='fontFamily']",
+          message:
+            "Use a Tailwind font class (font-display / font-sans / font-mono) instead of inline fontFamily. If this is an intentional override for a special font (e.g. math serif), add an eslint-disable comment explaining why.",
+        },
+      ],
     },
     settings: { react: { version: "detect" } },
   },

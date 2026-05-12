@@ -153,7 +153,17 @@ export default function CertificatesPage() {
           >
             <Card variant="solid" className="text-center">
               <div className="py-12">
-                <p className="text-4xl">📜</p>
+                <svg
+                  aria-hidden="true"
+                  className="mx-auto h-14 w-14 text-text-dim/50"
+                  viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" strokeWidth={1.4}
+                  strokeLinecap="round" strokeLinejoin="round"
+                >
+                  <path d="M4 4h14a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H8l-4 3z" />
+                  <circle cx="12" cy="10.5" r="2.5" />
+                  <path d="M10.5 12.5L9 16l3-1.2L15 16l-1.5-3.5" />
+                </svg>
                 <h3 className="mt-4 font-display text-xl font-bold text-white">
                   No Certificates Yet
                 </h3>

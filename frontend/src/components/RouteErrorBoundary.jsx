@@ -75,10 +75,7 @@ export default class RouteErrorBoundary extends Component {
 
           {this.state.error?.message && (
             <div className="mt-4 rounded-lg border border-line/10 bg-black/20 px-3 py-2">
-              <p
-                className="truncate text-xs text-white/40"
-                style={{ fontFamily: "var(--font-mono, monospace)" }}
-              >
+              <p className="truncate font-mono text-xs text-white/40">
                 {this.state.error.message}
               </p>
             </div>
@@ -86,8 +83,7 @@ export default class RouteErrorBoundary extends Component {
 
           <button
             onClick={this.reset}
-            className="mt-6 inline-flex h-10 items-center justify-center rounded-full border border-primary/40 bg-gradient-to-r from-primary via-secondary to-glow px-5 text-[10px] font-bold uppercase tracking-[0.28em] text-white shadow-orbit transition hover:-translate-y-0.5"
-            style={{ fontFamily: "var(--font-mono, monospace)" }}
+            className="mt-6 inline-flex h-10 items-center justify-center rounded-full border border-primary/40 bg-gradient-to-r from-primary via-secondary to-glow px-5 font-mono text-[10px] font-bold uppercase tracking-[0.28em] text-white shadow-orbit transition hover:-translate-y-0.5"
           >
             Try Again
           </button>

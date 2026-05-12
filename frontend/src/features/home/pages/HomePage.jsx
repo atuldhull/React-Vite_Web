@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, lazy, Suspense } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { Link } from "react-router-dom";
 import { useGSAP } from "@gsap/react";
@@ -15,8 +15,33 @@ import AnimatedNumber from "@/components/ui/AnimatedNumber";
 //          warm candle light, transitions to a holographic glyph cosmos.
 // Same <MonumentVideo /> alias used at the call-site so this swap
 // doesn't ripple through the rest of HomePage.
-import MonumentVideo from "@/features/home/components/LibraryScene";
+//
+// Phase 29 — code-split via React.lazy. LibraryScene drags in three +
+// postprocessing (~500KB combined), and the HomePage bundle was 685KB
+// before this split. The Suspense fallback paints a dark warm gradient
+// matching the scene's clear color so the hero doesn't flash white
+// while the chunk loads.
+const MonumentVideo = lazy(() => import("@/features/home/components/LibraryScene"));
 import EvolutionTimeline from "@/features/home/components/EvolutionTimeline";
+
+// Suspense fallback while the WebGL hero chunk loads. Same fixed-fullscreen
+// dimensions + a dark gradient that mimics the cathedral library's amber-on-
+// obsidian palette so the transition into the actual scene is seamless.
+function HeroFallback() {
+  return (
+    <div
+      aria-hidden="true"
+      style={{
+        position: "fixed", inset: 0, zIndex: 0,
+        pointerEvents: "none",
+        background:
+          "radial-gradient(ellipse at center bottom, rgba(255,177,92,0.10), transparent 50%), " +
+          "radial-gradient(ellipse at center, rgba(124,58,237,0.05), transparent 60%), " +
+          "#05030a",
+      }}
+    />
+  );
+}
 
 const fadeUp = {
   hidden: { opacity: 0, y: 40 },
@@ -197,7 +222,9 @@ export default function HomePage() {
     <div style={{ width: "100vw", marginLeft: "calc(-50vw + 50%)" }}>
 
       {/* ── FULL-SCREEN VIDEO (scroll-synced, the ENTIRE experience) ── */}
-      <MonumentVideo />
+      <Suspense fallback={<HeroFallback />}>
+        <MonumentVideo />
+      </Suspense>
 
       {/* ── HERO OVERLAY (title + scroll hint) ── */}
       {showTitle && (

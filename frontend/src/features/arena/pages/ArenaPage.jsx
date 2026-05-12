@@ -214,7 +214,17 @@ export default function ArenaPage() {
             {/* No more challenges */}
             {!loading && noMore && (
               <div className="py-16 text-center">
-                <p className="text-4xl">🎯</p>
+                <svg
+                  aria-hidden="true"
+                  className="mx-auto h-14 w-14 text-text-dim/50"
+                  viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" strokeWidth={1.4}
+                  strokeLinecap="round" strokeLinejoin="round"
+                >
+                  <circle cx="12" cy="12" r="9" />
+                  <circle cx="12" cy="12" r="5" />
+                  <circle cx="12" cy="12" r="1.5" fill="currentColor" />
+                </svg>
                 <p className="mt-4 text-lg text-text-muted">No more challenges available</p>
                 <p className="mt-2 text-sm text-text-dim">You've solved them all or none match this difficulty. Check back later!</p>
                 <Button variant="secondary" className="mt-6" onClick={() => handleDifficultyChange("All")}>

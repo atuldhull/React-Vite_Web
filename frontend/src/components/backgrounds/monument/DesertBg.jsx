@@ -13,11 +13,11 @@ export default function DesertBg() {
       {desertSymbols.map((s, i) => (
         <span
           key={i}
+          className="font-mono"
           style={{
             position: "absolute",
             left: s.left,
             bottom: "-10%",
-            fontFamily: "'JetBrains Mono', monospace",
             fontSize: s.size,
             color: "var(--monument-desert)",
             opacity: 0.25,

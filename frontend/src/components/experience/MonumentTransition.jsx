@@ -115,11 +115,11 @@ export default function MonumentTransition() {
             initial={{ scale: 0.5, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             transition={{ delay: 0.2, duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+            className="font-mono"
             style={{
               position: "relative",
               zIndex: 1,
               fontSize: "8rem",
-              fontFamily: "'JetBrains Mono', monospace",
               color: "var(--page-accent)",
               lineHeight: 1,
             }}
@@ -132,12 +132,12 @@ export default function MonumentTransition() {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 0.7, y: 0 }}
             transition={{ delay: 0.4, duration: 0.3 }}
+            className="font-mono"
             style={{
               position: "relative",
               zIndex: 1,
               marginTop: "1.5rem",
               fontSize: "0.8rem",
-              fontFamily: "'JetBrains Mono', monospace",
               letterSpacing: "0.3em",
               textTransform: "uppercase",
               color: "var(--page-accent)",

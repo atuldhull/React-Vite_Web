@@ -166,7 +166,13 @@ export default function EvolutionTimeline() {
                     <p className="mt-2 text-sm leading-6 text-text-muted">{m.note}</p>
                     <div
                       className="mt-4 rounded-xl border border-white/5 bg-black/25 px-4 py-3 text-base leading-7 text-white/90"
-                      style={{ fontFamily: "'STIX Two Math', 'Cambria Math', serif" }}
+                      style={{
+                        // STIX Two Math / Cambria Math are intentional serif math
+                        // fonts for the formula block — not in tailwind.config
+                        // because they're only used here.
+                        // eslint-disable-next-line no-restricted-syntax
+                        fontFamily: "'STIX Two Math', 'Cambria Math', serif",
+                      }}
                     >
                       <MathRender source={m.formula} />
                     </div>
