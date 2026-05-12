@@ -226,6 +226,120 @@ export default function LibraryScene() {
       cleanupRef.current.geometries.push(longBeamGeo);
     }
 
+    // ── Classical stone columns flanking the corridor ──────────────
+    // Eight columns (four per side) standing in the corridor just
+    // inside the bookshelves. Adds architectural weight + breaks the
+    // long shelf walls into rhythmic bays. Each column = circular
+    // shaft + square base + flared capital, all stone-coloured. The
+    // shaft is faceted (12 sides) to suggest fluting without the
+    // geometry cost of a proper grooved profile.
+    //
+    // Position: x = ±2.3 (just inside the shelves at ±2.6), z spaced
+    // every ~7m down the corridor. The camera (corridor mid-line at
+    // x = 0) sees them flying by as it glides forward in Phase 1 —
+    // exactly the "library zooms in" feel we want preserved.
+    const columnStoneMat = new THREE.MeshStandardMaterial({
+      color:     0x9c8f78,   // warm sandstone — sits next to the leather books
+      roughness: 0.85,
+      metalness: 0.0,
+    });
+    cleanupRef.current.materials.push(columnStoneMat);
+    const COLUMN_HEIGHT = TOP_OF_SHELVES;
+    const COLUMN_Z_POSITIONS = [-4, -11, -18, -25];
+    for (const side of [-1, +1]) {
+      for (const zPos of COLUMN_Z_POSITIONS) {
+        // Shaft — slightly fluted look via low-segment cylinder.
+        const shaftGeo = new THREE.CylinderGeometry(0.22, 0.24, COLUMN_HEIGHT * 0.86, 12);
+        const shaft = new THREE.Mesh(shaftGeo, columnStoneMat);
+        shaft.position.set(side * 2.3, (COLUMN_HEIGHT * 0.86) / 2 + 0.1, zPos);
+        scene.add(shaft);
+        cleanupRef.current.geometries.push(shaftGeo);
+
+        // Base — wider square block at floor level.
+        const baseGeo = new THREE.BoxGeometry(0.55, 0.1, 0.55);
+        const base = new THREE.Mesh(baseGeo, columnStoneMat);
+        base.position.set(side * 2.3, 0.05, zPos);
+        scene.add(base);
+        cleanupRef.current.geometries.push(baseGeo);
+
+        // Capital — flared top block with a thin abacus on top.
+        const capitalGeo = new THREE.BoxGeometry(0.55, 0.18, 0.55);
+        const capital = new THREE.Mesh(capitalGeo, columnStoneMat);
+        capital.position.set(side * 2.3, COLUMN_HEIGHT * 0.86 + 0.2, zPos);
+        scene.add(capital);
+        cleanupRef.current.geometries.push(capitalGeo);
+
+        const abacusGeo = new THREE.BoxGeometry(0.62, 0.06, 0.62);
+        const abacus = new THREE.Mesh(abacusGeo, columnStoneMat);
+        abacus.position.set(side * 2.3, COLUMN_HEIGHT * 0.86 + 0.32, zPos);
+        scene.add(abacus);
+        cleanupRef.current.geometries.push(abacusGeo);
+      }
+    }
+
+    // ── Distant focal monument at the end of the corridor ─────────
+    // Classical archway visible through the fog as the camera glides
+    // forward — gives the long shot a payoff destination. Composed
+    // of two flanking columns + a horizontal lintel + a triangular
+    // pediment (Greek-temple silhouette).
+    //
+    // Material is the same sandstone as the corridor columns so it
+    // reads as continuous with the architecture. Opacity is gated
+    // per-frame against current.candleI so the monument fades out
+    // along with the candle lighting during the Phase 2 transition
+    // to cosmos — by Phase 3 it's invisible, like the rest of the
+    // library.
+    const monumentMat = new THREE.MeshStandardMaterial({
+      color:       0xb09d83,
+      roughness:   0.9,
+      metalness:   0.0,
+      transparent: true,
+      opacity:     1,
+    });
+    cleanupRef.current.materials.push(monumentMat);
+    const monumentMeshes = [];   // referenced from tick loop to fade opacity together
+    const MONUMENT_Z = -SHELF_DEPTH + 1;    // just inside the back wall
+    const MONUMENT_H = 4.5;                  // pillar height
+    const MONUMENT_W = 1.8;                  // half-spread between the flanking pillars
+
+    // Two flanking pillars.
+    for (const side of [-1, +1]) {
+      const pillarGeo = new THREE.BoxGeometry(0.4, MONUMENT_H, 0.4);
+      const pillar = new THREE.Mesh(pillarGeo, monumentMat);
+      pillar.position.set(side * MONUMENT_W, MONUMENT_H / 2, MONUMENT_Z);
+      scene.add(pillar);
+      monumentMeshes.push(pillar);
+      cleanupRef.current.geometries.push(pillarGeo);
+    }
+
+    // Horizontal lintel spanning the pillars.
+    const lintelGeo = new THREE.BoxGeometry(MONUMENT_W * 2 + 0.6, 0.45, 0.5);
+    const lintel = new THREE.Mesh(lintelGeo, monumentMat);
+    lintel.position.set(0, MONUMENT_H + 0.225, MONUMENT_Z);
+    scene.add(lintel);
+    monumentMeshes.push(lintel);
+    cleanupRef.current.geometries.push(lintelGeo);
+
+    // Triangular pediment above the lintel — extruded triangle via a
+    // narrow box rotated 45° on Z. Approximation; reads as classical
+    // silhouette from camera-distance.
+    const pedimentGeo = new THREE.BoxGeometry(MONUMENT_W * 1.6, 0.9, 0.5);
+    const pediment = new THREE.Mesh(pedimentGeo, monumentMat);
+    pediment.position.set(0, MONUMENT_H + 0.45 + 0.45, MONUMENT_Z);
+    // Slight tilt so it reads as a low pediment angle, not a flat slab.
+    pediment.geometry.translate(0, 0, 0);
+    scene.add(pediment);
+    monumentMeshes.push(pediment);
+    cleanupRef.current.geometries.push(pedimentGeo);
+
+    // Small dedicated light to illuminate the monument so it stays
+    // visible against the dark back wall when candles are still on.
+    // Warm sandstone tint, narrow range so it doesn't spill onto the
+    // bookshelves.
+    const monumentLight = new THREE.PointLight(0xffd9a0, 3.5, 14, 1.8);
+    monumentLight.position.set(0, MONUMENT_H, MONUMENT_Z + 3);
+    scene.add(monumentLight);
+
     // ── Hanging candelabra — twin candles dangling from ceiling
     //    beams every ~3.5m. Brass chain stand-in (thin cylinder) +
     //    cup + 3 candle stems with flames + a strong warm point light
@@ -687,6 +801,12 @@ export default function LibraryScene() {
         mesh.visible = current.candleI > 0.02;
         if (mesh.visible) mesh.lookAt(camera.position);
       });
+
+      // Distant focal monument fades with the candle phase so it
+      // disappears cleanly during the library → cosmos transition.
+      // Opacity floor of 0.05 prevents a hard pop at the boundary.
+      monumentMat.opacity = Math.max(0.05, current.candleI);
+      monumentLight.intensity = 3.5 * current.candleI;
 
       // Glyph pulse + drift + billboard toward camera.
       glyphMeshes.forEach((g, i) => {
