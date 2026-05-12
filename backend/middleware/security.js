@@ -77,7 +77,16 @@ export function applyHelmet(app) {
         mediaSrc:       ["'self'", "blob:", "res.cloudinary.com"],
         // Razorpay's checkout widget talks to api.razorpay.com +
         // lumberjack.razorpay.com (analytics) — add both.
-        connectSrc:     ["'self'", "*.supabase.co", "api.openrouter.ai", "api.dicebear.com", "openrouter.ai", "res.cloudinary.com", "*.razorpay.com"],
+        //
+        // Sentry frontend SDK POSTs error envelopes to its ingest
+        // endpoint. The DSN we use is region-specific (EU =
+        // o<orgid>.ingest.de.sentry.io); covering all SaaS regions
+        // with *.sentry.io keeps the CSP working if the project is
+        // ever migrated to a different region. Without this, every
+        // captured error is blocked at the browser CSP layer and
+        // never reaches Sentry — silent failure of the entire
+        // monitoring pipeline.
+        connectSrc:     ["'self'", "*.supabase.co", "api.openrouter.ai", "api.dicebear.com", "openrouter.ai", "res.cloudinary.com", "*.razorpay.com", "*.sentry.io"],
         // Razorpay renders the payment form in an iframe served from
         // api.razorpay.com. The default-deny frameSrc was blocking it.
         frameSrc:       ["'self'", "*.razorpay.com"],
