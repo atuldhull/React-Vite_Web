@@ -48,6 +48,8 @@
     "@react-three/postprocessing": "3.0.4",
     "@react-three/rapier": "2.2.0",
     "@sentry/node": "10.48.0",
+    "@sentry/react": "10.52.0",
+    "@sentry/vite-plugin": "5.2.1",
     "@socket.io/redis-adapter": "8.3.0",
     "@supabase/supabase-js": "2.99.1",
     "alea": "1.0.1",

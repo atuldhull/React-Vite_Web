@@ -122,21 +122,24 @@ export default function GalleryPage() {
             </AnimatePresence>
 
             <button onClick={(e) => { e.stopPropagation(); navigate(-1); }}
+              aria-label="Previous image"
               className="absolute left-4 top-1/2 z-20 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-white/5 text-white/40 backdrop-blur transition hover:bg-white/10 hover:text-white sm:left-8">
-              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <svg aria-hidden="true" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
               </svg>
             </button>
             <button onClick={(e) => { e.stopPropagation(); navigate(1); }}
+              aria-label="Next image"
               className="absolute right-4 top-1/2 z-20 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-white/5 text-white/40 backdrop-blur transition hover:bg-white/10 hover:text-white sm:right-8">
-              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <svg aria-hidden="true" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
               </svg>
             </button>
 
             <button onClick={() => setLightbox(null)}
+              aria-label="Close lightbox"
               className="absolute right-5 top-5 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-white/8 text-xl text-white/50 backdrop-blur transition hover:bg-white/15 hover:text-white">
-              &times;
+              <span aria-hidden="true">&times;</span>
             </button>
             <div className="absolute bottom-5 left-1/2 z-20 -translate-x-1/2 rounded-full bg-white/6 px-4 py-1.5 font-mono text-[10px] tracking-wider text-white/40 backdrop-blur">
               {lbIndex + 1} / {allClickableImages.length}

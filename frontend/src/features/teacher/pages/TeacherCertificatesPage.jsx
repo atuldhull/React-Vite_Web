@@ -272,8 +272,8 @@ export default function TeacherCertificatesPage() {
           >
             <div className="flex items-center justify-between">
               {error}
-              <button onClick={() => setError(null)} className="ml-4 text-danger/60 hover:text-danger">
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <button onClick={() => setError(null)} aria-label="Dismiss error" className="ml-4 text-danger/60 hover:text-danger">
+                <svg aria-hidden="true" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
@@ -289,8 +289,8 @@ export default function TeacherCertificatesPage() {
           >
             <div className="flex items-center justify-between">
               {success}
-              <button onClick={() => setSuccess(null)} className="ml-4 text-success/60 hover:text-success">
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <button onClick={() => setSuccess(null)} aria-label="Dismiss notification" className="ml-4 text-success/60 hover:text-success">
+                <svg aria-hidden="true" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>

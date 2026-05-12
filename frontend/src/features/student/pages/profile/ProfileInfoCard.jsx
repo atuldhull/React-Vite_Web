@@ -67,6 +67,7 @@ export default function ProfileInfoCard({
                     <img
                       src={avatarUrl}
                       alt={profile.name}
+                      loading="lazy"
                       className="h-20 w-20 rounded-full object-cover"
                       style={{ border: "2px solid var(--monument-sky)", boxShadow: "0 0 20px rgba(182,149,248,0.3)" }}
                     />

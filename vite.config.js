@@ -3,14 +3,50 @@ import { fileURLToPath } from "url";
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import glsl from "vite-plugin-glsl";
+import { sentryVitePlugin } from "@sentry/vite-plugin";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// Release identifier — git SHA on Render (RENDER_GIT_COMMIT) or
+// a stable "dev" value locally. Same identifier shared by both the
+// frontend Sentry SDK (via __SENTRY_RELEASE__ define) and the
+// vite-plugin (for source-map upload tagging), so uploaded maps
+// match the release of any error captured at runtime.
+const sentryRelease = process.env.RENDER_GIT_COMMIT || process.env.SENTRY_RELEASE || "dev";
+
+// @sentry/vite-plugin uploads source maps to Sentry at build time and
+// strips them from public/app so they aren't shipped to the browser.
+// It NO-OPS without SENTRY_AUTH_TOKEN — meaning local builds, CI
+// preview builds, and any deploy without the secret just skip upload
+// and leave maps in place (where the existing `sourcemap: true`
+// option emitted them). Same feature-gate pattern as Sentry init.
+const sentryPlugin =
+  process.env.SENTRY_AUTH_TOKEN &&
+  process.env.SENTRY_ORG &&
+  process.env.SENTRY_PROJECT
+    ? sentryVitePlugin({
+        org:        process.env.SENTRY_ORG,
+        project:    process.env.SENTRY_PROJECT,
+        authToken:  process.env.SENTRY_AUTH_TOKEN,
+        release:    { name: sentryRelease },
+        // Strip the .map files from the published assets after upload
+        // so prod users don't download them (Sentry now has them).
+        sourcemaps: {
+          filesToDeleteAfterUpload: ["./public/app/assets/**/*.js.map"],
+        },
+      })
+    : null;
+
 export default defineConfig({
   root: path.resolve(__dirname, "frontend"),
   base: "/app/",
-  plugins: [react(), glsl()],
+  plugins: [react(), glsl(), sentryPlugin].filter(Boolean),
+  define: {
+    // Available globally in frontend code as __SENTRY_RELEASE__.
+    // JSON-stringified so the value is a string literal in the bundle.
+    __SENTRY_RELEASE__: JSON.stringify(sentryRelease),
+  },
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "frontend/src"),

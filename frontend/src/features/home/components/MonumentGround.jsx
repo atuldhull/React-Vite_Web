@@ -189,6 +189,8 @@ export default function MonumentVideo() {
         src={firstFrameFallbackUrl()}
         alt=""
         aria-hidden
+        loading="eager"
+        fetchPriority="high"
         style={{
           position: "fixed",
           top: 0,

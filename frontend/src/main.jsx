@@ -8,6 +8,12 @@ import '@fontsource/jetbrains-mono/400.css';
 import "@/styles/tailwind.css";
 import "@/styles/theme.css";
 import { registerPwaInstallListeners } from "@/lib/pwaInstall";
+import { initSentry } from "@/lib/sentry";
+
+// Init Sentry BEFORE React mounts so errors during initial render
+// (auth-store hydration, route resolution, etc.) are captured. No-ops
+// without VITE_SENTRY_DSN — see frontend/src/lib/sentry.js.
+initSentry();
 
 createRoot(document.getElementById("root")).render(
   <StrictMode>

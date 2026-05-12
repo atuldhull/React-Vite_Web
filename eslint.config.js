@@ -70,6 +70,10 @@ export default [
         Proxy: "readonly",
         Reflect: "readonly",
         globalThis: "readonly",
+        // Build-time constant injected by Vite `define` (see vite.config.js).
+        // Resolves to the release identifier shared by frontend Sentry init
+        // and the @sentry/vite-plugin source-map upload.
+        __SENTRY_RELEASE__: "readonly",
       },
     },
     rules: {

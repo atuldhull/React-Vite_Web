@@ -210,13 +210,13 @@ export default function AvatarCreator({
   // Determine what to show in preview
   const previewContent = useMemo(() => {
     if (avatarMode === "photo" && avatarUrl) {
-      return <img src={avatarUrl} alt="Avatar" className="h-full w-full rounded-full object-cover" />;
+      return <img src={avatarUrl} alt="Avatar" loading="lazy" className="h-full w-full rounded-full object-cover" />;
     }
     if (avatarMode === "emoji") {
       return <span style={{ fontSize: "4rem", lineHeight: 1 }}>{currentEmoji}</span>;
     }
     if (avatarDataUri) {
-      return <img src={avatarDataUri} alt="Avatar" className="h-full w-full rounded-full object-cover" />;
+      return <img src={avatarDataUri} alt="Avatar" loading="lazy" className="h-full w-full rounded-full object-cover" />;
     }
     return <span style={{ fontSize: "4rem", lineHeight: 1 }}>{currentEmoji}</span>;
   }, [avatarMode, avatarUrl, avatarDataUri, currentEmoji]);
@@ -296,7 +296,7 @@ export default function AvatarCreator({
                       }`}
                     >
                       <div className="h-14 w-14 overflow-hidden rounded-full bg-black/20">
-                        {preview && <img src={preview} alt={s.label} className="h-full w-full object-cover" />}
+                        {preview && <img src={preview} alt={s.label} loading="lazy" className="h-full w-full object-cover" />}
                       </div>
                       <div className="text-center">
                         <span className="block text-[10px] text-white">{s.label}</span>
