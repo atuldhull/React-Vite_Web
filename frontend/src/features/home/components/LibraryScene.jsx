@@ -335,6 +335,87 @@ export default function LibraryScene() {
       metalness: 0.0,
     });
     cleanupRef.current.materials.push(columnStoneMat);
+
+    // Sandstone PBR maps from Polyhaven (CC0). Same lazy-load pattern
+    // as the leather book maps above: try the CDN, fall through to a
+    // simple procedural canvas-painted bump if it fails. Color-neutral
+    // (normal + roughness only) so the warm sandstone tint stays.
+    // Shared by columnStoneMat AND monumentMat below — both materials
+    // get upgraded the moment the texture resolves.
+    const POLYHAVEN_STONE_NORMAL = "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/concrete_wall_006/concrete_wall_006_nor_gl_1k.jpg";
+    const POLYHAVEN_STONE_ROUGH  = "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/concrete_wall_006/concrete_wall_006_rough_1k.jpg";
+
+    function makeProceduralStoneNormal() {
+      const c = document.createElement("canvas");
+      c.width = 256; c.height = 256;
+      const ctx = c.getContext("2d");
+      ctx.fillStyle = "rgb(128, 128, 255)";
+      ctx.fillRect(0, 0, 256, 256);
+      // Speckled noise — random short specks suggesting weathered stone.
+      // No directional grain (unlike leather), just scattered pitting.
+      for (let i = 0; i < 1200; i++) {
+        const x = Math.random() * 256;
+        const y = Math.random() * 256;
+        const r = 0.6 + Math.random() * 1.2;
+        const dx = (Math.random() - 0.5) * 30;
+        const dy = (Math.random() - 0.5) * 30;
+        const b = 100 + Math.random() * 60;
+        ctx.fillStyle = `rgb(${Math.round(128 + dx)}, ${Math.round(128 + dy)}, ${Math.round(b + 100)})`;
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      const tex = new THREE.CanvasTexture(c);
+      tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+      tex.repeat.set(1.5, 1.5);
+      return tex;
+    }
+
+    const stoneFallbackNormal = makeProceduralStoneNormal();
+    columnStoneMat.normalMap = stoneFallbackNormal;
+    columnStoneMat.normalScale = new THREE.Vector2(0.5, 0.5);
+    columnStoneMat.needsUpdate = true;
+    cleanupRef.current.textures.push(stoneFallbackNormal);
+
+    // Swap to Polyhaven once it arrives. Failure stays silent — the
+    // procedural fallback is already in place so the scene never
+    // looks broken.
+    const stoneLoader = new THREE.TextureLoader();
+    stoneLoader.crossOrigin = "anonymous";
+    stoneLoader.load(
+      POLYHAVEN_STONE_NORMAL,
+      (tex) => {
+        tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+        tex.repeat.set(1.5, 1.5);
+        columnStoneMat.normalMap = tex;
+        columnStoneMat.needsUpdate = true;
+        // Monument shares the same texture for consistency.
+        if (typeof monumentMat !== "undefined") {
+          monumentMat.normalMap = tex;
+          monumentMat.normalScale = new THREE.Vector2(0.5, 0.5);
+          monumentMat.needsUpdate = true;
+        }
+        cleanupRef.current.textures.push(tex);
+      },
+      undefined,
+      () => { /* fall through silently */ },
+    );
+    stoneLoader.load(
+      POLYHAVEN_STONE_ROUGH,
+      (tex) => {
+        tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+        tex.repeat.set(1.5, 1.5);
+        columnStoneMat.roughnessMap = tex;
+        columnStoneMat.needsUpdate = true;
+        if (typeof monumentMat !== "undefined") {
+          monumentMat.roughnessMap = tex;
+          monumentMat.needsUpdate = true;
+        }
+        cleanupRef.current.textures.push(tex);
+      },
+      undefined,
+      () => { /* silent */ },
+    );
     const COLUMN_HEIGHT = TOP_OF_SHELVES;
     const COLUMN_Z_POSITIONS = [-4, -11, -18, -25];
     for (const side of [-1, +1]) {
