@@ -28,7 +28,8 @@ export const getEventLeaderboard = async (req, res) => {
     }));
 
     return res.json(ranked);
-  } catch {
+  } catch (err) {
+    logger.error({ err, eventId: req.params.id }, "getEventLeaderboard");
     return res.status(500).json({ error: "Failed" });
   }
 };
@@ -52,7 +53,8 @@ export const updateEventScore = async (req, res) => {
 
     if (error) return res.status(500).json({ error: error.message });
     return res.json({ success: true, entry: data });
-  } catch {
+  } catch (err) {
+    logger.error({ err, eventId: req.params.id, body: req.body }, "updateEventScore");
     return res.status(500).json({ error: "Failed" });
   }
 };

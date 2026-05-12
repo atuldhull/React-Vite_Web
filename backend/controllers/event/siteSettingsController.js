@@ -3,6 +3,7 @@
  */
 
 import supabase from "../../config/supabase.js";
+import { logger } from "../../config/logger.js";
 
 const ALLOWED_SETTING_KEYS = ["registrations_open", "site_notice", "arena_open", "registration_message"];
 
@@ -13,7 +14,8 @@ export const getSiteSettings = async (req, res) => {
     const settings = {};
     (data || []).forEach(row => { settings[row.key] = row.value; });
     return res.json(settings);
-  } catch {
+  } catch (err) {
+    logger.error({ err }, "getSiteSettings");
     return res.status(500).json({ error: "Failed" });
   }
 };
@@ -30,7 +32,8 @@ export const updateSiteSetting = async (req, res) => {
       .upsert({ key, value: String(value), updated_at: new Date().toISOString(), updated_by: userId });
     if (error) return res.status(500).json({ error: error.message });
     return res.json({ success: true, key, value });
-  } catch {
+  } catch (err) {
+    logger.error({ err, key: req.params.key, userId }, "updateSiteSetting");
     return res.status(500).json({ error: "Failed" });
   }
 };

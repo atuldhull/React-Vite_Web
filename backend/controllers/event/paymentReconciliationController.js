@@ -297,10 +297,31 @@ export const getPaymentsForEvent = async (req, res) => {
   const { id: eventId } = req.params;
 
   try {
-    // We use raw supabase here (not req.db) because the join syntax
+    // STEP 1 — Tenant ownership check FIRST.
+    //
+    // Previously this check happened AFTER fetching the registrations
+    // (the data was discarded if ownership failed, never reaching the
+    // response). But the query still ran against the registrations
+    // table for a row in another org's event, which was both wasteful
+    // and a defence-in-depth foot-gun: any refactor that re-ordered
+    // these statements would have silently leaked the row count.
+    //
+    // Moving the check first means a wrong-org regId guess never
+    // touches event_registrations at all — the cheap req.db-scoped
+    // events lookup gates everything else.
+    const { data: evt } = await req.db
+      .from("events").select("id, is_paid, price_paise").eq("id", eventId).maybeSingle();
+    if (!evt) return res.status(404).json({ error: "Event not found" });
+
+    // STEP 2 — Now safe to fetch enriched registrations.
+    //
+    // Raw supabase (not req.db) here because the join syntax
     // .select("*, students:user_id(name, email)") needs the non-scoped
     // select — req.db's proxy injects an extra org_id filter which
-    // conflicts with the implicit row-level scoping of the join.
+    // conflicts with the implicit row-level scoping of the join. The
+    // tenant gate is enforced one step up by the event ownership
+    // check above; this query is reachable only for events in the
+    // caller's org.
     const { data, error } = await supabase
       .from("event_registrations")
       .select("id, user_id, status, payment_status, payment_ref, paid_at, rejection_reason, registered_at, students:user_id(name, email)")
@@ -308,20 +329,13 @@ export const getPaymentsForEvent = async (req, res) => {
       .order("registered_at", { ascending: true });
 
     if (error) {
-      logger.error({ err: error }, "getPaymentsForEvent");
+      logger.error({ err: error, eventId }, "getPaymentsForEvent");
       return res.status(500).json({ error: error.message });
     }
 
-    // Defence-in-depth: verify the event belongs to this org before
-    // returning the list. Cheap extra query; worth it to make a
-    // cross-tenant regId guess return 404 rather than leak row count.
-    const { data: evt } = await req.db
-      .from("events").select("id, is_paid, price_paise").eq("id", eventId).maybeSingle();
-    if (!evt) return res.status(404).json({ error: "Event not found" });
-
     return res.json({ event: evt, registrations: data || [] });
   } catch (err) {
-    logger.error({ err }, "getPaymentsForEvent");
+    logger.error({ err, eventId }, "getPaymentsForEvent");
     return res.status(500).json({ error: "Failed" });
   }
 };

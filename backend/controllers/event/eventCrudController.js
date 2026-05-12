@@ -70,7 +70,8 @@ export const getEvents = async (req, res) => {
     }));
 
     return res.json(enriched);
-  } catch {
+  } catch (err) {
+    logger.error({ err, orgId: req.orgId }, "getEvents");
     return res.status(500).json({ error: "Failed to fetch events" });
   }
 };
@@ -127,7 +128,8 @@ export const getEvent = async (req, res) => {
       is_full: data.capacity ? (count || 0) >= data.capacity : false,
       user_registration: userRegistration,
     });
-  } catch {
+  } catch (err) {
+    logger.error({ err, eventId: req.params.id }, "getEvent");
     return res.status(500).json({ error: "Failed" });
   }
 };
@@ -215,7 +217,8 @@ export const createEvent = async (req, res) => {
     }
 
     return res.status(201).json({ success: true, event: { ...data, status: computeStatus(data) } });
-  } catch {
+  } catch (err) {
+    logger.error({ err, body: req.body }, "createEvent");
     return res.status(500).json({ error: "Failed to create event" });
   }
 };
@@ -261,7 +264,8 @@ export const updateEvent = async (req, res) => {
 
     if (error) return res.status(500).json({ error: error.message });
     return res.json({ success: true, event: { ...data, status: computeStatus(data) } });
-  } catch {
+  } catch (err) {
+    logger.error({ err, eventId: req.params.id, body: req.body }, "updateEvent");
     return res.status(500).json({ error: "Failed" });
   }
 };
@@ -271,7 +275,8 @@ export const deleteEvent = async (req, res) => {
   try {
     await req.db.from("events").update({ is_active: false }).eq("id", req.params.id);
     return res.json({ success: true });
-  } catch {
+  } catch (err) {
+    logger.error({ err, eventId: req.params.id }, "deleteEvent");
     return res.status(500).json({ error: "Failed" });
   }
 };
@@ -289,7 +294,8 @@ export const toggleRegistration = async (req, res) => {
 
     if (error) return res.status(500).json({ error: error.message });
     return res.json({ success: true, registration_open: data.registration_open });
-  } catch {
+  } catch (err) {
+    logger.error({ err, eventId: req.params.id }, "toggleRegistration");
     return res.status(500).json({ error: "Failed" });
   }
 };

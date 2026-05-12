@@ -74,7 +74,11 @@ export const checkinEvent = async (req, res) => {
       .update({ status: "attended", checked_in_at: new Date().toISOString() })
       .eq("event_id", eventId).eq("user_id", userId);
 
-    // 7. Award XP
+    // 7. Award XP. If the user has no row in `students` (orphan case —
+    // can happen if registration was created before profile, or row
+    // was hard-deleted), the XP write silently no-ops. Used to be
+    // unobservable; now we log so the orphan case shows up in prod
+    // and an operator can backfill the missing student row.
     if (xpToAward > 0) {
       const { data: student } = await req.db
         .from("students").select("xp, weekly_xp").eq("user_id", userId).maybeSingle();
@@ -83,6 +87,11 @@ export const checkinEvent = async (req, res) => {
           xp: (student.xp || 0) + xpToAward,
           weekly_xp: (student.weekly_xp || 0) + xpToAward,
         }).eq("user_id", userId);
+      } else {
+        logger.warn(
+          { event: "orphan_student_xp_skip", userId, eventId, xpToAward, source: "checkinEvent" },
+          "Student row missing on check-in — XP award skipped",
+        );
       }
     }
 
@@ -126,7 +135,8 @@ export const manualCheckin = async (req, res) => {
       .update({ status: "attended", checked_in_at: new Date().toISOString() })
       .eq("event_id", req.params.id).eq("user_id", user_id);
 
-    // Award XP
+    // Award XP. Orphan-student case logged so it's observable
+    // (see checkinEvent above for the why).
     if (xp > 0) {
       const { data: student } = await req.db
         .from("students").select("xp, weekly_xp").eq("user_id", user_id).maybeSingle();
@@ -135,13 +145,19 @@ export const manualCheckin = async (req, res) => {
           xp: (student.xp || 0) + xp,
           weekly_xp: (student.weekly_xp || 0) + xp,
         }).eq("user_id", user_id);
+      } else {
+        logger.warn(
+          { event: "orphan_student_xp_skip", userId: user_id, eventId: req.params.id, xpToAward: xp, source: "manualCheckin" },
+          "Student row missing on manual check-in — XP award skipped",
+        );
       }
     }
 
     await checkEventAchievements(user_id);
 
     return res.json({ success: true, attendance: data });
-  } catch {
+  } catch (err) {
+    logger.error({ err, eventId: req.params.id, body: req.body }, "manualCheckin");
     return res.status(500).json({ error: "Failed" });
   }
 };
@@ -216,7 +232,8 @@ export const scanQrCheckin = async (req, res) => {
       .update({ status: "attended", checked_in_at: new Date().toISOString() })
       .eq("id", reg.id);
 
-    // 6. Award XP
+    // 6. Award XP. Orphan-student case logged for observability
+    // (see checkinEvent above for the why).
     if (xp > 0) {
       const { data: student } = await req.db
         .from("students").select("xp, weekly_xp").eq("user_id", reg.user_id).maybeSingle();
@@ -225,6 +242,11 @@ export const scanQrCheckin = async (req, res) => {
           xp: (student.xp || 0) + xp,
           weekly_xp: (student.weekly_xp || 0) + xp,
         }).eq("user_id", reg.user_id);
+      } else {
+        logger.warn(
+          { event: "orphan_student_xp_skip", userId: reg.user_id, eventId, xpToAward: xp, source: "scanQrCheckin" },
+          "Student row missing on QR check-in — XP award skipped",
+        );
       }
     }
 
@@ -254,7 +276,8 @@ export const getAttendance = async (req, res) => {
 
     if (error) return res.status(500).json({ error: error.message });
     return res.json(data || []);
-  } catch {
+  } catch (err) {
+    logger.error({ err, eventId: req.params.id }, "getAttendance");
     return res.status(500).json({ error: "Failed" });
   }
 };

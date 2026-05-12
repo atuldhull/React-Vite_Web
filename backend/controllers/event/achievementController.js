@@ -4,6 +4,7 @@
 
 import supabase from "../../config/supabase.js";
 import { sendNotification } from "../notificationController.js";
+import { logger } from "../../config/logger.js";
 
 /* GET /api/achievements — list all achievements */
 export const getAchievements = async (req, res) => {
@@ -16,7 +17,8 @@ export const getAchievements = async (req, res) => {
 
     if (error) return res.status(500).json({ error: error.message });
     return res.json(data || []);
-  } catch {
+  } catch (err) {
+    logger.error({ err }, "getAchievements");
     return res.status(500).json({ error: "Failed" });
   }
 };
@@ -32,7 +34,8 @@ export const getMyAchievements = async (req, res) => {
 
     if (error) return res.status(500).json({ error: error.message });
     return res.json(data || []);
-  } catch {
+  } catch (err) {
+    logger.error({ err, userId: req.userId }, "getMyAchievements");
     return res.status(500).json({ error: "Failed" });
   }
 };
@@ -48,7 +51,8 @@ export const getUserAchievements = async (req, res) => {
 
     if (error) return res.status(500).json({ error: error.message });
     return res.json(data || []);
-  } catch {
+  } catch (err) {
+    logger.error({ err, targetUserId: req.params.userId }, "getUserAchievements");
     return res.status(500).json({ error: "Failed" });
   }
 };
@@ -100,7 +104,8 @@ export const grantAchievement = async (req, res) => {
     });
 
     return res.json({ success: true, unlock: data });
-  } catch {
+  } catch (err) {
+    logger.error({ err, grantedBy: req.userId, body: req.body }, "grantAchievement");
     return res.status(500).json({ error: "Failed" });
   }
 };

@@ -242,7 +242,8 @@ export const getRegistrations = async (req, res) => {
 
     if (error) return res.status(500).json({ error: error.message });
     return res.json(data || []);
-  } catch {
+  } catch (err) {
+    logger.error({ err, eventId: req.params.id }, "getRegistrations");
     return res.status(500).json({ error: "Failed" });
   }
 };
