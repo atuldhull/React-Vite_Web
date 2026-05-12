@@ -135,6 +135,97 @@ export default function LibraryScene() {
     cleanupRef.current.geometries.push(bookGeo);
     cleanupRef.current.materials.push(bookMat);
 
+    // ── Leather surface detail on book spines ──────────────────────
+    // Strategy: apply a normal map + roughness map (NOT a diffuse
+    // map) to bookMat. Reasoning: each book has a unique per-instance
+    // color via setColorAt() — applying a colored leather diffuse
+    // map would multiply against the instance tint and produce
+    // muddy / over-darkened spines. Normal + roughness maps encode
+    // surface VECTORS and SHININESS respectively, both color-neutral,
+    // so books keep their varied spine colors while gaining genuine
+    // leather grain + sheen.
+    //
+    // Try Polyhaven CDN first (CC0 leather_red_03 maps). If the load
+    // fails (CDN down, CSP misconfig, slow network), fall back to a
+    // procedural canvas-painted normal map that we generate locally.
+    // The procedural fallback is rough but better than flat painted
+    // boxes; the Polyhaven swap-in arrives a beat after first paint
+    // and silently upgrades the look.
+    const POLYHAVEN_NORMAL = "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/leather_red_03/leather_red_03_nor_gl_1k.jpg";
+    const POLYHAVEN_ROUGH  = "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/leather_red_03/leather_red_03_rough_1k.jpg";
+
+    // Procedural fallback — canvas-painted leather grain encoded as a
+    // tangent-space normal map. We draw mostly-vertical fibres with
+    // slight horizontal scuff lines, then convert luminance to a
+    // bumpy surface via the standard 0.5+(dh/2) → blue channel trick.
+    function makeProceduralLeatherNormal() {
+      const c = document.createElement("canvas");
+      c.width = 256; c.height = 256;
+      const ctx = c.getContext("2d");
+      // Base: flat-normal (pointing straight out = rgb 128,128,255).
+      ctx.fillStyle = "rgb(128, 128, 255)";
+      ctx.fillRect(0, 0, 256, 256);
+      // Fibre lines — slight variation in blue + green channels gives
+      // the bumpy look. Keep it subtle so the books still read clean.
+      for (let i = 0; i < 600; i++) {
+        const x = Math.random() * 256;
+        const y = Math.random() * 256;
+        const len = 4 + Math.random() * 16;
+        const dir = (Math.random() - 0.5) * 0.4; // mostly vertical
+        const bump = 100 + Math.random() * 50;
+        ctx.strokeStyle = `rgb(${Math.round(120 + dir * 30)}, ${Math.round(120 + Math.random() * 20)}, ${Math.round(bump + 130)})`;
+        ctx.lineWidth = 0.8;
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(x + dir * len, y + len);
+        ctx.stroke();
+      }
+      const tex = new THREE.CanvasTexture(c);
+      tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+      tex.repeat.set(2, 2);  // tile across the small book spine
+      return tex;
+    }
+
+    const fallbackNormalMap = makeProceduralLeatherNormal();
+    bookMat.normalMap = fallbackNormalMap;
+    bookMat.normalScale = new THREE.Vector2(0.6, 0.6); // subtle, not extreme
+    bookMat.needsUpdate = true;
+    cleanupRef.current.textures.push(fallbackNormalMap);
+
+    // Async Polyhaven swap-in. The loader respects crossOrigin so the
+    // canvas context can sample these in normal/roughness reads. If
+    // either request 404s or CORS-fails, we keep the procedural
+    // fallback in place — no error reaches the user.
+    const texLoader = new THREE.TextureLoader();
+    texLoader.crossOrigin = "anonymous";
+    texLoader.load(
+      POLYHAVEN_NORMAL,
+      (tex) => {
+        tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+        tex.repeat.set(2, 2);
+        bookMat.normalMap = tex;
+        bookMat.needsUpdate = true;
+        cleanupRef.current.textures.push(tex);
+      },
+      undefined,
+      () => {
+        // eslint-disable-next-line no-console
+        console.info("[LibraryScene] Polyhaven normal map unavailable — using procedural fallback");
+      },
+    );
+    texLoader.load(
+      POLYHAVEN_ROUGH,
+      (tex) => {
+        tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+        tex.repeat.set(2, 2);
+        bookMat.roughnessMap = tex;
+        bookMat.needsUpdate = true;
+        cleanupRef.current.textures.push(tex);
+      },
+      undefined,
+      () => { /* silent — fallback is plain roughness:0.7 */ },
+    );
+
     const dummy = new THREE.Object3D();
     const colour = new THREE.Color();
 

@@ -73,7 +73,7 @@ export function applyHelmet(app) {
         // meaningful XSS vector — CSP doesn't add real protection
         // here — and blocking them just degrades typography.
         fontSrc:        ["'self'", "data:", "fonts.gstatic.com", "cdn.jsdelivr.net", "cdn.fontshare.com"],
-        imgSrc:         ["'self'", "data:", "blob:", "api.dicebear.com", "*.supabase.co", "res.cloudinary.com", "*.razorpay.com"],
+        imgSrc:         ["'self'", "data:", "blob:", "api.dicebear.com", "*.supabase.co", "res.cloudinary.com", "*.razorpay.com", "dl.polyhaven.org"],
         mediaSrc:       ["'self'", "blob:", "res.cloudinary.com"],
         // Razorpay's checkout widget talks to api.razorpay.com +
         // lumberjack.razorpay.com (analytics) — add both.
@@ -86,7 +86,7 @@ export function applyHelmet(app) {
         // captured error is blocked at the browser CSP layer and
         // never reaches Sentry — silent failure of the entire
         // monitoring pipeline.
-        connectSrc:     ["'self'", "*.supabase.co", "api.openrouter.ai", "api.dicebear.com", "openrouter.ai", "res.cloudinary.com", "*.razorpay.com", "*.sentry.io"],
+        connectSrc:     ["'self'", "*.supabase.co", "api.openrouter.ai", "api.dicebear.com", "openrouter.ai", "res.cloudinary.com", "*.razorpay.com", "*.sentry.io", "dl.polyhaven.org"],
         // Razorpay renders the payment form in an iframe served from
         // api.razorpay.com. The default-deny frameSrc was blocking it.
         frameSrc:       ["'self'", "*.razorpay.com"],
