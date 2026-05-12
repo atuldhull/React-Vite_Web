@@ -28,12 +28,27 @@ import * as Sentry from "@sentry/react";
 let initialised = false;
 
 export function initSentry() {
+  // Phase 30 wiring went out but the runtime diagnostic
+  // (window.__SENTRY__["<ver>"].acs === undefined) showed init never
+  // actually fires in production. Adding loud breadcrumbs here so the
+  // next deploy tells us exactly which path is taken. Will tighten back
+  // up once we know what's happening — these console.logs are temporary.
+  // eslint-disable-next-line no-console
+  console.log("[sentry-debug] initSentry called, initialised =", initialised);
   if (initialised) return;
 
   const dsn = import.meta.env.VITE_SENTRY_DSN;
+  // eslint-disable-next-line no-console
+  console.log(
+    "[sentry-debug] DSN inlined as:",
+    dsn ? `set (host: ${new URL(dsn).host}, length: ${dsn.length})` : `UNSET (typeof=${typeof dsn})`,
+  );
   if (!dsn) return; // feature disabled — see file header
 
-  Sentry.init({
+  try {
+    // eslint-disable-next-line no-console
+    console.log("[sentry-debug] calling Sentry.init…");
+    Sentry.init({
     dsn,
     environment: import.meta.env.MODE,
     // RELEASE is injected at build time by vite.config.js (define).
@@ -77,8 +92,13 @@ export function initSentry() {
       return event;
     },
   });
-
-  initialised = true;
+    // eslint-disable-next-line no-console
+    console.log("[sentry-debug] Sentry.init returned, client =", Sentry.getClient?.()?.constructor?.name || "none");
+    initialised = true;
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error("[sentry-debug] Sentry.init THREW:", err);
+  }
 }
 
 /**
