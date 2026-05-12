@@ -66,7 +66,7 @@ export default function LiveQuizHost({
               type="text"
               value={teacherName}
               onChange={(e) => setTeacherName(e.target.value)}
-              className="w-60 rounded-lg border border-line/15 bg-black/15 px-3 py-2 text-sm text-white outline-none focus:border-primary/30"
+              className="w-full rounded-lg border border-line/15 bg-black/15 px-3 py-2 text-sm text-white outline-none focus:border-primary/30 sm:w-60"
             />
           </div>
 

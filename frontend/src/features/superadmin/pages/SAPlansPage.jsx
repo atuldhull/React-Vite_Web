@@ -194,7 +194,7 @@ export default function SAPlansPage() {
       <Card variant="glass">
         <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-secondary">Assign Plan to Organisation</p>
         <div className="mt-4 flex flex-wrap items-end gap-3">
-          <div className="flex-1 min-w-[180px]">
+          <div className="w-full min-w-0 sm:flex-1 sm:min-w-[180px]">
             <label className="mb-1 block text-[10px] text-text-dim">Organisation</label>
             <select value={assignOrg} onChange={(e) => setAssignOrg(e.target.value)}
               className="w-full rounded-xl border border-line/15 bg-black/15 px-3 py-2.5 text-sm text-white outline-none">
@@ -202,7 +202,7 @@ export default function SAPlansPage() {
               {orgs.map((o) => <option key={o.id} value={o.id}>{o.name} ({o.plan_name || "free"})</option>)}
             </select>
           </div>
-          <div className="flex-1 min-w-[160px]">
+          <div className="w-full min-w-0 sm:flex-1 sm:min-w-[160px]">
             <label className="mb-1 block text-[10px] text-text-dim">Plan</label>
             <select value={assignPlan} onChange={(e) => setAssignPlan(e.target.value)}
               className="w-full rounded-xl border border-line/15 bg-black/15 px-3 py-2.5 text-sm text-white outline-none">

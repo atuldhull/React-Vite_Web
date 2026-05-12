@@ -298,13 +298,13 @@ export default function AdminChallengesPage() {
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-3">
         <input type="text" placeholder="Search..." value={search} onChange={(e) => setSearch(e.target.value)}
-          className="w-60 rounded-xl border border-line/15 bg-surface/50 px-4 py-2.5 text-sm text-white outline-none focus:border-primary/30" />
+          className="w-full rounded-xl border border-line/15 bg-surface/50 px-4 py-2.5 text-sm text-white outline-none focus:border-primary/30 sm:w-60" />
         <select value={filterDiff} onChange={(e) => setFilterDiff(e.target.value)}
-          className="rounded-xl border border-line/15 bg-surface/50 px-3 py-2.5 text-sm text-white outline-none">
+          className="flex-1 rounded-xl border border-line/15 bg-surface/50 px-3 py-2.5 text-sm text-white outline-none sm:flex-none">
           <option value="all">All Difficulty</option><option value="easy">Easy</option><option value="medium">Medium</option><option value="hard">Hard</option><option value="extreme">Extreme</option>
         </select>
         <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}
-          className="rounded-xl border border-line/15 bg-surface/50 px-3 py-2.5 text-sm text-white outline-none">
+          className="flex-1 rounded-xl border border-line/15 bg-surface/50 px-3 py-2.5 text-sm text-white outline-none sm:flex-none">
           <option value="all">All Status</option><option value="active">Active</option><option value="inactive">Inactive</option>
         </select>
         {selected.size > 0 && (

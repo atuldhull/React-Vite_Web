@@ -195,7 +195,7 @@ export default function SAAccessPage() {
         </p>
 
         <div className="mt-4 flex flex-wrap items-end gap-3">
-          <div className="flex-1 min-w-[200px]">
+          <div className="w-full min-w-0 sm:flex-1 sm:min-w-[200px]">
             <label className="mb-1 block text-[10px] text-text-dim">Organisation</label>
             <select value={impOrg} onChange={(e) => setImpOrg(e.target.value)}
               className="w-full rounded-xl border border-line/15 bg-panel/70 px-3 py-2.5 text-sm text-white outline-none">
