@@ -149,9 +149,13 @@ function InvalidCard({ reason }) {
 }
 
 function Row({ label, value, strong, mono }) {
+  // Stack label above value on mobile so long values (cert IDs, dates,
+  // full names) don't get squeezed against a fixed 128px label column.
+  // At sm+ we go back to the side-by-side layout that reads as a
+  // proper definition list.
   return (
-    <div className="flex items-baseline gap-4 border-b border-line/5 pb-3 last:border-b-0 last:pb-0">
-      <dt className="w-32 shrink-0 font-mono text-[10px] uppercase tracking-wider text-text-dim">
+    <div className="flex flex-col gap-1 border-b border-line/5 pb-3 last:border-b-0 last:pb-0 sm:flex-row sm:items-baseline sm:gap-4">
+      <dt className="font-mono text-[10px] uppercase tracking-wider text-text-dim sm:w-32 sm:shrink-0">
         {label}
       </dt>
       <dd className={`flex-1 ${mono ? "font-mono" : ""} ${strong ? "font-semibold text-white" : "text-text-muted"}`}>

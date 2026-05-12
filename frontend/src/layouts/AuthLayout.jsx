@@ -44,7 +44,7 @@ export default function AuthLayout() {
     <div className="relative min-h-screen overflow-hidden bg-obsidian text-text-primary">
       <CosmicPortalBackground />
 
-      <div className="relative z-10 mx-auto max-w-7xl px-5 py-6 sm:px-8 lg:px-10">
+      <div className="relative z-10 w-full px-5 py-6 sm:px-8 lg:px-10">
         {/* Top bar */}
         <div className="flex items-center justify-between gap-4">
           <BrandMark />

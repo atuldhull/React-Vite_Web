@@ -361,9 +361,12 @@ export default function EventsPage() {
           onExplore={scrollToTimeline}
         />
 
-        {/* Status filter row (compact, below explorer) */}
+        {/* Status filter row (compact, below explorer). On mobile the
+            "Status:" label is hidden — pills are self-explanatory and
+            hiding it lets all 5 fit on one row at 375px without an
+            ugly wrap. Label returns on sm+ where there's space. */}
         <div className="flex flex-wrap items-center justify-center gap-2">
-          <span className="font-mono text-[9px] uppercase tracking-[0.2em] text-text-dim mr-1">Status:</span>
+          <span className="mr-1 hidden font-mono text-[9px] uppercase tracking-[0.2em] text-text-dim sm:inline">Status:</span>
           {[
             { key: "all", label: "All" },
             { key: "active", label: "Live" },

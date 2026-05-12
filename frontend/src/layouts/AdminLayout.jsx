@@ -61,7 +61,7 @@ export default function AdminLayout() {
     <div className="relative min-h-screen overflow-hidden bg-obsidian text-text-primary">
       <GridBackground accent="success" />
 
-      <div className="relative z-10 mx-auto flex min-h-screen max-w-[1560px] flex-col gap-4 px-4 py-4 lg:flex-row">
+      <div className="relative z-10 flex min-h-screen w-full flex-col gap-4 px-4 py-4 lg:flex-row">
         {/* Sidebar */}
         <motion.aside
           initial={{ x: -20, opacity: 0 }}

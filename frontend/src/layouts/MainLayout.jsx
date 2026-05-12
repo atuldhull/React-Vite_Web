@@ -55,17 +55,19 @@ export default function MainLayout() {
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-obsidian text-text-primary">
-      {/* Outer is now FULL WIDTH (no max-w cap on the wrapper). Pages
-          stretch edge-to-edge like Linear / Vercel / Stripe. The header
-          and footer keep their own max-w-7xl + horizontal padding so
-          they stay nicely centred + readable on ultra-wide displays —
-          only the page area between them is allowed to bleed. */}
+      {/* Outer is FULL WIDTH and so are the header + footer now. The
+          earlier cap (max-w-7xl on header + footer) made them feel like
+          centred pills floating in a full-bleed page — visually
+          inconsistent with the hero scene which bleeds edge-to-edge.
+          Now both stretch to the viewport edges, matching the rest of
+          the design. Internal padding (px-4/sm:px-8/lg:px-10) keeps
+          contents readable from ultra-wide displays down to mobile. */}
       <div className="relative flex min-h-screen w-full flex-col">
         <motion.header
           initial={{ y: -20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ duration: 0.5 }}
-          className="sticky top-3 z-40 mx-auto mb-6 w-full max-w-7xl px-4 pt-4 sm:px-8 lg:px-10"
+          className="sticky top-3 z-40 mb-6 w-full px-4 pt-4 sm:px-8 lg:px-10"
         >
           <nav className="rounded-2xl border border-line/15 bg-surface/60 px-4 py-3 shadow-panel backdrop-blur-2xl sm:px-5">
             <div className="flex items-center justify-between gap-3">
@@ -324,7 +326,7 @@ export default function MainLayout() {
           <Outlet />
         </main>
 
-        <footer className="mx-auto mt-16 w-full max-w-7xl border-t border-line/10 px-4 pb-10 pt-8 sm:px-8 lg:px-10">
+        <footer className="mt-16 w-full border-t border-line/10 px-4 pb-10 pt-8 sm:px-8 lg:px-10">
           <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
             <BrandMark />
             <div className="flex flex-wrap justify-center gap-4 font-mono text-[11px] text-text-muted sm:gap-6">
