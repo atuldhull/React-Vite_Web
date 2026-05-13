@@ -56,11 +56,13 @@ export default function HeroExperience() {
 
   useEffect(() => {
     // sessionStorage cache so subsequent navigations within the same
-    // tab skip the HEAD probe. localStorage would be wrong — if the
-    // user adds the video tomorrow, an old false-cached "webgl"
-    // result would stick around. Per-session is the right TTL.
+    // tab skip the HEAD probe. Key version bumped to invalidate the
+    // first-shipped cache entries (the v1 probe was fooled by Render's
+    // SPA fallback returning 200 with text/html for unknown paths and
+    // sometimes cached "video" when no video existed — black hero).
+    const CACHE_KEY = "hero-mode-v2";
     const cached = (() => {
-      try { return sessionStorage.getItem("hero-mode"); } catch { return null; }
+      try { return sessionStorage.getItem(CACHE_KEY); } catch { return null; }
     })();
     if (cached === "video" || cached === "webgl") {
       setMode(cached);
@@ -71,14 +73,23 @@ export default function HeroExperience() {
     fetch("/app/videos/hero-night.mp4", { method: "HEAD" })
       .then((res) => {
         if (cancelled) return;
-        const next = res.ok ? "video" : "webgl";
+        // res.ok alone is NOT enough — Render's SPA fallback serves
+        // index.html (200 OK, Content-Type: text/html) for any unknown
+        // path under /app/. If we trusted res.ok we'd think a video
+        // exists when it doesn't, mount VideoScrubHero, try to play
+        // HTML as MP4, and render a black screen. The Content-Type
+        // check is what catches this — we only switch to video mode
+        // when the server actually returns a video/* MIME type.
+        const ct = (res.headers.get("content-type") || "").toLowerCase();
+        const isVideo = res.ok && ct.startsWith("video/");
+        const next = isVideo ? "video" : "webgl";
         setMode(next);
-        try { sessionStorage.setItem("hero-mode", next); } catch { /* incognito */ }
+        try { sessionStorage.setItem(CACHE_KEY, next); } catch { /* incognito */ }
       })
       .catch(() => {
         if (cancelled) return;
         setMode("webgl");
-        try { sessionStorage.setItem("hero-mode", "webgl"); } catch { /* incognito */ }
+        try { sessionStorage.setItem(CACHE_KEY, "webgl"); } catch { /* incognito */ }
       });
 
     return () => { cancelled = true; };
