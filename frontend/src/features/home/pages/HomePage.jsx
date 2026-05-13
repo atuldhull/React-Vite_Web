@@ -25,6 +25,11 @@ import AnimatedNumber from "@/components/ui/AnimatedNumber";
 // itself is tiny — the heavy chunks (Three.js or the video element)
 // only resolve after detection picks a branch.
 const MonumentVideo = lazy(() => import("@/features/home/components/HeroExperience"));
+// Scroll-pinned narrative band overlays on top of the hero — fade in/out
+// at four scroll positions to tell the Math Collective story while the
+// camera dives through the scene. Lazy so the framer-motion + scroll-
+// listener code doesn't add to the initial bundle.
+const HeroNarrativeOverlay = lazy(() => import("@/features/home/components/HeroNarrativeOverlay"));
 // Phase 32 — EvolutionTimeline is also lazy-loaded. It pulls in
 // MathRender + KaTeX (~260KB) for formula rendering. The timeline
 // sits below the scroll-spacer so users scroll past 500vh of hero
@@ -232,6 +237,17 @@ export default function HomePage() {
       {/* ── FULL-SCREEN VIDEO (scroll-synced, the ENTIRE experience) ── */}
       <Suspense fallback={<HeroFallback />}>
         <MonumentVideo />
+      </Suspense>
+
+      {/* ── NARRATIVE OVERLAY (scroll-pinned story beats) ──
+          Sits on top of the hero; renders one of four short messages
+          based on scroll position (22-40%, 43-62%, 65-82%, 85-100%).
+          The first ~18% of scroll is reserved for the static poetic
+          title below — once that fades, the narrative bands take
+          over. Suspense fallback is null because the overlay is
+          decorative; missing it shouldn't show any visible loader. */}
+      <Suspense fallback={null}>
+        <HeroNarrativeOverlay />
       </Suspense>
 
       {/* ── HERO OVERLAY (title + scroll hint) ── */}
