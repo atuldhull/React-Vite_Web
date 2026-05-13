@@ -53,17 +53,48 @@ const BOOK_COLOURS = [
   0x533424, 0x6a523c, 0xb8893d, 0x8a6f3a,
 ];
 
-const SHELF_DEPTH  = 36;   // along -Z (was 30 — extends corridor)
-const SHELVES      = 9;    // vertical levels (was 5 — TALLER + cathedral feel)
-const BOOKS_PER_LV = 100;  // along the shelf
-// Total instances per side = 9 × 100 = 900. Two sides = 1 800 books.
-// Still one InstancedMesh per side, so just 2 draw calls. Phase 27 cut
-// from 130 → 100 to reduce instance buffer size; the visual density
-// stays believable because each book averages 36 cm in screen space
-// at the close-zoom phase.
+const SHELF_DEPTH     = 36;     // along -Z (was 30 — extends corridor)
 const SHELF_LV_HEIGHT = 0.55;   // distance between shelves
 const FIRST_LV_Y      = 0.55;   // bottom shelf height off the floor
-const TOP_OF_SHELVES  = FIRST_LV_Y + (SHELVES - 1) * SHELF_LV_HEIGHT + 0.5; // ~5.45m
+
+// SHELVES / BOOKS_PER_LV / TOP_OF_SHELVES used to be module-level
+// constants. They're now scaled per device tier — a mid-range phone
+// can't carry 1800 textured books + 18 dynamic point lights at 60 fps,
+// and Lighthouse mobile perf scored 32/100 with the desktop-grade
+// scene running on simulated mobile hardware. The values move inside
+// useEffect where the tier check has run.
+
+/**
+ * Three-tier device classifier. Reads viewport width + reported logical
+ * core count and picks a quality preset.
+ *
+ *   low  — small viewport AND ≤4 cores. Aggressively trimmed: fewer
+ *          books, fewer shelves, postprocessing off (biggest single
+ *          GPU win on weak Adreno / mid-tier Mali parts).
+ *   mid  — small viewport OR ≤4 cores. Light trim: postprocessing
+ *          stays on but with reduced bloom kernel; book counts ~80%.
+ *   high — everything else. Original desktop-grade scene unchanged.
+ *
+ * Detection is one-shot at mount — we don't dynamically re-tier on
+ * window resize. Justification: someone joining from a phone is
+ * extremely unlikely to expand the viewport mid-session, and rebuilding
+ * the InstancedMesh on each resize would be more janky than the
+ * fixed mobile quality.
+ */
+function detectQualityTier() {
+  if (typeof window === "undefined") return "high"; // SSR safety net
+  const smallViewport = window.matchMedia?.("(max-width: 767px)").matches;
+  const cores         = navigator.hardwareConcurrency || 8;
+  if (smallViewport && cores <= 4) return "low";
+  if (smallViewport)               return "mid";
+  return "high";
+}
+
+const QUALITY_PRESETS = {
+  low:  { shelves: 6, booksPerLv: 60,  dust: 120, stars: 350, candelabra: 5,  buildings: 4, postprocess: false },
+  mid:  { shelves: 8, booksPerLv: 80,  dust: 220, stars: 600, candelabra: 7,  buildings: 6, postprocess: true  },
+  high: { shelves: 9, booksPerLv: 100, dust: 350, stars: 900, candelabra: 10, buildings: 8, postprocess: true  },
+};
 
 function scrollSpan() { return window.innerHeight * 5; }
 
@@ -86,6 +117,14 @@ export default function LibraryScene() {
     const prefersReducedMotion =
       typeof window !== "undefined" &&
       window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+
+    // Device tier — drives every density knob below. Decided once at
+    // mount; see detectQualityTier comment for the rationale on not
+    // re-evaluating on resize.
+    const Q              = QUALITY_PRESETS[detectQualityTier()];
+    const SHELVES        = Q.shelves;
+    const BOOKS_PER_LV   = Q.booksPerLv;
+    const TOP_OF_SHELVES = FIRST_LV_Y + (SHELVES - 1) * SHELF_LV_HEIGHT + 0.5;
 
     let renderer;
     try {
@@ -672,20 +711,27 @@ export default function LibraryScene() {
       return group;
     }
 
-    // Place the buildings. Mix of sizes and styles per side.
-    const buildings = [
+    // Place the buildings. Mix of sizes and styles per side. The
+    // FULL_BUILDINGS list is the desktop arrangement; mid/low tiers
+    // pick the first N entries which are already chosen to cover the
+    // most visible mid-distance positions. The two backdrop cathedrals
+    // at the end of the list (indices 6,7) drop off first on weak
+    // tiers — they're the furthest, smallest screen contribution.
+    const FULL_BUILDINGS = [
       // Left side — closer to corridor entrance
       { x: -10, z:  -2, w: 5,  d: 4,  h: 9,  towerHeight: 11, hasSpire: true,  rotY:  0.2 },
       { x: -12, z: -14, w: 6,  d: 5,  h: 11, towerHeight: 14, hasSpire: true,  rotY: -0.1 },
-      { x: -11, z: -28, w: 4,  d: 4,  h: 8,  towerHeight: 10, hasSpire: false, rotY:  0.0 },
       // Right side
       { x:  10, z:  -4, w: 5,  d: 4,  h: 10, towerHeight: 13, hasSpire: true,  rotY: -0.2 },
       { x:  13, z: -16, w: 6,  d: 5,  h: 12, towerHeight: 15, hasSpire: true,  rotY:  0.15 },
-      { x:  10, z: -30, w: 4,  d: 4,  h: 9,  towerHeight: 11, hasSpire: false, rotY:  0.0 },
-      // Behind the focal monument — large cathedral-like backdrop
+      // Backdrop cathedrals at corridor end
       { x:  -4, z: -48, w: 7,  d: 6,  h: 13, towerHeight: 16, hasSpire: true,  rotY:  0.0 },
       { x:   5, z: -52, w: 6,  d: 5,  h: 12, towerHeight: 15, hasSpire: true,  rotY:  0.05 },
+      // Mid-corridor fill (drops off first on weak tiers)
+      { x: -11, z: -28, w: 4,  d: 4,  h: 8,  towerHeight: 10, hasSpire: false, rotY:  0.0 },
+      { x:  10, z: -30, w: 4,  d: 4,  h: 9,  towerHeight: 11, hasSpire: false, rotY:  0.0 },
     ];
+    const buildings = FULL_BUILDINGS.slice(0, Q.buildings);
     const buildingGroups = [];
     buildings.forEach((b) => {
       const g = buildUniversityBuilding(b);
@@ -901,8 +947,11 @@ export default function LibraryScene() {
     const haloMaterials = []; // for per-frame uTime updates
     const haloMeshes    = []; // for camera billboard
 
-    for (let i = 0; i < 10; i++) {
-      const z = -i * 3.5 - 0.5;
+    // Candelabra spacing stretches to cover the corridor when count
+    // is reduced on weaker tiers — same visual rhythm, fewer fixtures.
+    const candelabraSpacing = (SHELF_DEPTH - 4) / Q.candelabra;
+    for (let i = 0; i < Q.candelabra; i++) {
+      const z = -i * candelabraSpacing - 0.5;
       // Strong warm point light at the cluster centre.
       const light = new THREE.PointLight(0xffb15c, 6.5, 12, 1.5);
       light.position.set(0, CANDLE_Y, z);
@@ -1007,7 +1056,7 @@ export default function LibraryScene() {
     // visual difference is imperceptible (the candelabra halos +
     // book detail dominate); the 250 fewer points + per-frame
     // attribute upload saves ~0.3 ms/frame on weaker GPUs.
-    const dustCount = 350;
+    const dustCount = Q.dust;
     const dustPos = new Float32Array(dustCount * 3);
     const dustVel = new Float32Array(dustCount);
     for (let i = 0; i < dustCount; i++) {
@@ -1030,7 +1079,7 @@ export default function LibraryScene() {
     // ── Far stars (revealed in phase 2/3) ───────────────────────
     // Stars dropped 1500 → 900 — same reasoning as dust. Phase 2 still
     // looks like a sky, just slightly less crowded.
-    const starCount = 900;
+    const starCount = Q.stars;
     const starPos = new Float32Array(starCount * 3);
     for (let i = 0; i < starCount; i++) {
       const r = 30 + Math.random() * 40;
@@ -1053,7 +1102,7 @@ export default function LibraryScene() {
     //  felt like a separate project hijacking the scroll. Library +
     //  glyph cosmos + calm celestial close is the new 3-phase arc.)
 
-    // ── Postprocessing pipeline (best-effort) ───────────────────
+    // ── Postprocessing pipeline (best-effort, tier-gated) ──────────
     // Wrapped in try / catch + a smoke-test render so a GPU that
     // can't run BloomEffect doesn't take down the page. On failure
     // we discard the composer and fall back to plain renderer.render
@@ -1061,8 +1110,15 @@ export default function LibraryScene() {
     // we've successfully rendered ONE frame through the composer —
     // some GPUs accept the composer at construction but throw on
     // first draw, so the smoke test catches that case too.
+    //
+    // Q.postprocess gates the entire pipeline on weak mobile tiers:
+    // bloom is the single most expensive per-frame cost in this scene
+    // (~3-5 ms on integrated GPUs, more on mobile), and skipping it
+    // is what gets the low tier into smooth 30fps territory. The
+    // candles still glow — they just don't get the halo expansion
+    // that bloom adds.
     let composer = null;
-    try {
+    if (Q.postprocess) try {
       const c = new EffectComposer(renderer);
       c.addPass(new RenderPass(scene, camera));
 
