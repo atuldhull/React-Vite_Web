@@ -267,6 +267,72 @@ export default function LibraryScene() {
       color: 0x1a0e08, roughness: 0.85, metalness: 0.1,
     });
     cleanupRef.current.materials.push(shelfMat);
+
+    // Wood PBR upgrade on the bookshelf frames — same pattern as the
+    // leather books + stone columns above (normal + roughness only,
+    // so the dark mahogany color stays intact while the surface
+    // gains real wood grain). Polyhaven `wood_table_001` reads as
+    // aged hardwood; tile size cranked up (4×) since planks are
+    // long thin runs and we want the grain to feel finely detailed.
+    const POLYHAVEN_WOOD_NORMAL = "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/wood_table_001/wood_table_001_nor_gl_1k.jpg";
+    const POLYHAVEN_WOOD_ROUGH  = "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/wood_table_001/wood_table_001_rough_1k.jpg";
+
+    function makeProceduralWoodNormal() {
+      const c = document.createElement("canvas");
+      c.width = 256; c.height = 256;
+      const ctx = c.getContext("2d");
+      ctx.fillStyle = "rgb(128, 128, 255)";
+      ctx.fillRect(0, 0, 256, 256);
+      // Long horizontal grain lines, mostly parallel — wood grain.
+      for (let i = 0; i < 80; i++) {
+        const y = Math.random() * 256;
+        const dy = (Math.random() - 0.5) * 8;
+        const bump = 110 + Math.random() * 50;
+        ctx.strokeStyle = `rgb(${Math.round(128 + dy * 4)}, ${Math.round(128 + Math.random() * 20)}, ${Math.round(bump + 120)})`;
+        ctx.lineWidth = 0.4 + Math.random() * 1.2;
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.bezierCurveTo(80, y + dy, 160, y - dy, 256, y);
+        ctx.stroke();
+      }
+      const tex = new THREE.CanvasTexture(c);
+      tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+      tex.repeat.set(4, 1);
+      return tex;
+    }
+
+    const woodFallbackNormal = makeProceduralWoodNormal();
+    shelfMat.normalMap = woodFallbackNormal;
+    shelfMat.normalScale = new THREE.Vector2(0.6, 0.6);
+    shelfMat.needsUpdate = true;
+    cleanupRef.current.textures.push(woodFallbackNormal);
+
+    const woodLoader = new THREE.TextureLoader();
+    woodLoader.crossOrigin = "anonymous";
+    woodLoader.load(
+      POLYHAVEN_WOOD_NORMAL,
+      (tex) => {
+        tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+        tex.repeat.set(4, 1);
+        shelfMat.normalMap = tex;
+        shelfMat.needsUpdate = true;
+        cleanupRef.current.textures.push(tex);
+      },
+      undefined,
+      () => { /* fall through silently */ },
+    );
+    woodLoader.load(
+      POLYHAVEN_WOOD_ROUGH,
+      (tex) => {
+        tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+        tex.repeat.set(4, 1);
+        shelfMat.roughnessMap = tex;
+        shelfMat.needsUpdate = true;
+        cleanupRef.current.textures.push(tex);
+      },
+      undefined,
+      () => { /* silent */ },
+    );
     for (const side of [-1, +1]) {
       for (let lv = 0; lv < SHELVES; lv++) {
         const plankGeo = new THREE.BoxGeometry(0.32, 0.03, SHELF_DEPTH);
@@ -511,6 +577,161 @@ export default function LibraryScene() {
     const monumentLight = new THREE.PointLight(0xffd9a0, 3.5, 14, 1.8);
     monumentLight.position.set(0, MONUMENT_H, MONUMENT_Z + 3);
     scene.add(monumentLight);
+
+    // ── Hogwarts / Oxford-style university silhouettes ─────────────
+    // Six university buildings rise BEYOND the bookshelves (x = ±10
+    // to ±14) at varied positions along the corridor. They're tall
+    // (8-14m) so their tops peek over the bookshelves — visible to
+    // the camera as it glides forward, even though the shelves
+    // themselves block the lower portions. Reads as "we're inside
+    // the library of a giant gothic campus."
+    //
+    // Each building is a procedural composition of:
+    //   - rectangular main mass (box)
+    //   - corner towers (cylinder + conical spire roof)
+    //   - lit window patches (emissive yellow planes) — the warm
+    //     glow against the dark stone is what sells the "lived-in"
+    //     atmosphere
+    //
+    // Material is intentionally darker than the corridor columns
+    // (more blue-black weathered stone) so they read as exterior
+    // architecture at night, not part of the interior space.
+    const buildingMat = new THREE.MeshStandardMaterial({
+      color:     0x2a2f38,     // cold weathered stone — night exterior tone
+      roughness: 0.95,
+      metalness: 0.02,
+    });
+    cleanupRef.current.materials.push(buildingMat);
+
+    // Lit-window emissive material. Shared across all window patches
+    // so the GPU only uploads one material, but each instance can be
+    // independently positioned. Warm parchment-yellow with high
+    // emissive intensity so bloom picks them up.
+    const windowMat = new THREE.MeshBasicMaterial({
+      color:       0xffcf80,
+      transparent: true,
+      opacity:     0.92,
+    });
+    cleanupRef.current.materials.push(windowMat);
+
+    // Generic building factory — returns a Group so we can position
+    // it as a single unit. Variation comes from the (w, d, h, towerHeight,
+    // hasSpire) params so each silhouette feels different without
+    // hand-modeling each one.
+    function buildUniversityBuilding(opts) {
+      const { w, d, h, towerHeight, hasSpire, towerRadius = 0.7, windowCols = 4, windowRows = 3 } = opts;
+      const group = new THREE.Group();
+
+      // Main rectangular mass.
+      const mainGeo = new THREE.BoxGeometry(w, h, d);
+      const main = new THREE.Mesh(mainGeo, buildingMat);
+      main.position.y = h / 2;
+      group.add(main);
+      cleanupRef.current.geometries.push(mainGeo);
+
+      // Corner towers — 2 of them (front-facing corners).
+      // Each tower = cylinder + optional conical roof.
+      for (const xs of [-1, 1]) {
+        const towerGeo = new THREE.CylinderGeometry(towerRadius, towerRadius, towerHeight, 14);
+        const tower = new THREE.Mesh(towerGeo, buildingMat);
+        tower.position.set(xs * (w / 2 - towerRadius * 0.6), towerHeight / 2, d / 2);
+        group.add(tower);
+        cleanupRef.current.geometries.push(towerGeo);
+
+        if (hasSpire) {
+          const spireGeo = new THREE.ConeGeometry(towerRadius + 0.05, towerRadius * 2.5, 14);
+          const spire = new THREE.Mesh(spireGeo, buildingMat);
+          spire.position.set(xs * (w / 2 - towerRadius * 0.6), towerHeight + towerRadius * 1.25, d / 2);
+          group.add(spire);
+          cleanupRef.current.geometries.push(spireGeo);
+        }
+      }
+
+      // Window patches on the front face (facing the camera through
+      // the bookshelves — visible above the shelf line). Grid of
+      // small emissive planes inset into the main mass surface.
+      const winW = (w / (windowCols + 1)) * 0.5;
+      const winH = ((h - 1.5) / (windowRows + 1)) * 0.4;
+      const winGeo = new THREE.PlaneGeometry(winW, winH);
+      cleanupRef.current.geometries.push(winGeo);
+      for (let row = 0; row < windowRows; row++) {
+        // Randomise: ~70% of windows are lit, rest are dark. Avoids
+        // the "everyone's home" uniform-look.
+        for (let col = 0; col < windowCols; col++) {
+          if (Math.random() > 0.7) continue;
+          const win = new THREE.Mesh(winGeo, windowMat);
+          win.position.set(
+            -w / 2 + (col + 1) * (w / (windowCols + 1)),
+            1.5 + (row + 1) * ((h - 1.5) / (windowRows + 1)),
+            d / 2 + 0.01,   // sit just in front of the main mass face
+          );
+          group.add(win);
+        }
+      }
+
+      return group;
+    }
+
+    // Place the buildings. Mix of sizes and styles per side.
+    const buildings = [
+      // Left side — closer to corridor entrance
+      { x: -10, z:  -2, w: 5,  d: 4,  h: 9,  towerHeight: 11, hasSpire: true,  rotY:  0.2 },
+      { x: -12, z: -14, w: 6,  d: 5,  h: 11, towerHeight: 14, hasSpire: true,  rotY: -0.1 },
+      { x: -11, z: -28, w: 4,  d: 4,  h: 8,  towerHeight: 10, hasSpire: false, rotY:  0.0 },
+      // Right side
+      { x:  10, z:  -4, w: 5,  d: 4,  h: 10, towerHeight: 13, hasSpire: true,  rotY: -0.2 },
+      { x:  13, z: -16, w: 6,  d: 5,  h: 12, towerHeight: 15, hasSpire: true,  rotY:  0.15 },
+      { x:  10, z: -30, w: 4,  d: 4,  h: 9,  towerHeight: 11, hasSpire: false, rotY:  0.0 },
+      // Behind the focal monument — large cathedral-like backdrop
+      { x:  -4, z: -48, w: 7,  d: 6,  h: 13, towerHeight: 16, hasSpire: true,  rotY:  0.0 },
+      { x:   5, z: -52, w: 6,  d: 5,  h: 12, towerHeight: 15, hasSpire: true,  rotY:  0.05 },
+    ];
+    const buildingGroups = [];
+    buildings.forEach((b) => {
+      const g = buildUniversityBuilding(b);
+      g.position.set(b.x, 0, b.z);
+      g.rotation.y = b.rotY || 0;
+      scene.add(g);
+      buildingGroups.push(g);
+    });
+
+    // ── Lanterns scattered through the scene ───────────────────────
+    // Small warm point lights with a tiny emissive bulb mesh. Placed
+    // at corridor entrances + the bases of selected columns +
+    // building exteriors. Each contributes to the "lived-in
+    // candlelight everywhere" atmosphere without overwhelming the
+    // existing candelabra lighting which is the main interior source.
+    const lanternBulbMat = new THREE.MeshBasicMaterial({
+      color: 0xffb866,
+      transparent: true,
+      opacity: 0.95,
+    });
+    cleanupRef.current.materials.push(lanternBulbMat);
+    const lanternBulbGeo = new THREE.SphereGeometry(0.08, 8, 6);
+    cleanupRef.current.geometries.push(lanternBulbGeo);
+
+    const lanternLights = [];   // referenced in tick for subtle flicker
+    const lanternPositions = [
+      // Corridor entrance (just inside camera start)
+      [-2.0, 0.8,  10],  [ 2.0, 0.8,  10],
+      // Column tops — small lanterns crowning the capitals
+      [-2.3, COLUMN_HEIGHT * 0.86 + 0.5, -4],
+      [ 2.3, COLUMN_HEIGHT * 0.86 + 0.5, -4],
+      [-2.3, COLUMN_HEIGHT * 0.86 + 0.5, -18],
+      [ 2.3, COLUMN_HEIGHT * 0.86 + 0.5, -18],
+      // At the base of the distant monument
+      [-MONUMENT_W - 0.5, 0.5, MONUMENT_Z + 0.5],
+      [ MONUMENT_W + 0.5, 0.5, MONUMENT_Z + 0.5],
+    ];
+    lanternPositions.forEach(([x, y, z]) => {
+      const bulb = new THREE.Mesh(lanternBulbGeo, lanternBulbMat);
+      bulb.position.set(x, y, z);
+      scene.add(bulb);
+      const light = new THREE.PointLight(0xffb866, 1.8, 6, 1.5);
+      light.position.set(x, y, z);
+      scene.add(light);
+      lanternLights.push(light);
+    });
 
     // ── Hanging candelabra — twin candles dangling from ceiling
     //    beams every ~3.5m. Brass chain stand-in (thin cylinder) +
@@ -979,6 +1200,29 @@ export default function LibraryScene() {
       // Opacity floor of 0.05 prevents a hard pop at the boundary.
       monumentMat.opacity = Math.max(0.05, current.candleI);
       monumentLight.intensity = 3.5 * current.candleI;
+
+      // Lanterns scattered through the scene — subtle flicker so they
+      // feel alive (each lantern has its own phase offset via index),
+      // and intensity gates on current.candleI so they fade out along
+      // with the rest of the library lighting in Phase 2.
+      lanternLights.forEach((l, i) => {
+        l.intensity = 1.8 * current.candleI * (0.88 + 0.12 * Math.sin(t * 3.2 + i * 0.9));
+      });
+
+      // Window glow on the distant university buildings — pulses
+      // very subtly per-building. The windowMat is shared across
+      // ALL windows, so this pulses them together (cheap, reads
+      // as "the campus is breathing"). Fades to off in Phase 2.
+      windowMat.opacity = 0.92 * current.candleI * (0.94 + 0.06 * Math.sin(t * 0.8));
+
+      // University building stone fades opacity slightly with phase
+      // — they're already very dark from the cold #2a2f38 base, but
+      // dropping further keeps them clean during the cosmos beat.
+      // buildingMat is opaque (no `transparent: true`) — we use
+      // dim emissive instead by tying to candleI via a multiplier
+      // applied to the ambient light at scene level. Skipping that
+      // for now since the visual cost of opaque buildings in phase 2
+      // is acceptable (they'll be in deep shadow anyway).
 
       // Glyph pulse + drift + billboard toward camera.
       glyphMeshes.forEach((g, i) => {
