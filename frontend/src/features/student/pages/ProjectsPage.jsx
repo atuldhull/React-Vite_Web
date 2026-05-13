@@ -208,6 +208,17 @@ export default function ProjectsPage() {
     <div style={{ position: "relative" }}>
       <MonumentBackground monument="sky" intensity={0.13} />
 
+      {/* Ambient math glyphs — sky-themed (secondary/blue tint) to
+          match the sky monument backdrop. Same visual signature as
+          every other page in the app so the design feels cohesive. */}
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0 z-0 select-none">
+        <span className="math-text absolute left-[4%] top-[12%] text-[9rem] text-secondary/[0.045]">⊕</span>
+        <span className="math-text absolute right-[5%] top-[20%] text-[8rem] text-white/[0.03]">⊗</span>
+        <span className="math-text absolute left-[14%] top-[58%] text-[6rem] text-white/[0.03]">ψ</span>
+        <span className="math-text absolute right-[7%] bottom-[14%] text-[7rem] text-primary/[0.04]">α</span>
+        <span className="math-text absolute left-[44%] top-[44%] text-[5rem] text-white/[0.025]">β</span>
+      </div>
+
       <div className="relative z-10 space-y-8 pb-16">
         {/* Header */}
         <motion.section initial="hidden" animate="visible">

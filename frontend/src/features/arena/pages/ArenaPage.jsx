@@ -155,6 +155,19 @@ export default function ArenaPage() {
   return (
     <div style={{ position: "relative" }}>
       <MonumentBackground monument="desert" intensity={0.18} />
+
+      {/* Ambient math glyphs — desert-themed (warning/gold tint) to
+          match the page's monument backdrop. Same visual signature
+          as auth + dashboard + events; the family of decoration
+          binds every surface in the app together. */}
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0 z-0 select-none">
+        <span className="math-text absolute left-[4%] top-[10%] text-[9rem] text-warning/[0.04]">∂</span>
+        <span className="math-text absolute right-[6%] top-[18%] text-[8rem] text-white/[0.03]">θ</span>
+        <span className="math-text absolute left-[12%] top-[62%] text-[6rem] text-white/[0.03]">∮</span>
+        <span className="math-text absolute right-[8%] bottom-[12%] text-[7rem] text-primary/[0.04]">Δ</span>
+        <span className="math-text absolute left-[46%] top-[42%] text-[5rem] text-white/[0.025]">ξ</span>
+      </div>
+
       <div className="relative z-10 space-y-10 pb-16">
         <MonumentHero
           monument="desert"

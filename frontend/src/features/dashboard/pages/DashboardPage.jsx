@@ -7,9 +7,26 @@ import { useMonument } from "@/hooks/useMonument";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import Loader from "@/components/ui/Loader";
+import AnimatedNumber from "@/components/ui/AnimatedNumber";
 import { user, arena, announcements as announcementsApi, notifications as notifApi, chat, achievements as achievementsApi } from "@/lib/api";
 import AchievementBadge from "@/components/ui/AchievementBadge";
 import UserHoverCard from "@/components/social/UserHoverCard";
+
+// Ambient math glyphs scattered across the page background — same
+// visual signature as the auth pages, anchors the logged-in surfaces
+// to the same family of decoration. Pyramid-themed coloring nods to
+// the monument backdrop. Pointer-events-none so nothing is clickable.
+function DashboardAmbientGlyphs() {
+  return (
+    <div aria-hidden="true" className="pointer-events-none absolute inset-0 z-0 select-none">
+      <span className="math-text absolute left-[3%] top-[12%] text-[9rem] text-warning/[0.04]">π</span>
+      <span className="math-text absolute right-[5%] top-[20%] text-[8rem] text-white/[0.03]">∫</span>
+      <span className="math-text absolute left-[10%] top-[55%] text-[6rem] text-white/[0.03]">Σ</span>
+      <span className="math-text absolute right-[8%] bottom-[15%] text-[7rem] text-primary/[0.04]">∞</span>
+      <span className="math-text absolute left-[45%] top-[70%] text-[5rem] text-white/[0.025]">√</span>
+    </div>
+  );
+}
 
 const fadeUp = {
   hidden: { opacity: 0, y: 30 },
@@ -212,6 +229,7 @@ export default function DashboardPage() {
   return (
     <div style={{ position: "relative" }}>
       <MonumentBackground monument="pyramid" intensity={0.15} />
+      <DashboardAmbientGlyphs />
       <div className="relative z-10 space-y-8 pb-16">
         {/* Welcome */}
         <MonumentHero
@@ -224,13 +242,20 @@ export default function DashboardPage() {
           </Link>
         </MonumentHero>
 
-        {/* Stats Grid */}
+        {/* Stats Grid — numerical values use AnimatedNumber so they
+            count up on first render. Non-numeric (Title) just renders
+            the string. The numericValue field tells us which is which
+            without needing to parse the display string. */}
         <motion.section initial="hidden" animate="visible" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {statCards.map((stat, i) => (
             <motion.div key={stat.label} custom={i + 1} variants={fadeUp}>
               <Card variant="glass" interactive className="text-center">
                 <span className="text-2xl">{stat.icon}</span>
-                <p className="math-text mt-3 text-3xl font-bold tracking-tight text-white">{stat.value}</p>
+                <p className="math-text mt-3 text-3xl font-bold tracking-tight text-white">
+                  {typeof stat.value === "number"
+                    ? <AnimatedNumber value={stat.value} duration={1.2} />
+                    : stat.value}
+                </p>
                 <p className="mt-1 font-mono text-[11px] uppercase tracking-wider text-text-dim">{stat.label}</p>
                 <p className="math-text mt-2 text-xs text-success">{stat.change}</p>
               </Card>

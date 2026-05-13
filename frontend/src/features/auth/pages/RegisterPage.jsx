@@ -203,6 +203,20 @@ export default function RegisterPage() {
   return (
     <div style={{ position: "relative" }}>
       <MonumentBackground monument="city" intensity={0.35} />
+
+      {/* Ambient math glyphs scattered behind the card — same pattern
+          as LoginPage so the auth surface reads as a coherent set,
+          just with different glyphs so each page has its own
+          micro-identity. */}
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0 z-0 select-none">
+        <span className="math-text absolute left-[5%] top-[10%] text-[8rem] text-secondary/[0.05]">∑</span>
+        <span className="math-text absolute right-[4%] top-[16%] text-[10rem] text-white/[0.035]">∇</span>
+        <span className="math-text absolute left-[14%] top-[60%] text-[6rem] text-white/[0.03]">∂</span>
+        <span className="math-text absolute right-[8%] bottom-[8%] text-[7rem] text-primary/[0.05]">ℵ</span>
+        <span className="math-text absolute left-[42%] top-[40%] text-[5rem] text-white/[0.03]">ϕ</span>
+        <span className="math-text absolute right-[38%] top-[72%] text-[6rem] text-white/[0.03]">Ω</span>
+      </div>
+
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -214,13 +228,18 @@ export default function RegisterPage() {
           style={{ clipPath: "var(--clip-notch)", borderTop: "2px solid var(--monument-city)" }}
         >
           <span
-            className="math-text pointer-events-none absolute right-4 top-4 select-none"
-            style={{ fontSize: "6rem", opacity: 0.04, lineHeight: 1 }}
+            className="math-text pointer-events-none absolute -right-4 -top-6 select-none"
+            style={{ fontSize: "10rem", opacity: 0.05, lineHeight: 1 }}
           >
             ∑
           </span>
 
-          <div className="mb-8">
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.15, duration: 0.5 }}
+            className="mb-8"
+          >
             <p className="font-mono text-xs uppercase tracking-[0.3em] text-secondary">Join the Collective</p>
             <h1 className="mt-3 font-display text-[2rem] font-extrabold tracking-[-0.05em] text-white sm:text-4xl">
               Create your account
@@ -228,7 +247,7 @@ export default function RegisterPage() {
             <p className="mt-3 text-sm text-text-muted">
               Start solving challenges, competing in events, and climbing the ranks.
             </p>
-          </div>
+          </motion.div>
 
           {/* Referral banner */}
           {refCode && refValid && (
@@ -243,20 +262,44 @@ export default function RegisterPage() {
           )}
 
           {error && (
-            <div className="mb-5 border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger" style={{ clipPath: "var(--clip-notch)" }}>
+            <motion.div
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mb-5 border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger"
+              style={{ clipPath: "var(--clip-notch)" }}
+            >
               {error}
-            </div>
+            </motion.div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <InputField label="Full Name" placeholder="Your display name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
-            <InputField label="Email" type="email" placeholder="you@university.edu" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required />
-            <InputField label="Password" type="password" placeholder="Create a secure password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required />
-            <InputField label="Confirm Password" type="password" placeholder="Confirm your password" value={form.confirmPassword} onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })} required />
-            <Button type="submit" loading={loading} className="w-full justify-center" size="lg">
-              Create Account
-            </Button>
-          </form>
+          <motion.form
+            onSubmit={handleSubmit}
+            className="space-y-5"
+            initial="hidden"
+            animate="visible"
+            variants={{
+              hidden:  { opacity: 0 },
+              visible: { opacity: 1, transition: { staggerChildren: 0.07, delayChildren: 0.25 } },
+            }}
+          >
+            <motion.div variants={{ hidden: { opacity: 0, y: 8 }, visible: { opacity: 1, y: 0 } }}>
+              <InputField label="Full Name" placeholder="Your display name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
+            </motion.div>
+            <motion.div variants={{ hidden: { opacity: 0, y: 8 }, visible: { opacity: 1, y: 0 } }}>
+              <InputField label="Email" type="email" placeholder="you@university.edu" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required />
+            </motion.div>
+            <motion.div variants={{ hidden: { opacity: 0, y: 8 }, visible: { opacity: 1, y: 0 } }}>
+              <InputField label="Password" type="password" placeholder="Create a secure password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required />
+            </motion.div>
+            <motion.div variants={{ hidden: { opacity: 0, y: 8 }, visible: { opacity: 1, y: 0 } }}>
+              <InputField label="Confirm Password" type="password" placeholder="Confirm your password" value={form.confirmPassword} onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })} required />
+            </motion.div>
+            <motion.div variants={{ hidden: { opacity: 0, y: 8 }, visible: { opacity: 1, y: 0 } }}>
+              <Button type="submit" loading={loading} className="w-full justify-center" size="lg">
+                Create Account
+              </Button>
+            </motion.div>
+          </motion.form>
 
           <div className="mt-6 text-center text-sm text-text-muted">
             Already have an account?{" "}

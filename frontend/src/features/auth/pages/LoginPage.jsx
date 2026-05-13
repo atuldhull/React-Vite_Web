@@ -156,6 +156,20 @@ export default function LoginPage() {
   return (
     <div style={{ position: "relative" }}>
       <MonumentBackground monument="city" intensity={0.35} />
+
+      {/* Ambient math glyphs scattered behind the card — adds depth so
+          the form doesn't read as a single floating panel. Each glyph
+          renders very low-opacity (0.04-0.06) so it's atmosphere, not
+          content. `pointer-events-none` so they never block clicks. */}
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0 z-0 select-none">
+        <span className="math-text absolute left-[4%] top-[8%] text-[8rem] text-white/[0.035]">∫</span>
+        <span className="math-text absolute right-[6%] top-[14%] text-[10rem] text-primary/[0.05]">π</span>
+        <span className="math-text absolute left-[12%] top-[58%] text-[6rem] text-white/[0.035]">Σ</span>
+        <span className="math-text absolute right-[10%] bottom-[10%] text-[7rem] text-secondary/[0.05]">∞</span>
+        <span className="math-text absolute left-[40%] top-[35%] text-[5rem] text-white/[0.03]">√</span>
+        <span className="math-text absolute right-[35%] top-[68%] text-[6rem] text-white/[0.03]">∂</span>
+      </div>
+
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -166,15 +180,23 @@ export default function LoginPage() {
           className="relative overflow-hidden border border-line/20 bg-surface/60 p-8 shadow-panel backdrop-blur-2xl sm:p-10"
           style={{ clipPath: "var(--clip-notch)", borderTop: "2px solid var(--monument-city)" }}
         >
-          {/* Background math symbol */}
+          {/* Foreground accent symbol — bigger now (10rem from 6) and
+              positioned to anchor the card visually. Sits inside the
+              card so backdrop-blur affects it; the wider ambient
+              glyphs above sit OUTSIDE the card on the page background. */}
           <span
-            className="math-text pointer-events-none absolute right-4 top-4 select-none"
-            style={{ fontSize: "6rem", opacity: 0.04, lineHeight: 1 }}
+            className="math-text pointer-events-none absolute -right-4 -top-6 select-none"
+            style={{ fontSize: "10rem", opacity: 0.05, lineHeight: 1 }}
           >
             λ
           </span>
 
-          <div className="mb-8">
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.15, duration: 0.5 }}
+            className="mb-8"
+          >
             <p className="font-mono text-xs uppercase tracking-[0.3em] text-primary">Welcome Back</p>
             <h1 className="mt-3 font-display text-[2rem] font-extrabold tracking-[-0.05em] text-white sm:text-4xl">
               Sign in to your account
@@ -182,38 +204,60 @@ export default function LoginPage() {
             <p className="mt-3 text-sm text-text-muted">
               Continue your math journey. Your challenges are waiting.
             </p>
-          </div>
+          </motion.div>
 
           {error && (
-            <div className="mb-5 border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger" style={{ clipPath: "var(--clip-notch)" }}>
+            <motion.div
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mb-5 border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger"
+              style={{ clipPath: "var(--clip-notch)" }}
+            >
               {error}
-            </div>
+            </motion.div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <InputField
-              label="Email"
-              type="email"
-              placeholder="you@university.edu"
-              value={form.email}
-              onChange={(e) => setForm({ ...form, email: e.target.value })}
-              required
-            />
-            <InputField
-              label="Password"
-              type="password"
-              placeholder="Enter your password"
-              value={form.password}
-              onChange={(e) => setForm({ ...form, password: e.target.value })}
-              required
-            />
-            <Button type="submit" loading={loading} className="w-full justify-center" size="lg">
-              Sign In
-            </Button>
-            <Button type="button" variant="ghost" size="sm" onClick={() => setShowForgot(true)} className="w-full justify-center">
-              Forgot password?
-            </Button>
-          </form>
+          <motion.form
+            onSubmit={handleSubmit}
+            className="space-y-5"
+            initial="hidden"
+            animate="visible"
+            variants={{
+              hidden:  { opacity: 0 },
+              visible: { opacity: 1, transition: { staggerChildren: 0.08, delayChildren: 0.25 } },
+            }}
+          >
+            <motion.div variants={{ hidden: { opacity: 0, y: 8 }, visible: { opacity: 1, y: 0 } }}>
+              <InputField
+                label="Email"
+                type="email"
+                placeholder="you@university.edu"
+                value={form.email}
+                onChange={(e) => setForm({ ...form, email: e.target.value })}
+                required
+              />
+            </motion.div>
+            <motion.div variants={{ hidden: { opacity: 0, y: 8 }, visible: { opacity: 1, y: 0 } }}>
+              <InputField
+                label="Password"
+                type="password"
+                placeholder="Enter your password"
+                value={form.password}
+                onChange={(e) => setForm({ ...form, password: e.target.value })}
+                required
+              />
+            </motion.div>
+            <motion.div variants={{ hidden: { opacity: 0, y: 8 }, visible: { opacity: 1, y: 0 } }}>
+              <Button type="submit" loading={loading} className="w-full justify-center" size="lg">
+                Sign In
+              </Button>
+            </motion.div>
+            <motion.div variants={{ hidden: { opacity: 0, y: 8 }, visible: { opacity: 1, y: 0 } }}>
+              <Button type="button" variant="ghost" size="sm" onClick={() => setShowForgot(true)} className="w-full justify-center">
+                Forgot password?
+              </Button>
+            </motion.div>
+          </motion.form>
 
           {/* Forgot Password */}
           {showForgot && (

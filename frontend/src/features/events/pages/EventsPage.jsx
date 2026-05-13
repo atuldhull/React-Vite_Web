@@ -343,6 +343,19 @@ export default function EventsPage() {
   return (
     <div style={{ position: "relative" }}>
       <MonumentBackground monument="jungle" intensity={0.15} />
+
+      {/* Ambient math glyphs — same visual signature as auth + dashboard
+          so every page in the app reads as part of the same family.
+          Jungle-themed (success/green tint) to match the page's
+          MonumentBackground colour cue. */}
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0 z-0 select-none">
+        <span className="math-text absolute left-[3%] top-[14%] text-[9rem] text-success/[0.045]">∮</span>
+        <span className="math-text absolute right-[5%] top-[8%] text-[8rem] text-white/[0.03]">∇</span>
+        <span className="math-text absolute left-[15%] top-[60%] text-[6rem] text-white/[0.03]">τ</span>
+        <span className="math-text absolute right-[8%] bottom-[20%] text-[7rem] text-primary/[0.04]">ℵ</span>
+        <span className="math-text absolute left-[48%] top-[40%] text-[5rem] text-white/[0.025]">η</span>
+      </div>
+
       {/* Outer wraps the whole page; inner sections set their own
           max-width. The padding here gives a consistent gutter so
           content never touches the screen edge on small viewports. */}
