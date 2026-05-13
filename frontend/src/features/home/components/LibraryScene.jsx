@@ -146,10 +146,24 @@ export default function LibraryScene() {
     }
 
     const scene  = new THREE.Scene();
-    scene.fog    = new THREE.FogExp2(0x0a0612, 0.045);
-    const camera = new THREE.PerspectiveCamera(58, window.innerWidth / window.innerHeight, 0.05, 100);
-    camera.position.set(0, 1.5, 12);
-    camera.lookAt(0, 1.4, 0);
+    // Fog starts low-density so the aerial entry phase can actually
+    // see the campus + distant cathedrals (~50m away) before the
+    // camera descends into the corridor where dense fog kicks in.
+    // The tick loop drives fogDensity per-phase, this is just the
+    // first-frame seed.
+    scene.fog    = new THREE.FogExp2(0x0a0612, 0.008);
+    // Far plane bumped 100 → 160 so the backdrop cathedrals at
+    // z=-52 stay visible during the aerial entry when the camera
+    // hangs ~70m up (distance to those buildings = ~104, was being
+    // clipped by the original 100u far plane).
+    const camera = new THREE.PerspectiveCamera(58, window.innerWidth / window.innerHeight, 0.05, 160);
+    // Phase 0 (aerial) start position: hanging above the campus
+    // looking down at the corridor entrance. Tick loop's first frame
+    // overrides this anyway, but seeding it here prevents a single
+    // frame of "looking at the corridor entrance from the ground"
+    // before phase 0 kicks in.
+    camera.position.set(0, 70, 25);
+    camera.lookAt(0, 0, -8);
 
     // ── Floor ────────────────────────────────────────────────────
     // Wider than the corridor; fog hides the edges.
@@ -1175,37 +1189,79 @@ export default function LibraryScene() {
     window.addEventListener("resize", onResize);
 
     // ── Animation loop ───────────────────────────────────────────
-    // Three phases (rev 10): library → glyph cosmos → calm celestial.
-    const target  = { camZ: 12, camY: 1.5, fogDensity: 0.045, glyphAlpha: 0, starAlpha: 0, candleI: 1.0 };
-    const current = { camZ: 12, camY: 1.5, fogDensity: 0.045, glyphAlpha: 0, starAlpha: 0, candleI: 1.0 };
+    // Four phases (rev 11):
+    //   0 — AERIAL ENTRY. Camera hangs above the campus looking
+    //       down at the corridor, descends into the corridor
+    //       entrance as the user scrolls. New in rev 11 per the
+    //       "top view first, then dive in" brief.
+    //   1 — LIBRARY CORRIDOR. The original opening — camera glides
+    //       forward down the bookshelf-lined hall toward the
+    //       distant focal monument.
+    //   2 — COSMOS TRANSITION. Corridor dissolves, glyphs bloom in.
+    //   3 — CALM CELESTIAL. Camera comes to rest. CTA backdrop.
+    //
+    // State now carries lookY + lookZ separately from camY/camZ so
+    // the camera can be aimed independent of its position. Phase 0
+    // needs to look DOWN (lookY ≪ camY); Phases 1-3 look forward
+    // (lookY ≈ camY, lookZ < camZ — the original semantics).
+    const target  = { camZ: 25, camY: 70, lookY:  0,  lookZ:  -8, fogDensity: 0.008, glyphAlpha: 0, starAlpha: 0, candleI: 0.5 };
+    const current = { camZ: 25, camY: 70, lookY:  0,  lookZ:  -8, fogDensity: 0.008, glyphAlpha: 0, starAlpha: 0, candleI: 0.5 };
 
     const tick = () => {
       const span = scrollSpan();
       const p = span > 0 ? Math.max(0, Math.min(1, window.scrollY / span)) : 0;
 
-      if (p < 0.45) {
+      if (p < 0.15) {
+        // Phase 0 — AERIAL ENTRY. Camera descends from (0, 70, 25)
+        // hovering over the campus to (0, 1.5, 12) at the corridor
+        // entrance, while the look-at target rotates from looking
+        // straight down at the corridor (0, 0, -8) to looking
+        // forward into the corridor (0, 1.5, 0). Fog stays thin so
+        // the buildings + corridor are clearly readable from
+        // altitude; it ramps up to library density during the
+        // descent.
+        const t = p / 0.15;
+        target.camY       = THREE.MathUtils.lerp(70,    1.5,  t);
+        target.camZ       = THREE.MathUtils.lerp(25,    12,   t);
+        target.lookY      = THREE.MathUtils.lerp( 0,    1.5,  t);
+        target.lookZ      = THREE.MathUtils.lerp(-8,    0,    t);
+        target.fogDensity = THREE.MathUtils.lerp(0.008, 0.045, t);
+        target.glyphAlpha = 0;
+        target.starAlpha  = 0;
+        // Candles ramp UP during descent — at altitude they read
+        // as small lit dots between the bookshelf strips, then
+        // become the dominant light source once we're in the
+        // corridor.
+        target.candleI    = THREE.MathUtils.lerp(0.4, 1.0, t);
+      } else if (p < 0.50) {
         // Phase 1 — drift down the library corridor.
-        const t = p / 0.45;
+        const t = (p - 0.15) / 0.35;
         target.camZ       = THREE.MathUtils.lerp(12, -2, t);
         target.camY       = 1.5;
+        target.lookY      = 1.5;
+        target.lookZ      = THREE.MathUtils.lerp(11, -3, t);  // = camZ - 1
         target.fogDensity = 0.045;
         target.glyphAlpha = 0;
         target.starAlpha  = 0;
         target.candleI    = 1.0;
-      } else if (p < 0.75) {
+      } else if (p < 0.78) {
         // Phase 2 — corridor dissolves into glyph cosmos.
-        const t = (p - 0.45) / 0.30;
+        const t = (p - 0.50) / 0.28;
         target.camZ       = THREE.MathUtils.lerp(-2, -8, t);
         target.camY       = THREE.MathUtils.lerp(1.5, 1.9, t);
+        target.lookY      = THREE.MathUtils.lerp(1.5, 1.9, t);
+        target.lookZ      = THREE.MathUtils.lerp(-3, -9, t);
         target.fogDensity = THREE.MathUtils.lerp(0.045, 0.012, t);
         target.glyphAlpha = THREE.MathUtils.lerp(0, 0.85, t);
         target.starAlpha  = THREE.MathUtils.lerp(0, 0.85, t);
         target.candleI    = THREE.MathUtils.lerp(1.0, 0.0, t);
       } else {
         // Phase 3 — calm celestial close.
-        const t = (p - 0.75) / 0.25;
+        const t = (p - 0.78) / 0.22;
         target.camZ       = THREE.MathUtils.lerp(-8, -10, t);
         target.camY       = 1.9;
+        target.lookY      = 1.9;
+        target.lookZ      = THREE.MathUtils.lerp(-9, -11, t);
         target.fogDensity = 0.010;
         target.glyphAlpha = THREE.MathUtils.lerp(0.85, 0.55, t);
         target.starAlpha  = 0.95;
@@ -1215,13 +1271,15 @@ export default function LibraryScene() {
       const k = 0.07;
       current.camZ       = THREE.MathUtils.lerp(current.camZ,       target.camZ,       k);
       current.camY       = THREE.MathUtils.lerp(current.camY,       target.camY,       k);
+      current.lookY      = THREE.MathUtils.lerp(current.lookY,      target.lookY,      k);
+      current.lookZ      = THREE.MathUtils.lerp(current.lookZ,      target.lookZ,      k);
       current.fogDensity = THREE.MathUtils.lerp(current.fogDensity, target.fogDensity, 0.04);
       current.glyphAlpha = THREE.MathUtils.lerp(current.glyphAlpha, target.glyphAlpha, 0.05);
       current.starAlpha  = THREE.MathUtils.lerp(current.starAlpha,  target.starAlpha,  0.05);
       current.candleI    = THREE.MathUtils.lerp(current.candleI,    target.candleI,    0.05);
 
       camera.position.set(0, current.camY, current.camZ);
-      camera.lookAt(0, current.camY, current.camZ - 1);
+      camera.lookAt(0, current.lookY, current.lookZ);
 
       scene.fog.density = current.fogDensity;
 
