@@ -13,15 +13,18 @@ import AnimatedNumber from "@/components/ui/AnimatedNumber";
 //   rev 2-4: Three.js WebGL Earth + monument anchored on surface
 //   rev 5: "The Infinite Library of Mathematics" — corridor of books,
 //          warm candle light, transitions to a holographic glyph cosmos.
-// Same <MonumentVideo /> alias used at the call-site so this swap
-// doesn't ripple through the rest of HomePage.
+//   rev 11: dispatcher (HeroExperience) — picks between a pre-rendered
+//           video scrub (when one exists in /public/videos/) or the
+//           real-time Three.js LibraryScene as a fallback. Lets the
+//           user drop in offline-rendered cinema-quality footage
+//           without touching code. See HeroExperience.jsx + the
+//           README in frontend/public/videos/.
 //
-// Phase 29 — code-split via React.lazy. LibraryScene drags in three +
-// postprocessing (~500KB combined), and the HomePage bundle was 685KB
-// before this split. The Suspense fallback paints a dark warm gradient
-// matching the scene's clear color so the hero doesn't flash white
-// while the chunk loads.
-const MonumentVideo = lazy(() => import("@/features/home/components/LibraryScene"));
+// Phase 29 still applies: this whole thing is lazy-loaded so the
+// initial HomePage bundle stays small. The HeroExperience module
+// itself is tiny — the heavy chunks (Three.js or the video element)
+// only resolve after detection picks a branch.
+const MonumentVideo = lazy(() => import("@/features/home/components/HeroExperience"));
 // Phase 32 — EvolutionTimeline is also lazy-loaded. It pulls in
 // MathRender + KaTeX (~260KB) for formula rendering. The timeline
 // sits below the scroll-spacer so users scroll past 500vh of hero
