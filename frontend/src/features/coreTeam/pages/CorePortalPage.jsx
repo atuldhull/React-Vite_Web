@@ -15,6 +15,7 @@ const SECTIONS = [
   { to: "/core/feedback", label: "Feedback",  desc: "Anonymous suggestions & complaints.",       accent: "text-secondary" },
   { to: "/core/ideas",    label: "Ideas",     desc: "Pitch creative ideas, vote on the best.",   accent: "text-success" },
   { to: "/core/trends",   label: "Trends",    desc: "Fresh ideas pulled from the web every 4h.", accent: "text-warning" },
+  { to: "/core/meetings", label: "Meetings",  desc: "Scheduled meets — RSVP going or can't.",     accent: "text-secondary" },
   { to: "/core/roster",   label: "Roster",    desc: "Every team, every member, the rankings.",   accent: "text-primary" },
 ];
 

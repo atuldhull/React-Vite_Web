@@ -36,7 +36,7 @@ import { useMonument } from "@/hooks/useMonument";
 import Loader from "@/components/ui/Loader";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
-import { users } from "@/lib/api";
+import { users, core } from "@/lib/api";
 import ProfileHeader from "@/features/profile/components/ProfileHeader";
 import ProfileTabs from "@/features/profile/components/ProfileTabs";
 import OverviewTab from "@/features/profile/components/OverviewTab";
@@ -51,6 +51,8 @@ export default function RichProfilePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState(null);
   const [activeTab, setActiveTab] = useState("overview");
+  // Core-team badge (Council / Head / Core) — null until resolved.
+  const [coreBadge, setCoreBadge] = useState(null);
 
   const fetchProfile = useCallback(async () => {
     if (!userId) return;
@@ -67,6 +69,13 @@ export default function RichProfilePage() {
   }, [userId]);
 
   useEffect(() => { fetchProfile(); }, [fetchProfile]);
+
+  // Is this user on the club's core team? Best-effort — a failure just
+  // means no badge shows.
+  useEffect(() => {
+    if (!userId) return;
+    core.badge(userId).then((r) => setCoreBadge(r.data)).catch(() => setCoreBadge(null));
+  }, [userId]);
 
   // When the target profile is private, force the user back to the
   // Overview-equivalent view — clicking any tab would be a no-op
@@ -124,7 +133,7 @@ export default function RichProfilePage() {
       animate={{ opacity: 1, y: 0 }}
       className="space-y-6"
     >
-      <ProfileHeader profile={profile} access={access} userId={userId} />
+      <ProfileHeader profile={profile} access={access} userId={userId} coreBadge={coreBadge} />
 
       {/* Only show tabs + content when the profile is viewable. Private
           profiles end at the header ("This user has a private profile"

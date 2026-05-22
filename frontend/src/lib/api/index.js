@@ -356,6 +356,13 @@ export const core = {
   // Trends
   trends:       (category) => http.get("/core/trends", { params: category ? { category } : {} }),
   refreshTrends: () => http.post("/core/trends/refresh"),
+  // Meetings
+  meetings:      () => http.get("/core/meetings"),
+  createMeeting: (data) => http.post("/core/meetings", data),
+  rsvpMeeting:   (id, status) => http.post(`/core/meetings/${id}/rsvp`, { status }),
+  deleteMeeting: (id) => http.delete(`/core/meetings/${id}`),
+  // Core badge for a user (main-site profile pages)
+  badge:         (userId) => http.get(`/core/badge/${userId}`),
 };
 
 // ── Users / Rich profiles (Phase 15) ──

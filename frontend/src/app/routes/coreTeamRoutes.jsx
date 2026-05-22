@@ -16,6 +16,7 @@ const CoreTasksPage    = lazy(() => import("@/features/coreTeam/pages/CoreTasksP
 const CoreFeedbackPage = lazy(() => import("@/features/coreTeam/pages/CoreFeedbackPage"));
 const CoreIdeasPage    = lazy(() => import("@/features/coreTeam/pages/CoreIdeasPage"));
 const CoreTrendsPage   = lazy(() => import("@/features/coreTeam/pages/CoreTrendsPage"));
+const CoreMeetingsPage = lazy(() => import("@/features/coreTeam/pages/CoreMeetingsPage"));
 const CoreRosterPage   = lazy(() => import("@/features/coreTeam/pages/CoreRosterPage"));
 
 export const coreTeamRoutes = (
@@ -32,6 +33,7 @@ export const coreTeamRoutes = (
     <Route path="feedback" element={<CoreFeedbackPage />} />
     <Route path="ideas"    element={<CoreIdeasPage />} />
     <Route path="trends"   element={<CoreTrendsPage />} />
+    <Route path="meetings" element={<CoreMeetingsPage />} />
     <Route path="roster"   element={<CoreRosterPage />} />
   </Route>
 );

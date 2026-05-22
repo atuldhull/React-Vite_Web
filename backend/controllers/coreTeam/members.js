@@ -174,3 +174,22 @@ export const addMember = catchAsync(async (req, res) => {
   // The council member who added them needs the code to hand over.
   return res.status(201).json({ success: true, member: data, accessCode: code });
 });
+
+/* GET /api/core/badge/:userId — core-team badge for any user (or null).
+   Used by the main site profile pages to show a Council/Head/Core tag. */
+export const getBadge = catchAsync(async (req, res) => {
+  const { data } = await supabase
+    .from("core_members")
+    .select("tier, position, core_teams(name)")
+    .eq("user_id", req.params.userId)
+    .eq("is_active", true)
+    .maybeSingle();
+
+  if (!data) return res.json({ isCoreMember: false });
+  return res.json({
+    isCoreMember: true,
+    tier:     data.tier,
+    position: data.position,
+    team:     data.core_teams?.name || null,
+  });
+});

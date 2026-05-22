@@ -12,6 +12,27 @@
  */
 import supabase from "../../config/supabase.js";
 import { catchAsync } from "../../lib/asyncHandler.js";
+import { sendNotification } from "../notificationController.js";
+
+/**
+ * Fan a notification out to active, redeemed core members.
+ * teamId null → every core member; otherwise just that team.
+ */
+async function notifyCore({ teamId, excludeUserId, title, body, type = "info" }) {
+  let q = supabase
+    .from("core_members")
+    .select("user_id")
+    .not("user_id", "is", null)
+    .eq("is_active", true);
+  if (teamId) q = q.eq("team_id", teamId);
+  const { data } = await q;
+  const userIds = (data || [])
+    .map((r) => r.user_id)
+    .filter((id) => id && id !== excludeUserId);
+  if (userIds.length) {
+    sendNotification({ userIds, title, body, type, link: "/core/tasks" });
+  }
+}
 
 // core_tasks has three FKs to core_members (assigned_by / claimed_by /
 // confirmed_by) — PostgREST needs the !column hint to disambiguate.
@@ -61,6 +82,23 @@ export const createTask = catchAsync(async (req, res) => {
     .select(TASK_SELECT)
     .single();
   if (error) return res.status(500).json({ error: "Could not create task." });
+
+  // Tell the people who can pick it up.
+  if (isOpen) {
+    notifyCore({
+      excludeUserId: me.user_id,
+      title: "New open task up for grabs",
+      body:  `${data.title} — first to claim it gets ${data.points} points`,
+    });
+  } else {
+    notifyCore({
+      teamId,
+      excludeUserId: me.user_id,
+      title: "New task for your team",
+      body:  data.title,
+    });
+  }
+
   return res.status(201).json({ success: true, task: data });
 });
 
@@ -110,6 +148,27 @@ export const submitTask = catchAsync(async (req, res) => {
     .select(TASK_SELECT)
     .single();
   if (error) return res.status(500).json({ error: "Could not submit task." });
+
+  // Nudge whoever can confirm it — the team's head + the council.
+  const { data: leads } = await supabase
+    .from("core_members")
+    .select("user_id, tier, team_id")
+    .not("user_id", "is", null)
+    .eq("is_active", true);
+  const confirmerIds = (leads || [])
+    .filter((m) => m.tier === "council" || (m.tier === "head" && m.team_id === task.team_id))
+    .map((m) => m.user_id)
+    .filter((id) => id && id !== me.user_id);
+  if (confirmerIds.length) {
+    sendNotification({
+      userIds: confirmerIds,
+      title: "Task awaiting confirmation",
+      body:  `${me.name} submitted "${task.title}"`,
+      type:  "info",
+      link:  "/core/tasks",
+    });
+  }
+
   return res.json({ success: true, task: data });
 });
 
@@ -138,7 +197,7 @@ export const confirmTask = catchAsync(async (req, res) => {
   // Award the task's points to whoever completed it.
   if (task.claimed_by) {
     const { data: member } = await supabase
-      .from("core_members").select("points").eq("id", task.claimed_by).maybeSingle();
+      .from("core_members").select("points, user_id").eq("id", task.claimed_by).maybeSingle();
     await supabase
       .from("core_members")
       .update({ points: (member?.points || 0) + task.points })
@@ -150,6 +209,16 @@ export const confirmTask = catchAsync(async (req, res) => {
       ref_type:  "task",
       ref_id:    task.id,
     });
+    // Tell the member their work was confirmed + points landed.
+    if (member?.user_id) {
+      sendNotification({
+        userIds: [member.user_id],
+        title:   "Task confirmed ✓",
+        body:    `"${task.title}" — ${task.points} points added`,
+        type:    "success",
+        link:    "/core/tasks",
+      });
+    }
   }
 
   return res.json({ success: true, task: confirmed });

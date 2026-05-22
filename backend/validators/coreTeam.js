@@ -61,3 +61,16 @@ export const createIdeaSchema = z.object({
   title: z.string().trim().min(3, "title required").max(160),
   body:  z.string().trim().min(10, "describe the idea").max(4000),
 });
+
+/* ── Meetings ── */
+export const createMeetingSchema = z.object({
+  title:       z.string().trim().min(3, "title required").max(160),
+  description: z.string().trim().max(2000).optional().or(z.literal("")),
+  location:    z.string().trim().max(200).optional().or(z.literal("")),
+  scheduledAt: z.string().datetime("pick a date and time"),
+  teamId:      uuid.nullable().optional(),
+});
+
+export const rsvpSchema = z.object({
+  status: z.enum(["going", "maybe", "no"]),
+});

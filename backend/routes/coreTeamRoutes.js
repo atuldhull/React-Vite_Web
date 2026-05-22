@@ -14,13 +14,15 @@ import {
   redeemCodeSchema, createTeamSchema, addMemberSchema,
   createTaskSchema, submitTaskSchema,
   createFeedbackSchema, feedbackStatusSchema, createIdeaSchema,
+  createMeetingSchema, rsvpSchema,
 } from "../validators/coreTeam.js";
 
-import { getMe, redeemCode, listTeams, leaderboard, createTeam, addMember } from "../controllers/coreTeam/members.js";
+import { getMe, redeemCode, listTeams, leaderboard, createTeam, addMember, getBadge } from "../controllers/coreTeam/members.js";
 import { listTasks, createTask, claimTask, submitTask, confirmTask, deleteTask } from "../controllers/coreTeam/tasks.js";
 import { listFeedback, createFeedback, updateFeedbackStatus, revealAuthor } from "../controllers/coreTeam/feedback.js";
 import { listIdeas, createIdea, voteIdea, deleteIdea } from "../controllers/coreTeam/ideas.js";
 import { listTrends, refreshTrends } from "../controllers/coreTeam/trends.js";
+import { listMeetings, createMeeting, rsvpMeeting, deleteMeeting } from "../controllers/coreTeam/meetings.js";
 
 const router = express.Router();
 const council = requireCoreTier(["council"]);
@@ -61,5 +63,14 @@ router.delete("/ideas/:id",   requireCoreMember, deleteIdea);
 /* ── trends wall ── */
 router.get("/trends",          requireCoreMember, listTrends);
 router.post("/trends/refresh", council, refreshTrends);
+
+/* ── meeting scheduler ── */
+router.get("/meetings",           requireCoreMember, listMeetings);
+router.post("/meetings",          lead, validateBody(createMeetingSchema), createMeeting);
+router.post("/meetings/:id/rsvp", requireCoreMember, validateBody(rsvpSchema), rsvpMeeting);
+router.delete("/meetings/:id",    lead, deleteMeeting);
+
+/* ── core badge lookup — any signed-in user (powers profile-page tags) ── */
+router.get("/badge/:userId", getBadge);
 
 export default router;

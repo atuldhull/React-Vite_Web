@@ -16,6 +16,7 @@ import Card from "@/components/ui/Card";
 import FriendButton from "@/components/social/FriendButton";
 import MessageButton from "@/components/social/MessageButton";
 import IdentityGlyph from "@/components/identity/IdentityGlyph";
+import CoreBadge from "@/features/coreTeam/components/CoreBadge";
 
 /**
  * @param {{
@@ -24,7 +25,7 @@ import IdentityGlyph from "@/components/identity/IdentityGlyph";
  *   userId: string,
  * }} props
  */
-export default function ProfileHeader({ profile, access, userId }) {
+export default function ProfileHeader({ profile, access, userId, coreBadge }) {
   if (!profile) return null;
   const isPrivate = profile.isPrivate === true;
 
@@ -63,7 +64,17 @@ export default function ProfileHeader({ profile, access, userId }) {
                 </span>
               )
             )}
+            {/* Core-team tag — Council / Head / Core. */}
+            {!isPrivate && coreBadge?.isCoreMember && (
+              <CoreBadge tier={coreBadge.tier} />
+            )}
           </div>
+
+          {!isPrivate && coreBadge?.isCoreMember && (
+            <p className="mt-1 font-mono text-[11px] uppercase tracking-wider text-secondary">
+              {coreBadge.position}{coreBadge.team ? ` · ${coreBadge.team}` : ""} — Club Asymptotes
+            </p>
+          )}
 
           {!isPrivate && profile.title && (
             <p className="mt-1 font-mono text-xs uppercase tracking-wider text-text-muted">
