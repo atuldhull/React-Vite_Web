@@ -91,9 +91,9 @@ function detectQualityTier() {
 }
 
 const QUALITY_PRESETS = {
-  low:  { shelves: 6, booksPerLv: 60,  dust: 120, stars: 350, candelabra: 5,  buildings: 4, postprocess: false },
-  mid:  { shelves: 8, booksPerLv: 80,  dust: 220, stars: 600, candelabra: 7,  buildings: 6, postprocess: true  },
-  high: { shelves: 9, booksPerLv: 100, dust: 350, stars: 900, candelabra: 10, buildings: 8, postprocess: true  },
+  low:  { shelves: 6, booksPerLv: 60,  dust: 120, stars: 350, candelabra: 5,  buildings: 7,  postprocess: false },
+  mid:  { shelves: 8, booksPerLv: 80,  dust: 220, stars: 600, candelabra: 7,  buildings: 14, postprocess: true  },
+  high: { shelves: 9, booksPerLv: 100, dust: 350, stars: 900, candelabra: 10, buildings: 24, postprocess: true  },
 };
 
 function scrollSpan() { return window.innerHeight * 5; }
@@ -166,8 +166,9 @@ export default function LibraryScene() {
     camera.lookAt(0, 0, -8);
 
     // ── Floor ────────────────────────────────────────────────────
-    // Wider than the corridor; fog hides the edges.
-    const floorGeo = new THREE.PlaneGeometry(40, 80);
+    // Wide ground plane — broad enough to carry the full campus of
+    // buildings flanking the corridor; fog hides the distant edges.
+    const floorGeo = new THREE.PlaneGeometry(220, 200);
     const floorMat = new THREE.MeshStandardMaterial({
       color: 0x2a1a10, roughness: 0.85, metalness: 0.05,
     });
@@ -731,6 +732,9 @@ export default function LibraryScene() {
     // most visible mid-distance positions. The two backdrop cathedrals
     // at the end of the list (indices 6,7) drop off first on weak
     // tiers — they're the furthest, smallest screen contribution.
+    // Ordered by visual priority — weak tiers slice the first N, so the
+    // closest hero buildings come first and the dense outer campus +
+    // back-row skyline (which fill the dark space on desktop) come last.
     const FULL_BUILDINGS = [
       // Left side — closer to corridor entrance
       { x: -10, z:  -2, w: 5,  d: 4,  h: 9,  towerHeight: 11, hasSpire: true,  rotY:  0.2 },
@@ -741,9 +745,26 @@ export default function LibraryScene() {
       // Backdrop cathedrals at corridor end
       { x:  -4, z: -48, w: 7,  d: 6,  h: 13, towerHeight: 16, hasSpire: true,  rotY:  0.0 },
       { x:   5, z: -52, w: 6,  d: 5,  h: 12, towerHeight: 15, hasSpire: true,  rotY:  0.05 },
-      // Mid-corridor fill (drops off first on weak tiers)
+      // Mid-corridor fill
       { x: -11, z: -28, w: 4,  d: 4,  h: 8,  towerHeight: 10, hasSpire: false, rotY:  0.0 },
       { x:  10, z: -30, w: 4,  d: 4,  h: 9,  towerHeight: 11, hasSpire: false, rotY:  0.0 },
+      // ── Outer campus — second rank of buildings filling the dark
+      //    space beyond the hero row (desktop / mid tiers) ──
+      { x: -18, z:  -7, w: 4, d: 4, h: 7,  towerHeight: 9,  hasSpire: false, rotY:  0.30, towerRadius: 0.5,  windowCols: 3, windowRows: 2 },
+      { x:  17, z:  -9, w: 4, d: 4, h: 7,  towerHeight: 9,  hasSpire: false, rotY: -0.30, towerRadius: 0.5,  windowCols: 3, windowRows: 2 },
+      { x: -20, z: -21, w: 5, d: 4, h: 9,  towerHeight: 12, hasSpire: true,  rotY: -0.15, towerRadius: 0.55 },
+      { x:  19, z: -23, w: 5, d: 4, h: 9,  towerHeight: 12, hasSpire: true,  rotY:  0.15, towerRadius: 0.55 },
+      { x: -17, z: -39, w: 4, d: 4, h: 8,  towerHeight: 10, hasSpire: false, rotY:  0.10, towerRadius: 0.5,  windowCols: 3 },
+      { x:  16, z: -41, w: 4, d: 4, h: 8,  towerHeight: 10, hasSpire: false, rotY: -0.10, towerRadius: 0.5,  windowCols: 3 },
+      // ── Far outer ring + back-row skyline (desktop only) ──
+      { x: -26, z: -11, w: 4, d: 3, h: 6,  towerHeight: 8,  hasSpire: true,  rotY:  0.20, towerRadius: 0.45, windowCols: 3, windowRows: 2 },
+      { x:  25, z: -13, w: 4, d: 3, h: 6,  towerHeight: 8,  hasSpire: true,  rotY: -0.20, towerRadius: 0.45, windowCols: 3, windowRows: 2 },
+      { x: -25, z: -31, w: 5, d: 4, h: 7,  towerHeight: 9,  hasSpire: false, rotY: -0.10, towerRadius: 0.5,  windowCols: 3 },
+      { x:  26, z: -33, w: 5, d: 4, h: 7,  towerHeight: 9,  hasSpire: false, rotY:  0.10, towerRadius: 0.5,  windowCols: 3 },
+      { x: -29, z: -45, w: 6, d: 5, h: 10, towerHeight: 13, hasSpire: true,  rotY:  0.05 },
+      { x:  29, z: -47, w: 6, d: 5, h: 10, towerHeight: 13, hasSpire: true,  rotY: -0.05 },
+      { x: -13, z: -60, w: 5, d: 4, h: 11, towerHeight: 15, hasSpire: true,  rotY:  0.0 },
+      { x:  14, z: -62, w: 5, d: 4, h: 11, towerHeight: 14, hasSpire: true,  rotY:  0.0 },
     ];
     const buildings = FULL_BUILDINGS.slice(0, Q.buildings);
     const buildingGroups = [];

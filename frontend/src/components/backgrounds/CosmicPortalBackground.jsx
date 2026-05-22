@@ -46,13 +46,34 @@ export default function CosmicPortalBackground() {
 
     let time = 0;
 
+    // Mouse-reactive parallax — the portal drifts and rotates toward the
+    // cursor. tx/ty are the raw target offsets set on mousemove; x/y are
+    // eased toward them each frame so the motion feels weighted. Disabled
+    // under prefers-reduced-motion (the portal still spins on its own).
+    const mouse = { x: 0, y: 0, tx: 0, ty: 0 };
+    const prefersReduced =
+      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    const onMove = (e) => {
+      mouse.tx = (e.clientX / window.innerWidth - 0.5) * 2;
+      mouse.ty = (e.clientY / window.innerHeight - 0.5) * 2;
+    };
+    if (!prefersReduced) window.addEventListener("mousemove", onMove);
+
     const animate = () => {
       time += 0.016;
       ctx.clearRect(0, 0, w, h);
 
-      const cx = portalX();
-      const cy = portalY();
+      // Ease the portal toward the cursor target.
+      mouse.x += (mouse.tx - mouse.x) * 0.045;
+      mouse.y += (mouse.ty - mouse.y) * 0.045;
+
+      // Parallax shift of the whole portal + a cursor-driven tilt and
+      // rotation shared by every elliptical layer below.
+      const cx = portalX() + mouse.x * 55;
+      const cy = portalY() + mouse.y * 38;
       const mr = maxRadius();
+      const tilt     = 0.4 + mouse.y * 0.14;
+      const mouseRot = mouse.x * 0.4;
 
       // Stars
       for (const star of stars) {
@@ -81,18 +102,18 @@ export default function CosmicPortalBackground() {
 
         ctx.save();
         ctx.translate(cx, cy);
-        ctx.rotate(time * 0.3 + i * 0.4);
+        ctx.rotate(time * 0.3 + i * 0.4 + mouseRot);
         ctx.scale(1 + wobble, 1 - wobble);
 
         ctx.beginPath();
-        ctx.ellipse(0, 0, radius, radius * 0.4, 0, 0, Math.PI * 2);
+        ctx.ellipse(0, 0, radius, radius * tilt, 0, 0, Math.PI * 2);
         ctx.strokeStyle = `rgba(131,82,255,${opacity})`;
         ctx.lineWidth = 2 * (1 - ringProgress) + 0.5;
         ctx.stroke();
 
         // Secondary ring
         ctx.beginPath();
-        ctx.ellipse(0, 0, radius * 0.95, radius * 0.38, 0.2, 0, Math.PI * 2);
+        ctx.ellipse(0, 0, radius * 0.95, radius * (tilt - 0.02), 0.2, 0, Math.PI * 2);
         ctx.strokeStyle = `rgba(35,193,255,${opacity * 0.6})`;
         ctx.lineWidth = 1.5 * (1 - ringProgress);
         ctx.stroke();
@@ -128,10 +149,10 @@ export default function CosmicPortalBackground() {
       for (let arm = 0; arm < 4; arm++) {
         ctx.beginPath();
         for (let t = 0; t < 200; t++) {
-          const spiralAngle = t * 0.05 + arm * (Math.PI / 2) + time * 0.5;
+          const spiralAngle = t * 0.05 + arm * (Math.PI / 2) + time * 0.5 + mouseRot;
           const spiralR = t * mr * 0.005;
           const sx = cx + Math.cos(spiralAngle) * spiralR;
-          const sy = cy + Math.sin(spiralAngle) * spiralR * 0.4;
+          const sy = cy + Math.sin(spiralAngle) * spiralR * tilt;
           t === 0 ? ctx.moveTo(sx, sy) : ctx.lineTo(sx, sy);
         }
         ctx.strokeStyle = arm % 2 === 0 ? "#8352ff" : "#23c1ff";
@@ -151,7 +172,7 @@ export default function CosmicPortalBackground() {
 
         const dist = p.distance * mr;
         const px = cx + Math.cos(p.angle) * dist;
-        const py = cy + Math.sin(p.angle) * dist * 0.4;
+        const py = cy + Math.sin(p.angle) * dist * tilt;
         const pOpacity = (1 - p.distance) * 0.7;
 
         p.trail.unshift({ x: px, y: py });
@@ -176,14 +197,14 @@ export default function CosmicPortalBackground() {
       // Energy beams radiating outward
       ctx.save();
       for (let i = 0; i < 6; i++) {
-        const beamAngle = time * 0.3 + i * (Math.PI / 3);
+        const beamAngle = time * 0.3 + i * (Math.PI / 3) + mouseRot;
         const beamLen = mr * (0.8 + Math.sin(time * 2 + i) * 0.2);
         const beamOpacity = 0.03 + Math.sin(time * 3 + i * 2) * 0.02;
 
         const bx1 = cx + Math.cos(beamAngle) * mr * 0.1;
-        const by1 = cy + Math.sin(beamAngle) * mr * 0.04;
+        const by1 = cy + Math.sin(beamAngle) * mr * tilt * 0.1;
         const bx2 = cx + Math.cos(beamAngle) * beamLen;
-        const by2 = cy + Math.sin(beamAngle) * beamLen * 0.4;
+        const by2 = cy + Math.sin(beamAngle) * beamLen * tilt;
 
         const beamGrad = ctx.createLinearGradient(bx1, by1, bx2, by2);
         beamGrad.addColorStop(0, `rgba(131,82,255,${beamOpacity})`);
@@ -206,6 +227,7 @@ export default function CosmicPortalBackground() {
 
     return () => {
       window.removeEventListener("resize", resize);
+      window.removeEventListener("mousemove", onMove);
       cancelAnimationFrame(animRef.current);
     };
   }, []);

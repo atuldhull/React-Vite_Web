@@ -185,11 +185,11 @@ export default function LeaderboardPage() {
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="mx-auto max-w-3xl"
+            className="mx-auto w-full max-w-6xl px-4"
           >
             {/* Top 3 podium */}
             {current.length >= 3 && tab !== "winners" && (
-              <div className="mb-8 grid grid-cols-3 gap-4">
+              <div className="mx-auto mb-10 grid max-w-4xl grid-cols-3 gap-5 sm:gap-6">
                 {[1, 0, 2].map((idx) => {
                   const p = current[idx];
                   if (!p) return null;
@@ -223,11 +223,12 @@ export default function LeaderboardPage() {
               </div>
             )}
 
-            {/* Full list */}
+            {/* Full list — two columns on wide screens so the ranking
+                fills the page instead of a thin centred strip. */}
             <Card variant="solid">
-              <div className="space-y-2">
+              <div className="grid gap-2.5 lg:grid-cols-2 lg:gap-x-4">
                 {current.length === 0 && (
-                  <p className="py-8 text-center text-text-dim">
+                  <p className="py-8 text-center text-text-dim lg:col-span-2">
                     {tab === "winners"
                       ? "No past winners yet. Weekly winners appear here after each week closes."
                       : tab === "events"
