@@ -363,6 +363,10 @@ export const core = {
   deleteMeeting: (id) => http.delete(`/core/meetings/${id}`),
   // Core badge for a user (main-site profile pages)
   badge:         (userId) => http.get(`/core/badge/${userId}`),
+  // Anonymous chat
+  chatMessages:      () => http.get("/core/chat"),
+  sendChatMessage:   (body) => http.post("/core/chat", { body }),
+  deleteChatMessage: (id) => http.delete(`/core/chat/${id}`),
 };
 
 // ── Users / Rich profiles (Phase 15) ──

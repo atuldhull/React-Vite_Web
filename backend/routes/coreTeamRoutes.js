@@ -14,7 +14,7 @@ import {
   redeemCodeSchema, createTeamSchema, addMemberSchema,
   createTaskSchema, submitTaskSchema,
   createFeedbackSchema, feedbackStatusSchema, createIdeaSchema,
-  createMeetingSchema, rsvpSchema,
+  createMeetingSchema, rsvpSchema, chatMessageSchema,
 } from "../validators/coreTeam.js";
 
 import { getMe, redeemCode, listTeams, leaderboard, createTeam, addMember, getBadge } from "../controllers/coreTeam/members.js";
@@ -23,6 +23,7 @@ import { listFeedback, createFeedback, updateFeedbackStatus, revealAuthor } from
 import { listIdeas, createIdea, voteIdea, deleteIdea } from "../controllers/coreTeam/ideas.js";
 import { listTrends, refreshTrends } from "../controllers/coreTeam/trends.js";
 import { listMeetings, createMeeting, rsvpMeeting, deleteMeeting } from "../controllers/coreTeam/meetings.js";
+import { listChat, postChat, deleteChatMessage } from "../controllers/coreTeam/chat.js";
 
 const router = express.Router();
 const council = requireCoreTier(["council"]);
@@ -69,6 +70,11 @@ router.get("/meetings",           requireCoreMember, listMeetings);
 router.post("/meetings",          lead, validateBody(createMeetingSchema), createMeeting);
 router.post("/meetings/:id/rsvp", requireCoreMember, validateBody(rsvpSchema), rsvpMeeting);
 router.delete("/meetings/:id",    lead, deleteMeeting);
+
+/* ── anonymous chat ── */
+router.get("/chat",         requireCoreMember, listChat);
+router.post("/chat",        requireCoreMember, validateBody(chatMessageSchema), postChat);
+router.delete("/chat/:id",  requireCoreMember, deleteChatMessage);
 
 /* ── core badge lookup — any signed-in user (powers profile-page tags) ── */
 router.get("/badge/:userId", getBadge);

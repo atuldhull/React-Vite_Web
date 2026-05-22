@@ -77,3 +77,8 @@ export const createMeetingSchema = z.object({
 export const rsvpSchema = z.object({
   status: z.enum(["going", "maybe", "no"]),
 });
+
+/* ── Chat ── */
+export const chatMessageSchema = z.object({
+  body: z.string().trim().min(1, "type a message").max(1000, "message too long"),
+});
