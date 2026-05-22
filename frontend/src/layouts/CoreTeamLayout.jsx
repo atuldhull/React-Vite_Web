@@ -13,6 +13,7 @@ import Loader from "@/components/ui/Loader";
 import Button from "@/components/ui/Button";
 import { cn } from "@/lib/cn";
 import { useCoreStore } from "@/store/core-store";
+import { useAuthStore } from "@/store/auth-store";
 import CoreBadge from "@/features/coreTeam/components/CoreBadge";
 import CoreAccessGate from "@/features/coreTeam/components/CoreAccessGate";
 
@@ -47,10 +48,16 @@ function NavIcon({ d }) {
 export default function CoreTeamLayout() {
   const location = useLocation();
   const { status, member, teamRank, fetchMe } = useCoreStore();
+  const authUserId = useAuthStore((s) => s.user?.id);
 
+  // Re-resolve core membership whenever the signed-in user changes.
+  // CRITICAL on shared computers: the core-store is module-level, so
+  // without this the previous person's core profile stays cached and
+  // the next user sees the wrong identity. Keying on authUserId forces
+  // a fresh /core/me for each user.
   useEffect(() => {
-    if (status === "idle") fetchMe();
-  }, [status, fetchMe]);
+    if (authUserId) fetchMe();
+  }, [authUserId, fetchMe]);
 
   // ── resolving / error / outsider states ──
   if (status === "idle" || status === "loading") {

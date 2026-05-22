@@ -35,3 +35,20 @@ if ("serviceWorker" in navigator) {
   });
 }
 registerPwaInstallListeners();
+
+// ── Stale-deploy recovery ──
+// After a new deploy, the old content-hashed JS chunks 404. When a
+// lazy-loaded route then fails its dynamic import ("Failed to fetch
+// dynamically imported module"), reload ONCE to pull the fresh
+// index.html (served network-first) + its matching chunks. The
+// sessionStorage guard prevents a reload loop if the failure is
+// something else; it self-clears after 8s so a later deploy in the
+// same tab can recover too.
+window.addEventListener("vite:preloadError", () => {
+  if (sessionStorage.getItem("mc-preload-reloaded")) return;
+  sessionStorage.setItem("mc-preload-reloaded", "1");
+  window.location.reload();
+});
+setTimeout(() => {
+  try { sessionStorage.removeItem("mc-preload-reloaded"); } catch { /* ignore */ }
+}, 8000);
