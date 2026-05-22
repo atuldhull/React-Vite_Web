@@ -9,14 +9,16 @@ import { core } from "@/lib/api";
 import { useCoreStore } from "@/store/core-store";
 import CountUp from "@/features/coreTeam/components/CountUp";
 import CoreBadge from "@/features/coreTeam/components/CoreBadge";
+import CoreMindMap from "@/features/coreTeam/components/CoreMindMap";
 
-const SECTIONS = [
-  { to: "/core/tasks",    label: "Tasks",     desc: "Pick up work, hit deadlines, earn points.", accent: "text-primary" },
-  { to: "/core/feedback", label: "Feedback",  desc: "Anonymous suggestions & complaints.",       accent: "text-secondary" },
-  { to: "/core/ideas",    label: "Ideas",     desc: "Pitch creative ideas, vote on the best.",   accent: "text-success" },
-  { to: "/core/trends",   label: "Trends",    desc: "Fresh ideas pulled from the web every 4h.", accent: "text-warning" },
-  { to: "/core/meetings", label: "Meetings",  desc: "Scheduled meets — RSVP going or can't.",     accent: "text-secondary" },
-  { to: "/core/roster",   label: "Roster",    desc: "Every team, every member, the rankings.",   accent: "text-primary" },
+// Nodes for the dashboard mind map — icon path + accent colour each.
+const MAP_NODES = [
+  { to: "/core/tasks",    label: "Tasks",    color: "#7c3aed", icon: "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" },
+  { to: "/core/feedback", label: "Feedback", color: "#ec4899", icon: "M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" },
+  { to: "/core/ideas",    label: "Ideas",    color: "#22c55e", icon: "M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" },
+  { to: "/core/trends",   label: "Trends",   color: "#f59e0b", icon: "M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" },
+  { to: "/core/meetings", label: "Meetings", color: "#06b6d4", icon: "M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" },
+  { to: "/core/roster",   label: "Roster",   color: "#a855f7", icon: "M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m6-1.13a4 4 0 10-4-4 4 4 0 004 4zm6 0a4 4 0 10-3-6.93" },
 ];
 
 export default function CorePortalPage() {
@@ -119,34 +121,29 @@ export default function CorePortalPage() {
         ))}
       </div>
 
-      {/* Section grid */}
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        {SECTIONS.map((s) => (
-          <Link key={s.to} to={s.to}>
-            <Card variant="solid" interactive className="h-full">
-              <h3 className={`font-display text-xl font-bold ${s.accent}`}>{s.label}</h3>
-              <p className="mt-2 text-sm leading-6 text-text-muted">{s.desc}</p>
-              <p className="mt-4 font-mono text-[10px] uppercase tracking-[0.2em] text-text-dim">Open →</p>
-            </Card>
-          </Link>
-        ))}
-
-        {/* Open tasks teaser */}
-        <Card variant="glow" spotlight={false} className="h-full">
-          <h3 className="font-display text-xl font-bold text-white">Up for grabs</h3>
-          <p className="mt-2 text-sm text-text-muted">
-            {openTasks.length
-              ? `${openTasks.length} open task${openTasks.length > 1 ? "s" : ""} anyone can claim — first come, first serve.`
-              : "No open tasks right now. Check back soon."}
-          </p>
-          <Link
-            to="/core/tasks"
-            className="mt-4 inline-block font-mono text-[10px] uppercase tracking-[0.2em] text-primary hover:underline"
-          >
-            Go to tasks →
-          </Link>
-        </Card>
+      {/* Portal navigation — animated mind map */}
+      <div className="relative overflow-hidden rounded-2xl border border-line/15 bg-surface/50 px-4 py-6 shadow-panel backdrop-blur-2xl sm:px-6">
+        <p className="text-center font-mono text-[11px] uppercase tracking-[0.32em] text-primary/80">
+          Navigate the portal
+        </p>
+        <CoreMindMap nodes={MAP_NODES} hubLabel="CORE" />
       </div>
+
+      {/* Open tasks teaser */}
+      <Card variant="glow" spotlight={false}>
+        <h3 className="font-display text-xl font-bold text-white">Up for grabs</h3>
+        <p className="mt-2 text-sm text-text-muted">
+          {openTasks.length
+            ? `${openTasks.length} open task${openTasks.length > 1 ? "s" : ""} anyone can claim — first come, first serve.`
+            : "No open tasks right now. Check back soon."}
+        </p>
+        <Link
+          to="/core/tasks"
+          className="mt-4 inline-block font-mono text-[10px] uppercase tracking-[0.2em] text-primary hover:underline"
+        >
+          Go to tasks →
+        </Link>
+      </Card>
 
       {/* My active tasks */}
       <Card variant="solid" spotlight={false}>
