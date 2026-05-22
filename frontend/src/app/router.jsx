@@ -28,6 +28,7 @@ import { authRoutes }       from "./routes/authRoutes";
 import { teacherRoutes }    from "./routes/teacherRoutes";
 import { adminRoutes }      from "./routes/adminRoutes";
 import { superAdminRoutes } from "./routes/superAdminRoutes";
+import { coreTeamRoutes }   from "./routes/coreTeamRoutes";
 import { errorRoutes }      from "./routes/errorRoutes";
 
 /**
@@ -99,6 +100,7 @@ function AnimatedRoutes() {
                 {teacherRoutes}
                 {adminRoutes}
                 {superAdminRoutes}
+                {coreTeamRoutes}
                 {errorRoutes}
               </Routes>
             </RouteErrorBoundary>

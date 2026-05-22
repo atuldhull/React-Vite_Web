@@ -45,6 +45,7 @@ import { attachSocket } from "./socket/index.js";
 import { attachRedisAdapter, detachRedisAdapter } from "./socket/redisAdapter.js";
 import { attachRedisToQuizStore, quizStore } from "./socket/store/quizStore.js";
 import { createClient as createRedisClient } from "redis";
+import { startTrendsScheduler } from "./services/coreTrends.js";
 
 const isProd = env.isProd;
 const app    = createApp();
@@ -131,6 +132,12 @@ server.listen(env.port, () => {
 │  \u2728  Features on: ${String(env.enabledFeatures.length).padEnd(2)} | off: ${String(env.disabledFeatures.length).padEnd(2)}      │
 └─────────────────────────────────────────┘
   `);
+
+  // Core Team portal — refresh the trends wall on boot + every 4h.
+  // Best-effort: never blocks the listen callback, never crashes boot.
+  try { startTrendsScheduler(); } catch (err) {
+    console.warn("[coreTrends] scheduler failed to start:", err.message);
+  }
 });
 
 export { io, app };

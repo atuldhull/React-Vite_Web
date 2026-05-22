@@ -327,6 +327,37 @@ export const chat = {
   updateSettings: (settings) => http.patch("/chat/settings", settings),
 };
 
+// ── Core Team portal ──
+export const core = {
+  me:           () => http.get("/core/me"),
+  redeem:       (code) => http.post("/core/redeem", { code }),
+  // Roster
+  teams:        () => http.get("/core/teams"),
+  leaderboard:  () => http.get("/core/leaderboard"),
+  createTeam:   (data) => http.post("/core/teams", data),
+  addMember:    (data) => http.post("/core/members", data),
+  // Tasks
+  tasks:        () => http.get("/core/tasks"),
+  createTask:   (data) => http.post("/core/tasks", data),
+  claimTask:    (id) => http.post(`/core/tasks/${id}/claim`),
+  submitTask:   (id, submission) => http.post(`/core/tasks/${id}/submit`, { submission }),
+  confirmTask:  (id) => http.post(`/core/tasks/${id}/confirm`),
+  deleteTask:   (id) => http.delete(`/core/tasks/${id}`),
+  // Feedback (anonymous)
+  feedback:           () => http.get("/core/feedback"),
+  createFeedback:     (data) => http.post("/core/feedback", data),
+  setFeedbackStatus:  (id, status) => http.patch(`/core/feedback/${id}/status`, { status }),
+  revealAuthor:       (id) => http.get(`/core/feedback/${id}/author`),
+  // Ideas
+  ideas:        (field) => http.get("/core/ideas", { params: field ? { field } : {} }),
+  createIdea:   (data) => http.post("/core/ideas", data),
+  voteIdea:     (id) => http.post(`/core/ideas/${id}/vote`),
+  deleteIdea:   (id) => http.delete(`/core/ideas/${id}`),
+  // Trends
+  trends:       (category) => http.get("/core/trends", { params: category ? { category } : {} }),
+  refreshTrends: () => http.post("/core/trends/refresh"),
+};
+
 // ── Users / Rich profiles (Phase 15) ──
 // Distinct from the `user` singular namespace (self-actions) above.
 // `users` is plural and takes a user id as first arg — mirrors the

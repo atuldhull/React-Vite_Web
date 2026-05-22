@@ -39,6 +39,9 @@ export default function MainLayout() {
   if (isAuth) {
     roleLinks.push({ to: "/dashboard", label: "Dashboard" });
     roleLinks.push({ to: "/profile", label: "Profile" });
+    // Core Team portal — visible to every signed-in member; the portal
+    // itself shows the access gate to anyone who isn't a core member.
+    roleLinks.push({ to: "/core", label: "Core Team" });
     if (role === "teacher" || role === "admin" || role === "super_admin") {
       roleLinks.push({ to: "/teacher", label: "Teacher Panel" });
     }
