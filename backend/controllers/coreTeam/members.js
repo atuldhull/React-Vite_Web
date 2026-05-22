@@ -51,14 +51,22 @@ export const redeemCode = catchAsync(async (req, res) => {
   const user = req.session?.user;
   if (!user) return res.status(401).json({ error: "Login required" });
 
+  // Normalise: codes are stored upper-case; accept any casing / spacing.
   const code = String(req.body.code || "").trim().toUpperCase();
 
-  const { data: row } = await supabase
+  const { data: row, error: lookupErr } = await supabase
     .from("core_members")
     .select("*")
     .eq("access_code", code)
     .maybeSingle();
 
+  // A missing table means migration 25 hasn't been run — say so plainly
+  // instead of the misleading "code doesn't match".
+  if (lookupErr) {
+    return res.status(500).json({
+      error: "The Core Team tables aren't set up yet. An admin needs to run migration 25 in Supabase.",
+    });
+  }
   if (!row) return res.status(404).json({ error: "That code doesn't match any core member." });
   if (!row.is_active) return res.status(403).json({ error: "This core membership is inactive." });
 
@@ -66,25 +74,27 @@ export const redeemCode = catchAsync(async (req, res) => {
   if (row.user_id && row.user_id === user.id) {
     return res.json({ success: true, alreadyRedeemed: true, member: row });
   }
+  // Linked to a different account — one code, one person.
   if (row.user_id && row.user_id !== user.id) {
     return res.status(409).json({ error: "This code has already been redeemed by another account." });
   }
 
-  // Safety net: the code must belong to the email you're signed in with.
-  if ((row.email || "").toLowerCase() !== (user.email || "").toLowerCase()) {
-    return res.status(403).json({
-      error: "This code is registered to a different email. Sign in with your club email, or contact the council.",
-    });
-  }
-
+  // The private code IS the credential — whoever holds it redeems it
+  // onto the account they're signed in with. We deliberately do NOT
+  // require the seeded email to match the login email: members
+  // registered their site accounts with assorted addresses, and the
+  // old email check rejected those legitimate redemptions.
   const { data: linked, error } = await supabase
     .from("core_members")
     .update({ user_id: user.id, redeemed_at: new Date().toISOString() })
     .eq("id", row.id)
+    .is("user_id", null)            // race guard — second concurrent redeemer matches 0 rows
     .select("*, core_teams(id, name, slug, accent)")
-    .single();
+    .maybeSingle();
 
-  if (error) return res.status(500).json({ error: "Could not link your code — try again." });
+  if (error || !linked) {
+    return res.status(409).json({ error: "That code was just redeemed on another account." });
+  }
   return res.json({ success: true, member: linked });
 });
 

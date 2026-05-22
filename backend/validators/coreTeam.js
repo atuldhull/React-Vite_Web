@@ -10,8 +10,11 @@ import { z } from "zod";
 const uuid = z.string().uuid();
 
 /* ── Access ── */
+// The controller upper-cases the code itself, so the schema just
+// trims + length-checks — keeps it independent of the zod version's
+// string-transform support.
 export const redeemCodeSchema = z.object({
-  code: z.string().trim().min(4, "code required").max(40).toUpperCase(),
+  code: z.string().trim().min(4, "code required").max(40),
 });
 
 /* ── Teams / members (council only) ── */
