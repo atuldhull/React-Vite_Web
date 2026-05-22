@@ -48,7 +48,7 @@ const PASSWORD = "12345678";
 // The 25 core members — name + the email their account is created with.
 const MEMBERS = [
   ["D Lalith Chandra",           "24ug1byai190@bmsit.in"],
-  ["Atul Dhull",                 "24ug1byai146@gmail.com"],
+  ["Atul Dhull",                 "24ug1byai146@bmsit.in"],
   ["Satvika Prashanth Hiremath", "24ug1byai224@gmail.com"],
   ["Ritika Girish Kulkarni",     "24ug1byai060@bmsit.in"],
   ["Vishal Athreya",             "24ug1byai149@bmsit.in"],
