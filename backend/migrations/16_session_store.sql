@@ -50,11 +50,14 @@ END $$;
 CREATE INDEX IF NOT EXISTS idx_user_sessions_expire
   ON public.user_sessions (expire);
 
--- RLS: session rows are not user-readable. Backend uses the
--- service-role key (which bypasses RLS), but enabling RLS with no
--- policies is the safest default — any future code that ever uses
--- the anon key against this table gets nothing back.
-ALTER TABLE public.user_sessions ENABLE ROW LEVEL SECURITY;
+-- RLS: MUST stay OFF. The session store (connect-pg-simple) reaches
+-- this table over the SESSION_DB_URL connection, not the Supabase
+-- service-role key. On this deployment that connection does not
+-- reliably bypass RLS — so RLS-on with no policies means "deny
+-- everything", every session read/write fails, and nobody can stay
+-- logged in. (Earlier this file ENABLED RLS here, which caused
+-- exactly that outage — see FIX_login_rls.sql.)
+ALTER TABLE public.user_sessions DISABLE ROW LEVEL SECURITY;
 
 -- Verify
 SELECT
