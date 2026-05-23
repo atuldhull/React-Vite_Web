@@ -63,6 +63,43 @@ function findImage(block) {
   return null;
 }
 
+/**
+ * Last-resort image: fetch the article page and pull its og:image
+ * (twitter:image / image_src as fallbacks). Used when the RSS item
+ * itself didn't carry a media tag. Best-effort, capped at 8 s.
+ */
+async function fetchOgImage(articleUrl) {
+  if (!articleUrl) return null;
+  const ctrl = new globalThis.AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 8000);
+  try {
+    const res = await fetch(articleUrl, {
+      headers: {
+        "User-Agent": "AsymptotesCoreBot/1.0 (+club trends)",
+        "Accept":     "text/html,application/xhtml+xml",
+      },
+      signal: ctrl.signal,
+    });
+    if (!res.ok) return null;
+    const html = (await res.text()).slice(0, 60_000); // <head> is always near the top
+    const patterns = [
+      /<meta[^>]*property=["']og:image(?::secure_url|:url)?["'][^>]*content=["']([^"']+)["']/i,
+      /<meta[^>]*content=["']([^"']+)["'][^>]*property=["']og:image(?::secure_url|:url)?["']/i,
+      /<meta[^>]*name=["']twitter:image(?::src)?["'][^>]*content=["']([^"']+)["']/i,
+      /<link[^>]*rel=["']image_src["'][^>]*href=["']([^"']+)["']/i,
+    ];
+    for (const re of patterns) {
+      const m = html.match(re);
+      if (m && /^https?:\/\//i.test(m[1])) return m[1];
+    }
+    return null;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 /** Fetch + parse one feed into normalised trend rows. */
 async function fetchFeed(feed) {
   // node-fetch v3 dropped the `timeout` option — guard hangs with an
@@ -78,7 +115,7 @@ async function fetchFeed(feed) {
     const xml = await res.text();
 
     const blocks = xml.match(/<item[\s>][\s\S]*?<\/item>/gi) || [];
-    return blocks.slice(0, PER_FEED).map((b) => {
+    const items = blocks.slice(0, PER_FEED).map((b) => {
       const link = tag(b, "link") || (b.match(/<link[^>]*href="([^"]+)"/i)?.[1] ?? "");
       const desc = tag(b, "description") || tag(b, "content:encoded");
       const summary = stripHtml(desc).slice(0, 360);
@@ -93,6 +130,14 @@ async function fetchFeed(feed) {
         published_at: pub ? new Date(pub).toISOString() : null,
       };
     }).filter((t) => t.title && t.source_url);
+
+    // For items where the RSS gave us no image, fetch the article and
+    // pull its og:image. Done in parallel within the feed; cheap.
+    await Promise.all(items.map(async (it) => {
+      if (!it.image_url) it.image_url = await fetchOgImage(it.source_url);
+    }));
+
+    return items;
   } catch (err) {
     logger.warn({ feed: feed.name, err: err.message }, "coreTrends: feed fetch failed");
     return [];
@@ -153,12 +198,18 @@ export async function runTrendsFetch() {
     return true;
   });
 
-  if (!fresh.length) { logger.info("coreTrends: no new items"); return 0; }
+  if (fresh.length) {
+    await enrichClubAngles(fresh);
+    const { error } = await supabase.from("core_trends").insert(fresh);
+    if (error) { logger.error({ err: error }, "coreTrends: insert failed"); return 0; }
+  } else {
+    logger.info("coreTrends: no new items");
+  }
 
-  await enrichClubAngles(fresh);
-
-  const { error } = await supabase.from("core_trends").insert(fresh);
-  if (error) { logger.error({ err: error }, "coreTrends: insert failed"); return 0; }
+  // Backfill — for rows that landed before image extraction / LLM
+  // enrichment was working, fill in the gaps now. Capped per run so
+  // a refresh never balloons.
+  await backfillMissing();
 
   // Prune — keep only the freshest KEEP_LATEST cards.
   const { data: rows } = await supabase
@@ -170,6 +221,44 @@ export async function runTrendsFetch() {
 
   logger.info({ added: fresh.length }, "coreTrends: refresh done");
   return fresh.length;
+}
+
+/**
+ * Walk the existing trend cards and patch in any missing image_url
+ * (via og:image) and missing club_angle (via LLM). Bounded to BACKFILL
+ * rows per run so even with hundreds of stale cards a refresh stays
+ * snappy — repeated runs catch up.
+ */
+const BACKFILL_PER_RUN = 14;
+async function backfillMissing() {
+  const { data: gaps } = await supabase
+    .from("core_trends")
+    .select("id, source_url, title, category, image_url, club_angle")
+    .or("image_url.is.null,club_angle.is.null")
+    .limit(BACKFILL_PER_RUN);
+  if (!gaps?.length) return;
+
+  // 1. og:image for rows missing an image.
+  await Promise.all(gaps.map(async (r) => {
+    if (r.image_url) return;
+    const img = await fetchOgImage(r.source_url);
+    if (img) {
+      r.image_url = img;
+      await supabase.from("core_trends").update({ image_url: img }).eq("id", r.id);
+    }
+  }));
+
+  // 2. LLM club-angle for rows still missing it.
+  const needAngle = gaps.filter((r) => !r.club_angle);
+  if (needAngle.length) {
+    await enrichClubAngles(needAngle);
+    for (const r of needAngle) {
+      if (r.club_angle) {
+        await supabase.from("core_trends").update({ club_angle: r.club_angle }).eq("id", r.id);
+      }
+    }
+  }
+  logger.info({ patched: gaps.length }, "coreTrends: backfill pass complete");
 }
 
 /** Start the 4-hourly scheduler. Called once from server.js. */

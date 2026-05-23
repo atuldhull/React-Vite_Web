@@ -126,14 +126,16 @@ export default function CoreTrendsPage() {
               {/* body */}
               <div className="flex flex-1 flex-col p-4">
                 <h3 className="font-display text-base font-bold leading-snug text-white">{t.title}</h3>
-                {t.summary && (
-                  <p className="mt-2 line-clamp-3 flex-1 text-xs leading-6 text-text-muted">{t.summary}</p>
-                )}
-                {t.club_angle && (
-                  <p className="mt-3 rounded-lg border border-primary/20 bg-primary/8 px-3 py-2 text-xs leading-6 text-primary">
-                    💡 {t.club_angle}
-                  </p>
-                )}
+                <p className="mt-2 line-clamp-3 flex-1 text-xs leading-6 text-text-muted">
+                  {t.summary || `Latest from ${t.source_name}. Tap to read the full article.`}
+                </p>
+                <p className={`mt-3 rounded-lg border px-3 py-2 text-xs leading-6 ${
+                  t.club_angle
+                    ? "border-primary/20 bg-primary/8 text-primary"
+                    : "border-line/15 bg-white/[0.04] text-text-muted"
+                }`}>
+                  💡 {t.club_angle || `Could spark a ${t.category.toLowerCase()} reel, post or event — open it for ideas.`}
+                </p>
                 <div className="mt-3 flex items-center justify-between font-mono text-[10px] text-text-dim">
                   <span>{t.source_name}</span>
                   <span>{timeAgo(t.published_at || t.fetched_at)}</span>

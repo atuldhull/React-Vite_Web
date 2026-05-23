@@ -73,7 +73,12 @@ export function applyHelmet(app) {
         // meaningful XSS vector — CSP doesn't add real protection
         // here — and blocking them just degrades typography.
         fontSrc:        ["'self'", "data:", "fonts.gstatic.com", "cdn.jsdelivr.net", "cdn.fontshare.com"],
-        imgSrc:         ["'self'", "data:", "blob:", "api.dicebear.com", "*.supabase.co", "res.cloudinary.com", "*.razorpay.com", "dl.polyhaven.org"],
+        // `https:` allows the Core Team trends wall to render images
+        // hosted on any third-party news site (Ars Technica, Quanta,
+        // Smashing, etc.). Images can't execute scripts, so this is a
+        // low-risk loosening; the explicit allow-list domains below
+        // are kept for clarity and would still match HTTP variants.
+        imgSrc:         ["'self'", "data:", "blob:", "https:", "api.dicebear.com", "*.supabase.co", "res.cloudinary.com", "*.razorpay.com", "dl.polyhaven.org"],
         mediaSrc:       ["'self'", "blob:", "res.cloudinary.com"],
         // Razorpay's checkout widget talks to api.razorpay.com +
         // lumberjack.razorpay.com (analytics) — add both.
