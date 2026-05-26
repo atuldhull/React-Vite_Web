@@ -125,6 +125,39 @@ export function validateEnv() {
         "backend/migrations/16_session_store.sql for Postgres setup)"
       );
     }
+
+    // SESSION_SECRET in production must be substantially longer than
+    // the 16-char floor we accept for dev. 32+ chars of base64url is
+    // ~192 bits of entropy, well outside any feasible offline-attack
+    // budget on the HMAC signing the session cookie. (Explicit length
+    // read — no `||` fallback expression; tests/unit/session-secret-
+    // no-fallback.test.js refuses any `SESSION_SECRET || "..."` form
+    // because that pattern used to mask misconfiguration.)
+    if (process.env.SESSION_SECRET && process.env.SESSION_SECRET.length < 32) {
+      errors.push(
+        "  SESSION_SECRET: too short for production (must be ≥ 32 chars; current " +
+        `is ${process.env.SESSION_SECRET.length}). Regenerate with ` +
+        "`node -e \"console.log(require('crypto').randomBytes(48).toString('base64url'))\"`"
+      );
+    }
+
+    // Catch the classic "VITE_ prefix on a server secret" mistake.
+    // Anything exposed to the browser must NOT contain a server-only
+    // secret value. We can't know the value here, but we can refuse
+    // to boot if someone created a VITE_-prefixed variable whose
+    // name screams "secret" — they almost certainly meant the
+    // un-prefixed server var.
+    const dangerousViteVars = Object.keys(process.env).filter((k) =>
+      k.startsWith("VITE_") &&
+      /SECRET|PRIVATE_KEY|SERVICE_ROLE|APP_PASSWORD|WEBHOOK_SECRET|AUTH_TOKEN/i.test(k),
+    );
+    for (const v of dangerousViteVars) {
+      errors.push(
+        `  ${v}: a VITE_-prefixed env var with a secret-looking name will be ` +
+        "baked into the browser bundle. Rename it to the un-prefixed server-side form, " +
+        "or — if it really is a public value — give it a non-secret-looking name."
+      );
+    }
   }
 
   // Fail fast if any tier-1/2 errors. Print the full list — partial
@@ -136,7 +169,6 @@ export function validateEnv() {
     console.error("\n" + banner + "\n");
     for (const e of errors) console.error(e);
     console.error("\nFix .env.local (or your deploy platform's env settings) and retry.\n");
-    // eslint-disable-next-line no-process-exit
     process.exit(1);
   }
 

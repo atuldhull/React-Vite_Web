@@ -1,6 +1,12 @@
 node_modules/
-.env.local
-.env
+
+# Local environment files — match every variant (.env, .env.local,
+# .env.production, .env.development, .env.test, etc.) so a future
+# deploy-specific file can't leak by accident. Only .env.example is
+# tracked, by explicit allow.
+.env*
+!.env.example
+
 *.log
 .DS_Store
 dist/

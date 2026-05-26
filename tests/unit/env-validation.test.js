@@ -72,7 +72,7 @@ describe("validateEnv — required vars", () => {
     process.env.NODE_ENV                  = "development";
     process.env.SUPABASE_URL              = "https://example.supabase.co";
     process.env.SUPABASE_SERVICE_ROLE_KEY = "x".repeat(40);
-    process.env.SESSION_SECRET            = "x".repeat(20);
+    process.env.SESSION_SECRET            = "x".repeat(32);
 
     const validateEnv = await loadValidator();
     const env = validateEnv();
@@ -84,7 +84,7 @@ describe("validateEnv — required vars", () => {
   it("exits when SUPABASE_URL is missing", async () => {
     delete process.env.SUPABASE_URL;
     process.env.SUPABASE_SERVICE_ROLE_KEY = "x".repeat(40);
-    process.env.SESSION_SECRET            = "x".repeat(20);
+    process.env.SESSION_SECRET            = "x".repeat(32);
 
     const validateEnv = await loadValidator();
     expect(() => validateEnv()).toThrow("__EXIT__:1");
@@ -109,7 +109,7 @@ describe("validateEnv — required vars", () => {
   it("exits when SUPABASE_URL is not a URL", async () => {
     process.env.SUPABASE_URL              = "not-a-url";
     process.env.SUPABASE_SERVICE_ROLE_KEY = "x".repeat(40);
-    process.env.SESSION_SECRET            = "x".repeat(20);
+    process.env.SESSION_SECRET            = "x".repeat(32);
 
     const validateEnv = await loadValidator();
     expect(() => validateEnv()).toThrow("__EXIT__:1");
@@ -125,7 +125,7 @@ describe("validateEnv — production-only vars", () => {
   function setRequiredOk() {
     process.env.SUPABASE_URL              = "https://example.supabase.co";
     process.env.SUPABASE_SERVICE_ROLE_KEY = "x".repeat(40);
-    process.env.SESSION_SECRET            = "x".repeat(20);
+    process.env.SESSION_SECRET            = "x".repeat(32);
   }
 
   it("dev mode tolerates missing FRONTEND_URL", async () => {
@@ -201,7 +201,7 @@ describe("validateEnv — feature gates", () => {
     process.env.NODE_ENV                  = "development";
     process.env.SUPABASE_URL              = "https://example.supabase.co";
     process.env.SUPABASE_SERVICE_ROLE_KEY = "x".repeat(40);
-    process.env.SESSION_SECRET            = "x".repeat(20);
+    process.env.SESSION_SECRET            = "x".repeat(32);
   }
 
   it("reports all features enabled when their vars are set", async () => {
@@ -274,7 +274,7 @@ describe("validateEnv — returned config object", () => {
     process.env.NODE_ENV                  = "development";
     process.env.SUPABASE_URL              = "https://example.supabase.co";
     process.env.SUPABASE_SERVICE_ROLE_KEY = "x".repeat(40);
-    process.env.SESSION_SECRET            = "x".repeat(20);
+    process.env.SESSION_SECRET            = "x".repeat(32);
 
     process.env.PORT = "8080";
     let env = (await loadValidator())();

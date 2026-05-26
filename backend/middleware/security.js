@@ -91,7 +91,17 @@ export function applyHelmet(app) {
         // captured error is blocked at the browser CSP layer and
         // never reaches Sentry — silent failure of the entire
         // monitoring pipeline.
-        connectSrc:     ["'self'", "*.supabase.co", "api.openrouter.ai", "api.dicebear.com", "openrouter.ai", "res.cloudinary.com", "*.razorpay.com", "*.sentry.io", "dl.polyhaven.org"],
+        // Browser-side fetch destinations. Trimmed to the minimum that
+        // the live app actually needs:
+        //   *.supabase.co       — storage/public URLs fetched by the SPA
+        //   *.razorpay.com      — checkout widget XHR + analytics
+        //   *.sentry.io         — error envelope POSTs (regional DSNs)
+        //   dl.polyhaven.org    — Three.js TextureLoader for hero scene
+        // Removed (no frontend code paths confirmed): api.openrouter.ai,
+        // openrouter.ai (backend-only), api.dicebear.com (avatars
+        // generated client-side, no network), res.cloudinary.com (URLs
+        // are loaded as <video>/<img>, covered by mediaSrc/imgSrc).
+        connectSrc:     ["'self'", "*.supabase.co", "*.razorpay.com", "*.sentry.io", "dl.polyhaven.org"],
         // Razorpay renders the payment form in an iframe served from
         // api.razorpay.com. The default-deny frameSrc was blocking it.
         frameSrc:       ["'self'", "*.razorpay.com"],
@@ -103,9 +113,11 @@ export function applyHelmet(app) {
     frameguard:          { action: "deny" },
     // Stop browsers guessing content types
     noSniff:             true,
-    // Force HTTPS in prod
+    // Force HTTPS in prod. preload:true makes the deploy eligible for
+    // the browser HSTS preload list (hstspreload.org) once the domain
+    // is submitted — not auto, but allowed-by-policy.
     hsts:                process.env.NODE_ENV === "production"
-                           ? { maxAge: 31536000, includeSubDomains: true }
+                           ? { maxAge: 31536000, includeSubDomains: true, preload: true }
                            : false,
     // Hide that you're using Express
     hidePoweredBy:       true,
@@ -114,6 +126,27 @@ export function applyHelmet(app) {
     // Prevent browsers from sending referrer to external sites
     referrerPolicy:      { policy: "strict-origin-when-cross-origin" },
   }));
+
+  // Permissions-Policy — helmet doesn't ship a built-in option for
+  // this header (its experimental version was removed in v6), so we
+  // set it directly. Locks every browser API the app does NOT use:
+  //   camera / microphone / geolocation — never asked, never wanted
+  //   payment        — we use Razorpay's iframe + script, not the
+  //                    Payment Request API; deny outright
+  //   usb / bluetooth / serial / hid / midi — hardware APIs we never use
+  //   accelerometer / gyroscope / magnetometer — sensors we never use
+  //   interest-cohort — opt out of Google's FLoC / Topics tracking
+  // fullscreen + autoplay are deliberately left allowed for the
+  // hero video + gallery lightbox.
+  const PERMISSIONS_POLICY =
+    "camera=(), microphone=(), geolocation=(), payment=(), " +
+    "usb=(), bluetooth=(), serial=(), hid=(), midi=(), " +
+    "accelerometer=(), gyroscope=(), magnetometer=(), " +
+    "interest-cohort=()";
+  app.use((req, res, next) => {
+    res.setHeader("Permissions-Policy", PERMISSIONS_POLICY);
+    next();
+  });
 }
 
 /* ══════════════════════════════════════════
