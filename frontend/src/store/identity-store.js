@@ -109,22 +109,13 @@ export const useIdentityStore = create((set, get) => ({
    * they've saved the phrase before we commit.
    */
   startCeremony: async () => {
-    // Diagnostic logging — temporary, until we've confirmed the
-    // ceremony flow works end-to-end on every device the app has
-    // been deployed to. Prefixed with [identity] so devtools filter
-    // can isolate them.
-    console.log("[identity] startCeremony: entering");
     set({ status: "forging", error: null });
     try {
-      console.log("[identity] startCeremony: generating mnemonic…");
       const { phrase, entropy } = await generateMnemonic();
-      console.log("[identity] startCeremony: phrase generated (12 words, entropy %d bytes)", entropy.length);
       set({ pendingPhrase: phrase });
       // Stash the derived-but-unpersisted keypair so the confirm
       // step doesn't re-run PBKDF2 (~1s saved).
-      console.log("[identity] startCeremony: deriving keypair (PBKDF2 100k iterations — ~1-2s)…");
       const derived = await deriveKeypairFromEntropy(entropy);
-      console.log("[identity] startCeremony: keypair derived — ready for confirm");
       set({
         _pendingScalar: derived.privateScalar,
         _pendingPrivateKey: derived.privateKey,

@@ -2,6 +2,7 @@ import express from "express";
 import supabase from "../config/supabase.js";
 import { requireAuth } from "../middleware/authMiddleware.js";
 import { sendNotification } from "../controllers/notificationController.js";
+import { commentsLimiter, aiLimiter } from "../middleware/rateLimiter.js";
 import axios from "axios";
 import { logger } from "../config/logger.js";
 
@@ -29,8 +30,11 @@ router.get("/:challengeId", async (req, res) => {
   }
 });
 
-/* ── POST a comment ── */
-router.post("/:challengeId", requireAuth, async (req, res) => {
+/* ── POST a comment ──
+   commentsLimiter: 30/hr/user — prevents a hot-loop client from
+   flooding challenge_comments without throttling normal classroom
+   discussion. */
+router.post("/:challengeId", requireAuth, commentsLimiter, async (req, res) => {
   try {
     const { content } = req.body;
     if (!content || !content.trim()) return res.status(400).json({ error: "Content required" });
@@ -93,8 +97,12 @@ router.post("/:challengeId", requireAuth, async (req, res) => {
   }
 });
 
-/* ── POST ask AI about a challenge ── */
-router.post("/:challengeId/ask-ai", requireAuth, async (req, res) => {
+/* ── POST ask AI about a challenge ──
+   aiLimiter: 20/hr/user (shared with /bot/chat) — every hit talks
+   to OpenRouter and costs real money. The shared budget is by
+   design: a student burning the quota on chat shouldn't get a
+   second 20/hr fresh budget here. */
+router.post("/:challengeId/ask-ai", requireAuth, aiLimiter, async (req, res) => {
   try {
     const { question, challengeTitle } = req.body;
     if (!question) return res.status(400).json({ error: "Question required" });
