@@ -205,11 +205,16 @@ describe("POST /api/auth/resend-verification", () => {
     expect(res.status).toBe(400);
   });
 
-  it("400 when supabase.auth.resend reports an error", async () => {
+  it("200 with masked body when supabase.auth.resend reports an error (no enumeration)", async () => {
+    // Prompt-5 hardening: the controller used to forward Supabase's
+    // error.message verbatim (400 + "rate limited" / "user not found"),
+    // which let an attacker probe whether an email was registered. The
+    // response is now constant-shape regardless of upstream state.
     state.resend = { error: { message: "rate limited" } };
     const res = await request(buildApp()).post("/api/auth/resend-verification").send({ email: "x@y.com" });
-    expect(res.status).toBe(400);
-    expect(res.body.error).toMatch(/rate limited/i);
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.message).not.toMatch(/rate limit/i);
   });
 
   it("200 happy path", async () => {
@@ -258,11 +263,16 @@ describe("POST /api/auth/forgot-password", () => {
     expect(res.status).toBe(400);
   });
 
-  it("400 when supabase reports an error (invalid email format etc.)", async () => {
-    state.reset = { error: { message: "invalid email" } };
-    const res = await request(buildApp()).post("/api/auth/forgot-password").send({ email: "x" });
-    expect(res.status).toBe(400);
-    expect(res.body.error).toMatch(/invalid email/i);
+  it("200 with masked body when supabase reports an error (no enumeration)", async () => {
+    // Prompt-5 hardening: same contract as resend-verification — never
+    // surface upstream error text. Caller gets the same shape whether
+    // the email exists, is rate-limited, or is junk. Real reason is
+    // logged server-side for operators.
+    state.reset = { error: { message: "Email rate limit exceeded" } };
+    const res = await request(buildApp()).post("/api/auth/forgot-password").send({ email: "x@y.com" });
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.message).not.toMatch(/rate limit/i);
   });
 
   it("200 happy path", async () => {

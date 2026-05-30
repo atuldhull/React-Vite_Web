@@ -93,7 +93,17 @@ export function buildSessionStore(env = process.env) {
 
 const isProd = process.env.NODE_ENV === "production";
 
+// Cookie name: 'sid' instead of the default 'connect.sid'.
+//
+// The default name advertises that we're running express-session, which
+// narrows an attacker's recon — they know to look at the session-fixation
+// attack surface, the cookie signature format, etc. A neutral 3-letter
+// name leaks nothing. Logout clearCookie below must match this string;
+// keeping them paired is enforced by tests/unit/session-cookie-name.test.js.
+export const SESSION_COOKIE_NAME = "sid";
+
 export const sessionMiddleware = session({
+  name:              SESSION_COOKIE_NAME,
   store:             buildSessionStore(),
   secret:            process.env.SESSION_SECRET,   // env validation guarantees this is set + min 16 chars
   resave:            false,

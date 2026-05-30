@@ -10,6 +10,19 @@
 
 import supabase from "../config/supabase.js";
 import { logger } from "../config/logger.js";
+import { SESSION_COOKIE_NAME } from "../middleware/sessionConfig.js";
+import { isLocked, recordFailure, recordSuccess } from "../lib/loginAttempts.js";
+
+/* Regenerate the session ID before writing user data.
+   Defends against session-fixation: an attacker who tricked the victim
+   into using an attacker-known anonymous SID can't then "ride" the
+   authenticated session, because the SID changes the moment login
+   succeeds. Wraps the callback-style express-session API in a Promise. */
+function regenerateSession(req) {
+  return new Promise((resolve, reject) => {
+    req.session.regenerate((err) => (err ? reject(err) : resolve()));
+  });
+}
 
 // Tenant scoping note: auth flows (register, login, getSession,
 // validateInvite, resend, forgot/reset) run BEFORE the user has a
@@ -108,25 +121,64 @@ const login = async (req, res) => {
     const { email, password } = req.body;
     if (!email || !password) return res.status(400).json({ error: "email and password required" });
 
+    // Per-email lockout check — cheap, runs BEFORE the Supabase round
+    // trip so a locked account doesn't even burn an auth-server hit.
+    // Pairs with the IP+email loginLimiter (5/15m): rate limit caps a
+    // single IP, lockout caps a single account across all IPs. Five
+    // failed attempts in 15 min freezes the account for 15 min.
+    const lock = isLocked(email);
+    if (lock.locked) {
+      res.set("Retry-After", String(lock.retryAfterSec));
+      return res.status(429).json({
+        error:   "ACCOUNT_LOCKED",
+        message: "Too many failed sign-in attempts. Try again in a few minutes or use 'Forgot password'.",
+      });
+    }
+
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error) {
+      // Credential failure — count it toward the per-email lockout.
+      // signInWithPassword returns an "invalid login credentials" error
+      // for both wrong-password AND non-existent-email cases, so we
+      // never reveal which is the case here (no enumeration). The same
+      // logic skips EMAIL_NOT_VERIFIED below: that path only fires
+      // AFTER Supabase has confirmed the password is valid.
       if (error.message?.toLowerCase().includes("email not confirmed") ||
           error.message?.toLowerCase().includes("not confirmed")) {
+        // Password was correct → don't count this as a failure (the
+        // user remembers their password, they just need to verify the
+        // email). Successful credential check also resets prior typos.
+        recordSuccess(email);
         return res.status(401).json({
           error: "EMAIL_NOT_VERIFIED",
           message: "Please verify your email first.",
+        });
+      }
+      const failState = recordFailure(email);
+      if (failState.locked) {
+        res.set("Retry-After", String(failState.retryAfterSec));
+        return res.status(429).json({
+          error:   "ACCOUNT_LOCKED",
+          message: "Too many failed sign-in attempts. Try again in a few minutes or use 'Forgot password'.",
         });
       }
       throw error;
     }
 
     if (!data.user?.email_confirmed_at) {
+      // Same as the "email not confirmed" branch above — password was
+      // valid, so reset typo count and don't penalise the user.
+      recordSuccess(email);
       return res.status(401).json({
         error: "EMAIL_NOT_VERIFIED",
         message: "Please verify your email first.",
       });
     }
+
+    // Credential check passed — clear any earlier-typo counter for this
+    // address so a flaky session can't drift toward a future lockout.
+    recordSuccess(email);
 
     const authUser = data.user;
 
@@ -192,6 +244,21 @@ const login = async (req, res) => {
       }
     }
 
+    // Session-fixation defence: rotate the session ID before writing
+    // the authenticated user. Without this, an attacker who handed the
+    // victim an anon SID (via XSS, an open redirect, or a phishing
+    // login-link) could ride the session post-auth using the same SID.
+    // Regenerating destroys the pre-auth session and starts a fresh one
+    // — the SID the attacker knew is now dead. Done AFTER all the
+    // student/org lookups so a Supabase blip can't leave the user with
+    // a regenerated-but-empty session.
+    try {
+      await regenerateSession(req);
+    } catch (regenErr) {
+      logger.error({ err: regenErr, email: authUser.email }, "Login: session.regenerate failed");
+      return res.status(500).json({ error: "Login failed — please try again" });
+    }
+
     // Set session — includes org context
     req.session.user = {
       id:         authUser.id,
@@ -237,11 +304,15 @@ const login = async (req, res) => {
   }
 };
 
-/* ── LOGOUT (shared helper) ── */
+/* ── LOGOUT (shared helper) ──
+   clearCookie name MUST match sessionConfig.SESSION_COOKIE_NAME or the
+   browser will keep the dead session cookie alive (orphaned but
+   present), making "logout actually logs out" lukewarm. Imported as a
+   constant so a future rename is a one-line change. */
 function destroySession(req, res, onSuccess) {
   req.session.destroy(err => {
     if (err) return res.status(500).json({ error: "Logout failed" });
-    res.clearCookie("connect.sid");
+    res.clearCookie(SESSION_COOKIE_NAME);
     onSuccess();
   });
 }
@@ -254,17 +325,32 @@ const logoutRedirect = (req, res) => {
   destroySession(req, res, () => res.redirect("/"));
 };
 
-/* ── RESEND VERIFICATION ── */
+/* ── RESEND VERIFICATION ──
+   No-enumeration: we ALWAYS return the same success shape regardless
+   of whether the email exists, is already verified, or is junk. The
+   previous version forwarded Supabase's error.message verbatim, which
+   could distinguish "user not found" from "already verified" from
+   "rate limited" — letting an attacker probe the user table one
+   address at a time. Real outcomes are still logged server-side so an
+   operator can debug a legitimately-stuck user. */
 const resendVerification = async (req, res) => {
   const { email } = req.body;
   if (!email) return res.status(400).json({ error: "Email required" });
   try {
     const { error } = await supabase.auth.resend({ type: "signup", email });
-    if (error) return res.status(400).json({ error: error.message });
-    return res.json({ success: true, message: "Verification email sent" });
-  } catch {
-    return res.status(500).json({ error: "Failed to resend" });
+    if (error) {
+      // Log the real reason, hand the user a generic OK. The most
+      // common cause is Supabase's own rate-limit; the user can wait
+      // and retry without us telling them their address was found.
+      logger.info({ email, reason: error.message }, "resendVerification: upstream declined (response masked)");
+    }
+  } catch (err) {
+    logger.error({ err, email }, "resendVerification: unexpected error (response masked)");
   }
+  return res.json({
+    success: true,
+    message: "If that address has an unverified account, we've sent a new verification email. Check your inbox.",
+  });
 };
 
 /* ── GET SESSION (client polls this to check login state) ── */
@@ -296,7 +382,13 @@ const validateInvite = async (req, res) => {
   });
 };
 
-/* ── FORGOT PASSWORD ── */
+/* ── FORGOT PASSWORD ──
+   No-enumeration: same shape regardless of whether the address is on
+   file. Supabase's resetPasswordForEmail is already silent on hit/miss
+   by design — but the previous code surfaced its `error.message` on
+   rate-limit / network failure, which over time would leak the
+   account-state distribution. Mask the upstream and always say "if
+   that address exists, we sent it". */
 const forgotPassword = async (req, res) => {
   const { email } = req.body;
   if (!email) return res.status(400).json({ error: "Email required" });
@@ -304,11 +396,16 @@ const forgotPassword = async (req, res) => {
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${req.protocol}://${req.get("host")}/login`,
     });
-    if (error) return res.status(400).json({ error: error.message });
-    return res.json({ success: true, message: "Password reset email sent. Check your inbox and click the link." });
-  } catch {
-    return res.status(500).json({ error: "Failed to send reset email" });
+    if (error) {
+      logger.info({ email, reason: error.message }, "forgotPassword: upstream declined (response masked)");
+    }
+  } catch (err) {
+    logger.error({ err, email }, "forgotPassword: unexpected error (response masked)");
   }
+  return res.json({
+    success: true,
+    message: "If an account exists for that address, a password-reset email is on its way. Check your inbox (and spam folder).",
+  });
 };
 
 /* ── RESET PASSWORD (using Supabase recovery token) ── */
