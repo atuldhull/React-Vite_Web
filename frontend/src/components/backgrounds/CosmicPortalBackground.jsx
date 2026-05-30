@@ -225,10 +225,28 @@ export default function CosmicPortalBackground() {
 
     animRef.current = requestAnimationFrame(animate);
 
+    // Pause the rAF loop while the tab is in the background. Browsers
+    // already throttle hidden-tab rAF to ~1 Hz, but the cosmic portal's
+    // per-frame work (8 ring gradients + 100 particles + 150 stars +
+    // 6 beam gradients) still racks up CPU each tick. Explicitly
+    // cancelling on hide and restarting on show takes that to zero.
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") {
+        if (!animRef.current) animRef.current = requestAnimationFrame(animate);
+      } else {
+        if (animRef.current) {
+          cancelAnimationFrame(animRef.current);
+          animRef.current = null;
+        }
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+
     return () => {
       window.removeEventListener("resize", resize);
       window.removeEventListener("mousemove", onMove);
-      cancelAnimationFrame(animRef.current);
+      document.removeEventListener("visibilitychange", onVisibility);
+      if (animRef.current) cancelAnimationFrame(animRef.current);
     };
   }, []);
 

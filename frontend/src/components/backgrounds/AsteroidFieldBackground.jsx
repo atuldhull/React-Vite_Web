@@ -246,10 +246,26 @@ export default function AsteroidFieldBackground() {
 
     animRef.current = requestAnimationFrame(animate);
 
+    // Visibility-pause: stop the canvas loop entirely when the tab
+    // goes background. Browser-default rAF throttling already brings
+    // hidden tabs to ~1 Hz; the explicit cancel takes it to zero.
+    // Cheap insurance against PWA-mode / audio-playing edge cases
+    // where the browser keeps rAF live.
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") {
+        if (!animRef.current) animRef.current = requestAnimationFrame(animate);
+      } else if (animRef.current) {
+        cancelAnimationFrame(animRef.current);
+        animRef.current = null;
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+
     return () => {
       window.removeEventListener("resize", resize);
+      document.removeEventListener("visibilitychange", onVisibility);
       clearInterval(laserInterval);
-      cancelAnimationFrame(animRef.current);
+      if (animRef.current) cancelAnimationFrame(animRef.current);
     };
   }, []);
 
