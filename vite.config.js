@@ -4,6 +4,7 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import glsl from "vite-plugin-glsl";
 import { sentryVitePlugin } from "@sentry/vite-plugin";
+import { visualizer } from "rollup-plugin-visualizer";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -38,10 +39,26 @@ const sentryPlugin =
       })
     : null;
 
+// rollup-plugin-visualizer — opt-in bundle analyser. Activated by
+// `ANALYZE=1 npm run build`. Emits public/app/stats.html with the
+// treemap + sunburst views so a maintainer can see at a glance which
+// chunk a regression came from. Skipped by default so CI builds stay
+// fast and don't accumulate stats files in the build artifact.
+const visualizerPlugin =
+  process.env.ANALYZE
+    ? visualizer({
+        filename: path.resolve(__dirname, "public/app/stats.html"),
+        template: "treemap",
+        gzipSize: true,
+        brotliSize: true,
+        open: false,    // CI / docker hosts don't have a default browser
+      })
+    : null;
+
 export default defineConfig({
   root: path.resolve(__dirname, "frontend"),
   base: "/app/",
-  plugins: [react(), glsl(), sentryPlugin].filter(Boolean),
+  plugins: [react(), glsl(), sentryPlugin, visualizerPlugin].filter(Boolean),
   define: {
     // Available globally in frontend code as __SENTRY_RELEASE__.
     // JSON-stringified so the value is a string literal in the bundle.
