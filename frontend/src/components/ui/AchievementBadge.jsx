@@ -3,11 +3,18 @@
  *
  * Uses the achievement-* CSS classes from theme.css.
  * Rarity tiers: common, uncommon, rare, epic, legendary.
+ *
+ * memo (Phase 13) — list-rendered across the achievements grid on the
+ * profile + dashboard pages. The `achievement` prop arrives from the
+ * achievements store (Zustand) which holds stable object references
+ * until the row mutates, so shallow compare on { achievement,
+ * unlocked, compact, className } correctly hits.
  */
 
+import { memo } from "react";
 import { motion } from "framer-motion";
 
-export default function AchievementBadge({ achievement, unlocked = false, compact = false, className = "" }) {
+function AchievementBadge({ achievement, unlocked = false, compact = false, className = "" }) {
   if (!achievement) return null;
 
   const { icon, title, description, rarity = "common", xp_reward } = achievement;
@@ -55,3 +62,5 @@ export default function AchievementBadge({ achievement, unlocked = false, compac
     </motion.div>
   );
 }
+
+export default memo(AchievementBadge);

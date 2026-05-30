@@ -3,9 +3,16 @@
  *
  * Uses the event-capacity-bar CSS classes from theme.css.
  * Shows count/capacity label and changes color when >80% or full.
+ *
+ * memo (Phase 13) — every event card on the events page renders one.
+ * Props are three primitives (current:number, max:number|null,
+ * className:string), so the default shallow compare is correct and
+ * skips re-renders when the row's counts haven't changed.
  */
 
-export default function CapacityBar({ current = 0, max = null, className = "" }) {
+import { memo } from "react";
+
+function CapacityBar({ current = 0, max = null, className = "" }) {
   if (max === null || max === undefined) {
     return (
       <span className={`font-mono text-[10px] text-text-dim ${className}`}>
@@ -45,3 +52,5 @@ export default function CapacityBar({ current = 0, max = null, className = "" })
     </div>
   );
 }
+
+export default memo(CapacityBar);

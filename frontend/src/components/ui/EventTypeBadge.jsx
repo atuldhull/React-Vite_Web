@@ -2,7 +2,12 @@
  * EventTypeBadge — colored badge for event types.
  *
  * Maps event_type to monument accent colors.
+ *
+ * memo (Phase 13) — same rationale as EventStatusBadge: list-rendered
+ * pure component, primitive props, parent re-renders frequently.
  */
+
+import { memo } from "react";
 
 const TYPE_CONFIG = {
   hackathon:   { label: "Hackathon",   cssVar: "--monument-magma",   icon: "🔥" },
@@ -12,7 +17,7 @@ const TYPE_CONFIG = {
   general:     { label: "Event",       cssVar: "--monument-desert",  icon: "📅" },
 };
 
-export default function EventTypeBadge({ type, showIcon = true, className = "" }) {
+function EventTypeBadge({ type, showIcon = true, className = "" }) {
   const config = TYPE_CONFIG[(type || "general").toLowerCase()] || TYPE_CONFIG.general;
   const accentColor = `var(${config.cssVar})`;
 
@@ -32,3 +37,5 @@ export default function EventTypeBadge({ type, showIcon = true, className = "" }
     </span>
   );
 }
+
+export default memo(EventTypeBadge);

@@ -3,7 +3,16 @@
  *
  * Uses the event status color tokens from theme.css.
  * Follows the same clip-path + mono font pattern as difficulty badges.
+ *
+ * Wrapped in React.memo (Phase 13): this component is rendered inside
+ * event-list maps where the parent re-renders on any state change
+ * (filter toggles, search input, polling). With memo and stable props
+ * the entire badge tree skips reconciliation when status doesn't
+ * change. Props are primitive (status:string, className:string) so
+ * the default shallow compare is the right equality check.
  */
+
+import { memo } from "react";
 
 const STATUS_CONFIG = {
   registering: { label: "Registering", color: "rgb(var(--event-registering))", bg: "rgba(var(--event-registering), 0.12)", border: "rgba(var(--event-registering), 0.3)" },
@@ -16,7 +25,7 @@ const STATUS_CONFIG = {
   past:        { label: "Past",        color: "rgb(var(--event-completed))",   bg: "rgba(var(--event-completed), 0.08)",   border: "rgba(var(--event-completed), 0.15)" },
 };
 
-export default function EventStatusBadge({ status, className = "" }) {
+function EventStatusBadge({ status, className = "" }) {
   const config = STATUS_CONFIG[status] || STATUS_CONFIG.upcoming;
 
   return (
@@ -34,3 +43,5 @@ export default function EventStatusBadge({ status, className = "" }) {
     </span>
   );
 }
+
+export default memo(EventStatusBadge);

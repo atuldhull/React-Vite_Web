@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/cn";
 
@@ -8,7 +9,12 @@ const sizeMap = {
   lg: "h-12 w-12",
 };
 
-export default function Loader({
+// memo (Phase 13) — Loader is held inside every Suspense boundary
+// (one per lazy route, plus inline spinners on async sub-trees).
+// Without memo, every state change in the parent re-runs Loader's
+// framer-motion config calculation. Props are all primitives, so
+// the default shallow compare is correct.
+function Loader({
   variant = "orbit",
   size = "md",
   className,
@@ -85,3 +91,5 @@ export default function Loader({
     </div>
   );
 }
+
+export default memo(Loader);
