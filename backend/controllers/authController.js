@@ -12,6 +12,7 @@ import supabase from "../config/supabase.js";
 import { logger } from "../config/logger.js";
 import { SESSION_COOKIE_NAME } from "../middleware/sessionConfig.js";
 import { isLocked, recordFailure, recordSuccess } from "../lib/loginAttempts.js";
+import { writeAudit, AuditAction } from "../lib/audit.js";
 
 /* Regenerate the session ID before writing user data.
    Defends against session-fixation: an attacker who tricked the victim
@@ -129,6 +130,14 @@ const login = async (req, res) => {
     const lock = isLocked(email);
     if (lock.locked) {
       res.set("Retry-After", String(lock.retryAfterSec));
+      // Locked-and-attempting → audit. Distinguishes "a real user
+      // mistyped 6 times" from "we're being credential-stuffed
+      // against this account from many IPs".
+      writeAudit({
+        action:   AuditAction.ACCOUNT_LOCKED,
+        metadata: { email: String(email || "").toLowerCase(), retryAfterSec: lock.retryAfterSec },
+        req,
+      });
       return res.status(429).json({
         error:   "ACCOUNT_LOCKED",
         message: "Too many failed sign-in attempts. Try again in a few minutes or use 'Forgot password'.",
@@ -156,8 +165,21 @@ const login = async (req, res) => {
         });
       }
       const failState = recordFailure(email);
+      // Audit every credential failure. The metadata.email is the
+      // string the attacker TRIED; we don't reveal whether it was a
+      // real account, just that someone tried it.
+      writeAudit({
+        action:   AuditAction.LOGIN_FAILED,
+        metadata: { email: String(email || "").toLowerCase() },
+        req,
+      });
       if (failState.locked) {
         res.set("Retry-After", String(failState.retryAfterSec));
+        writeAudit({
+          action:   AuditAction.ACCOUNT_LOCKED,
+          metadata: { email: String(email || "").toLowerCase(), retryAfterSec: failState.retryAfterSec },
+          req,
+        });
         return res.status(429).json({
           error:   "ACCOUNT_LOCKED",
           message: "Too many failed sign-in attempts. Try again in a few minutes or use 'Forgot password'.",
@@ -276,6 +298,20 @@ const login = async (req, res) => {
     };
 
     logger.info({ email: authUser.email, role, org: org?.name || null }, "Login successful");
+
+    // Audit the successful login. The metadata email is informational
+    // for the operator; the user_id + IP are the primary search keys
+    // on /super-admin/audit-logs.
+    writeAudit({
+      actorId:    authUser.id,
+      actorRole:  role,
+      orgId:      student?.org_id || null,
+      action:     AuditAction.LOGIN_SUCCESS,
+      targetType: "user",
+      targetId:   authUser.id,
+      metadata:   { email: authUser.email },
+      req,
+    });
 
     // Update last_seen
     supabase.from("students")
@@ -425,6 +461,16 @@ const resetPassword = async (req, res) => {
     if (updateError) return res.status(500).json({ error: updateError.message });
 
     logger.info({ email: user.email }, "Password reset completed");
+    // Audit the recovery-token reset. Pre-session flow → actor_id is
+    // the user being reset (from the recovery token), no role yet.
+    writeAudit({
+      actorId:    user.id,
+      action:     AuditAction.PASSWORD_RESET,
+      targetType: "user",
+      targetId:   user.id,
+      metadata:   { email: user.email, via: "recovery_token" },
+      req,
+    });
     return res.json({ success: true, message: "Password updated successfully" });
   } catch (err) {
     logger.error({ err: err }, "Reset Password");

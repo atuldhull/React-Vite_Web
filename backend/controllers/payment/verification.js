@@ -21,6 +21,7 @@ import { applyPlanUpgrade } from "./upgrade.js";
 import { sendInvoiceEmail } from "./invoiceEmail.js";
 import { logger } from "../../config/logger.js";
 import { sendInternalError } from "../../lib/errorResponse.js";
+import { writeAudit, AuditAction } from "../../lib/audit.js";
 
 export const verifyPayment = async (req, res) => {
   const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
@@ -115,6 +116,25 @@ export const verifyPayment = async (req, res) => {
     console.log(
       `[Payment] \u2713 org=${orgId} upgraded to ${payment.plan_name} | ${razorpay_payment_id}`,
     );
+
+    // Audit the upgrade. The metadata captures the money + plan +
+    // razorpay handle so a future dispute investigation has the full
+    // pre-bagged context without us having to re-join tables.
+    writeAudit({
+      actorId:    req.userId,
+      actorRole:  req.session?.user?.role,
+      orgId,
+      action:     AuditAction.PAYMENT_VERIFIED,
+      targetType: "payment",
+      targetId:   razorpay_payment_id,
+      metadata: {
+        plan_name:      payment.plan_name,
+        amount_paise:   payment.amount,
+        order_id:       razorpay_order_id,
+        expires_at:     expiresAt.toISOString(),
+      },
+      req,
+    });
 
     return res.json({
       success:    true,

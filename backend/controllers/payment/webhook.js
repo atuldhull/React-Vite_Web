@@ -17,6 +17,7 @@ import { applyPlanUpgrade } from "./upgrade.js";
 import { sendNotification } from "../notificationController.js";
 import { logger } from "../../config/logger.js";
 import { sendInternalError } from "../../lib/errorResponse.js";
+import { writeAudit, AuditAction } from "../../lib/audit.js";
 
 const isProd = process.env.NODE_ENV === "production";
 
@@ -87,6 +88,24 @@ export const razorpayWebhook = async (req, res) => {
             { orgId: payment.org_id, plan: payment.plan_name },
             "Webhook org plan upgraded"
           );
+          // Audit the webhook-driven flip. Different action from the
+          // verify path (PAYMENT_VERIFIED) so an investigator can tell
+          // "client-confirmed" from "server-confirmed via Razorpay
+          // callback" — useful when racing the two paths.
+          writeAudit({
+            actorRole: "razorpay_webhook",     // no human actor
+            orgId:     payment.org_id,
+            action:    AuditAction.PAYMENT_WEBHOOK,
+            targetType: "payment",
+            targetId:   payload.id,
+            metadata: {
+              plan_name:    payment.plan_name,
+              amount_paise: payment.amount,
+              order_id:     payload.order_id,
+              event:        "payment.captured",
+            },
+            req,
+          });
         }
       } else {
         // Try the event-registration lookup.

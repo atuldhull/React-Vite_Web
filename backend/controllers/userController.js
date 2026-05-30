@@ -16,6 +16,7 @@
 //      it comes from auth.users.
 import supabase from "../config/supabase.js";
 import { logger } from "../config/logger.js";
+import { writeAudit, AuditAction } from "../lib/audit.js";
 
 /* ── XP → Title mapping ── */
 export const XP_TITLES = [
@@ -263,6 +264,19 @@ export const changePassword = async (req, res) => {
       password: newPassword,
     });
     if (updateError) return res.status(500).json({ error: "Failed to update password" });
+
+    // Audit the in-session password change (distinct from the
+    // recovery-token reset path in authController.resetPassword).
+    writeAudit({
+      actorId:    userId,
+      actorRole:  req.session.user.role,
+      orgId:      req.session.user.org_id,
+      action:     AuditAction.PASSWORD_CHANGED,
+      targetType: "user",
+      targetId:   userId,
+      metadata:   { via: "in_session" },
+      req,
+    });
 
     return res.json({ success: true, message: "Password changed successfully" });
   } catch {
