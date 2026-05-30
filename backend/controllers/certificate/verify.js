@@ -47,6 +47,9 @@ export const verifyCertificate = async (req, res) => {
       .maybeSingle();
 
     if (error) {
+      // Token belongs to the redact path-set so even if a future
+      // refactor passes it through, the logger scrubs it. Logged
+      // alongside so future debugging has SOMETHING to grep on.
       logger.warn({ err: error, token }, "cert verify query failed");
       return res.status(500).json({ valid: false, reason: "lookup failed" });
     }
