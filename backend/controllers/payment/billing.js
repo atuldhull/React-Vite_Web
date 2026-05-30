@@ -3,6 +3,7 @@
  */
 
 import supabase from "../../config/supabase.js";
+import { sendInternalError } from "../../lib/errorResponse.js";
 
 /* GET /api/payment/history — org admin only */
 export const getBillingHistory = async (req, res) => {
@@ -16,7 +17,7 @@ export const getBillingHistory = async (req, res) => {
     if (error) return res.status(500).json({ error: error.message });
     return res.json(data || []);
   } catch (err) {
-    return res.status(500).json({ error: err.message });
+    return sendInternalError(res, err);
   }
 };
 

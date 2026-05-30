@@ -6,6 +6,7 @@
 
 import supabase from "../../config/supabase.js";
 import { logger } from "../../config/logger.js";
+import { sendInternalError } from "../../lib/errorResponse.js";
 
 /* ═══════════════════════════════════════════════════════
    LIST ALL ORGANISATIONS
@@ -136,7 +137,7 @@ export const updateOrganisation = async (req, res) => {
     await req.db.audit("update_org", "organisation", orgId, updates);
     return res.json({ success: true, organisation: data });
   } catch (err) {
-    return res.status(500).json({ error: err.message });
+    return sendInternalError(res, err);
   }
 };
 
@@ -158,7 +159,7 @@ export const setOrgStatus = (newStatus) => async (req, res) => {
     await req.db.audit(`${newStatus}_org`, "organisation", orgId, { reason });
     return res.json({ success: true, status: newStatus });
   } catch (err) {
-    return res.status(500).json({ error: err.message });
+    return sendInternalError(res, err);
   }
 };
 
@@ -181,7 +182,7 @@ export const forceSuspendOrgUsers = async (req, res) => {
     await req.db.audit("force_suspend_users", "organisation", orgId, { reason, affected: count });
     return res.json({ success: true, affected: count });
   } catch (err) {
-    return res.status(500).json({ error: err.message });
+    return sendInternalError(res, err);
   }
 };
 
@@ -207,6 +208,6 @@ export const deleteOrganisation = async (req, res) => {
     await req.db.audit("delete_org", "organisation", orgId, { org_name: org?.name });
     return res.json({ success: true, message: `Organisation ${org?.name} deleted` });
   } catch (err) {
-    return res.status(500).json({ error: err.message });
+    return sendInternalError(res, err);
   }
 };

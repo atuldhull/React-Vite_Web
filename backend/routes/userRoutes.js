@@ -3,6 +3,7 @@ import { getProfile, updateProfile, getUserStats, changePassword, getTestHistory
 import { requireAuth } from "../middleware/authMiddleware.js";
 import { validateBody } from "../validators/common.js";
 import { updateProfileSchema, changePasswordSchema } from "../validators/user.js";
+import { sendInternalError } from "../lib/errorResponse.js";
 
 const router = express.Router();
 
@@ -25,7 +26,7 @@ router.get("/student/:userId",  requireAuth, async (req, res) => {
     if (!data) return res.status(404).json({ error: "Student not found" });
     res.json(data);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendInternalError(res, err);
   }
 });
 

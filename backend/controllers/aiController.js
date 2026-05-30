@@ -11,6 +11,7 @@
 import axios   from "axios";
 import supabase from "../config/supabase.js";
 import { logger } from "../config/logger.js";
+import { sendInternalError } from "../lib/errorResponse.js";
 
 const TOPICS = [
   "Matrices and Linear Algebra", "Differential Calculus", "Integral Calculus",
@@ -124,7 +125,7 @@ Return ONLY this JSON (no markdown, no extra text):
 
   } catch (err) {
     logger.error({ err: err }, "AI Error");
-    return res.status(500).json({ error: err.message });
+    return sendInternalError(res, err);
   }
 };
 
@@ -188,6 +189,6 @@ Return ONLY this JSON:
     return res.json(aiData);
 
   } catch (err) {
-    return res.status(500).json({ error: err.message });
+    return sendInternalError(res, err);
   }
 };

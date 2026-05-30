@@ -14,12 +14,15 @@
 import { catchAsync } from "../lib/asyncHandler.js";
 import { findBannedWord } from "../lib/contentFilter.js";
 
-/* GET ACTIVE ANNOUNCEMENTS — GET /api/announcements */
+/* GET ACTIVE ANNOUNCEMENTS — GET /api/announcements
+   Explicit column list — the previous select("*") returned org_id and
+   created_by on every announcement row, which a student client doesn't
+   need to render anything. We only ship what the UI actually consumes. */
 export const getAnnouncements = catchAsync(async (req, res) => {
   const role = req.session?.user?.role || "student";
   const { data, error } = await req.db
     .from("announcements")
-    .select("*")
+    .select("id, title, body, target_role, created_at")
     .eq("is_active", true)
     .or(`target_role.eq.all,target_role.eq.${role}`)
     .order("created_at", { ascending: false })

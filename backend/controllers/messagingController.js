@@ -13,6 +13,7 @@ import {
   computeRelationshipState,
   computeRelationshipStateBatch,
 } from "../lib/relationshipState.js";
+import { sendInternalError } from "../lib/errorResponse.js";
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -72,7 +73,7 @@ export async function registerPublicKey(req, res) {
 
     res.json({ success: true });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendInternalError(res, err);
   }
 }
 
@@ -95,7 +96,7 @@ export async function getPublicKey(req, res) {
     if (!data) return res.status(404).json({ error: "User has no public key" });
     res.json({ publicKey: JSON.parse(data.public_key) });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendInternalError(res, err);
   }
 }
 
@@ -155,7 +156,7 @@ export async function sendFriendRequest(req, res) {
 
     res.json(data);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendInternalError(res, err);
   }
 }
 
@@ -198,7 +199,7 @@ export async function respondFriendRequest(req, res) {
       res.json({ status: "rejected" });
     }
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendInternalError(res, err);
   }
 }
 
@@ -228,7 +229,7 @@ export async function getFriends(req, res) {
 
     res.json(profiles || []);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendInternalError(res, err);
   }
 }
 
@@ -258,7 +259,7 @@ export async function getPendingRequests(req, res) {
 
     res.json(result);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendInternalError(res, err);
   }
 }
 
@@ -319,7 +320,7 @@ export async function getOrCreateConversation(req, res) {
 
     res.json(conv);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendInternalError(res, err);
   }
 }
 
@@ -370,7 +371,7 @@ export async function getConversations(req, res) {
 
     res.json(result);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendInternalError(res, err);
   }
 }
 
@@ -418,7 +419,7 @@ export async function sendMessage(req, res) {
 
     res.json(msg);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendInternalError(res, err);
   }
 }
 
@@ -431,10 +432,12 @@ export async function getMessages(req, res) {
     const limit = parseInt(req.query.limit) || 50;
     const offset = (page - 1) * limit;
 
-    // Verify user is part of conversation
+    // Verify user is part of conversation. Only the participant cols
+    // are needed for the auth check — narrowing the select keeps the
+    // intent obvious and the row payload small.
     const { data: conv } = await supabase
       .from("conversations")
-      .select("*")
+      .select("participant_a, participant_b")
       .eq("id", conversationId)
       .single();
 
@@ -442,16 +445,20 @@ export async function getMessages(req, res) {
       return res.status(403).json({ error: "Not in this conversation" });
     }
 
+    // Explicit column list — every field below is consumed by the
+    // chat UI. Same set as the table columns today; pinning makes a
+    // future schema add (e.g. server-side moderation flags) opt-in
+    // rather than auto-leaking through every fetch.
     const { data: messages } = await supabase
       .from("messages")
-      .select("*")
+      .select("id, conversation_id, sender_id, encrypted_content, iv, message_type, is_read, read_at, created_at")
       .eq("conversation_id", conversationId)
       .order("created_at", { ascending: false })
       .range(offset, offset + limit - 1);
 
     res.json(messages || []);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendInternalError(res, err);
   }
 }
 
@@ -470,7 +477,7 @@ export async function markAsRead(req, res) {
 
     res.json({ success: true });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendInternalError(res, err);
   }
 }
 
@@ -494,7 +501,7 @@ export async function searchUsers(req, res) {
 
     res.json(data || []);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendInternalError(res, err);
   }
 }
 
@@ -516,7 +523,7 @@ export async function blockUser(req, res) {
 
     res.json({ success: true });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendInternalError(res, err);
   }
 }
 
@@ -534,7 +541,7 @@ export async function reportMessage(req, res) {
 
     res.json({ success: true });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendInternalError(res, err);
   }
 }
 
@@ -542,9 +549,13 @@ export async function reportMessage(req, res) {
 export async function getChatSettings(req, res) {
   try {
     const userId = req.session.user.id;
+    // Explicit column list mirrors the default object built below —
+    // both branches now return the same exact key set, which keeps the
+    // UI from racing on optional columns and stops a future column
+    // (a moderation flag, etc.) from auto-leaking through the wire.
     const { data } = await supabase
       .from("chat_settings")
-      .select("*")
+      .select("allow_messages_from, show_online_status, show_read_receipts, show_last_seen, profile_visibility, show_activity_feed, show_friend_list")
       .eq("user_id", userId)
       .single();
 
@@ -566,7 +577,7 @@ export async function getChatSettings(req, res) {
       show_friend_list:   true,
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendInternalError(res, err);
   }
 }
 
@@ -609,7 +620,7 @@ export async function updateChatSettings(req, res) {
 
     res.json({ success: true });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendInternalError(res, err);
   }
 }
 
@@ -632,7 +643,7 @@ export async function getRelationship(req, res) {
     const state = await computeRelationshipState(supabase, viewerId, targetId);
     res.json(state);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendInternalError(res, err);
   }
 }
 
@@ -654,7 +665,7 @@ export async function getRelationshipsBatch(req, res) {
     const map = await computeRelationshipStateBatch(supabase, viewerId, userIds);
     res.json(map);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendInternalError(res, err);
   }
 }
 
@@ -689,7 +700,7 @@ export async function cancelFriendRequest(req, res) {
     }
     res.json({ success: true });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendInternalError(res, err);
   }
 }
 
@@ -730,6 +741,6 @@ export async function unfriend(req, res) {
     await supabase.from("friendships").delete().eq("id", friendshipId);
     res.json({ success: true });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendInternalError(res, err);
   }
 }

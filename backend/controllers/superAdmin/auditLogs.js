@@ -5,6 +5,7 @@
  */
 
 import supabase from "../../config/supabase.js";
+import { sendInternalError } from "../../lib/errorResponse.js";
 
 /* ═══════════════════════════════════════════════════════
    AUDIT LOGS
@@ -29,6 +30,6 @@ export const getAuditLogs = async (req, res) => {
 
     return res.json({ data: data || [], total: count, page: Number(page) });
   } catch (err) {
-    return res.status(500).json({ error: err.message });
+    return sendInternalError(res, err);
   }
 };

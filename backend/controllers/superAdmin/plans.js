@@ -5,6 +5,7 @@
  */
 
 import supabase from "../../config/supabase.js";
+import { sendInternalError } from "../../lib/errorResponse.js";
 
 /* ═══════════════════════════════════════════════════════
    ASSIGN PLAN
@@ -34,7 +35,7 @@ export const assignPlan = async (req, res) => {
     await req.db.audit("assign_plan", "organisation", orgId, { plan_name, expires_at });
     return res.json({ success: true, plan_name });
   } catch (err) {
-    return res.status(500).json({ error: err.message });
+    return sendInternalError(res, err);
   }
 };
 
@@ -66,7 +67,7 @@ export const setFeatureFlags = async (req, res) => {
     await req.db.audit("set_feature_flags", "organisation", orgId, { flags });
     return res.json({ success: true, feature_flags: merged });
   } catch (err) {
-    return res.status(500).json({ error: err.message });
+    return sendInternalError(res, err);
   }
 };
 
@@ -106,6 +107,6 @@ export const listPlatformPayments = async (req, res) => {
 
     return res.json(rows);
   } catch (err) {
-    return res.status(500).json({ error: err.message });
+    return sendInternalError(res, err);
   }
 };

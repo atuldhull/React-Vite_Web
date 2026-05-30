@@ -20,6 +20,7 @@ import { paymentSigningKey } from "./config.js";
 import { applyPlanUpgrade } from "./upgrade.js";
 import { sendInvoiceEmail } from "./invoiceEmail.js";
 import { logger } from "../../config/logger.js";
+import { sendInternalError } from "../../lib/errorResponse.js";
 
 export const verifyPayment = async (req, res) => {
   const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
@@ -123,6 +124,6 @@ export const verifyPayment = async (req, res) => {
     });
   } catch (err) {
     logger.error({ err: err }, "Payment verifyPayment error");
-    return res.status(500).json({ error: err.message });
+    return sendInternalError(res, err);
   }
 };

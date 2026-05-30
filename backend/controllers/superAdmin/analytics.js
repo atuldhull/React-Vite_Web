@@ -6,6 +6,7 @@
 
 import supabase from "../../config/supabase.js";
 import { logger } from "../../config/logger.js";
+import { sendInternalError } from "../../lib/errorResponse.js";
 
 /* ═══════════════════════════════════════════════════════
    PLATFORM ANALYTICS
@@ -107,7 +108,7 @@ export const getGlobalLeaderboard = async (req, res) => {
       org_slug: s.organisations?.slug,
     })));
   } catch (err) {
-    return res.status(500).json({ error: err.message });
+    return sendInternalError(res, err);
   }
 };
 
@@ -149,6 +150,6 @@ export const getOrgStats = async (req, res) => {
       org,
     });
   } catch (err) {
-    return res.status(500).json({ error: err.message });
+    return sendInternalError(res, err);
   }
 };

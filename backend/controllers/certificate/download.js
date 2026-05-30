@@ -5,6 +5,7 @@
 // prop.
 import { buildCertificate } from "./pdf.js";
 import { ASSET_DIR }        from "./helpers.js";
+import { sendInternalError } from "../../lib/errorResponse.js";
 
 // Tenant scoping: every DB call below uses req.db.from(...) which is
 // installed by injectTenant on /api routes. The Proxy auto-adds
@@ -72,8 +73,9 @@ export const previewCertificate = async (req, res) => {
     res.setHeader("Content-Disposition", "inline; filename=\"preview.pdf\"");
     return res.send(pdfBuf);
   } catch (err) {
-    logger.error({ err: err }, "Preview");
-    return res.status(500).json({ error: err.message.slice(0, 300) });
+    // Helper logs + scrubs message in prod. The previous .slice(0, 300)
+    // capped the leak but didn't eliminate it.
+    return sendInternalError(res, err, "certificate preview");
   }
 };
 
@@ -112,7 +114,7 @@ export const downloadCertificate = async (req, res) => {
     res.setHeader("Content-Type",        "application/pdf");
     res.setHeader("Content-Disposition", `attachment; filename="Certificate_${cert.recipient_name.replace(/\s+/g,"_")}.pdf"`);
     return res.send(pdfBuf);
-  } catch (err) { return res.status(500).json({ error: err.message }); }
+  } catch (err) { return sendInternalError(res, err); }
 };
 
 /* ═══════════════════════════════════════════════════════════════

@@ -8,6 +8,7 @@
 
 import supabase from "../config/supabase.js";
 import { logger } from "../config/logger.js";
+import { sendInternalError } from "../lib/errorResponse.js";
 
 /* ═══════════════════════════════════════════════════════
    ORG DASHBOARD STATS
@@ -84,7 +85,7 @@ export const listOrgUsers = async (req, res) => {
 
     return res.json({ data: filtered, total: count, page: Number(page) });
   } catch (err) {
-    return res.status(500).json({ error: err.message });
+    return sendInternalError(res, err);
   }
 };
 
@@ -122,7 +123,7 @@ export const updateUserRole = async (req, res) => {
     await req.db.audit("update_user_role", "student", userId, { new_role: role, name: user.name });
     return res.json({ success: true, role });
   } catch (err) {
-    return res.status(500).json({ error: err.message });
+    return sendInternalError(res, err);
   }
 };
 
@@ -148,7 +149,7 @@ export const setUserStatus = (isActive) => async (req, res) => {
     await req.db.audit(isActive ? "activate_user" : "suspend_user", "student", userId, { name: user.name });
     return res.json({ success: true, is_active: isActive });
   } catch (err) {
-    return res.status(500).json({ error: err.message });
+    return sendInternalError(res, err);
   }
 };
 
@@ -205,7 +206,7 @@ export const inviteUser = async (req, res) => {
     });
   } catch (err) {
     if (err.code === "23505") return res.status(400).json({ error: "An invite for this email already exists" });
-    return res.status(500).json({ error: err.message });
+    return sendInternalError(res, err);
   }
 };
 
@@ -222,7 +223,7 @@ export const getBranding = async (req, res) => {
       .single();
     return res.json(data || {});
   } catch (err) {
-    return res.status(500).json({ error: err.message });
+    return sendInternalError(res, err);
   }
 };
 
@@ -255,7 +256,7 @@ export const updateBranding = async (req, res) => {
     await req.db.audit("update_branding", "organisation", req.orgId, updates);
     return res.json({ success: true });
   } catch (err) {
-    return res.status(500).json({ error: err.message });
+    return sendInternalError(res, err);
   }
 };
 
@@ -286,7 +287,7 @@ export const getOrgAnalytics = async (req, res) => {
 
     return res.json({ activeUsers, topStudents, challenges });
   } catch (err) {
-    return res.status(500).json({ error: err.message });
+    return sendInternalError(res, err);
   }
 };
 

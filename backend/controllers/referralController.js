@@ -12,6 +12,7 @@
 
 import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
+import { sendInternalError } from "../lib/errorResponse.js";
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -75,7 +76,7 @@ export async function getMyReferralCode(req, res) {
     if (error) throw error;
     res.json({ code });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendInternalError(res, err);
   }
 }
 
@@ -206,7 +207,7 @@ export async function applyReferralCode(req, res) {
       referredXP: REFERRED_XP,
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendInternalError(res, err);
   }
 }
 
@@ -254,7 +255,7 @@ export async function getMyReferralStats(req, res) {
       recentReferrals: (referrals || []).slice(0, 10),
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendInternalError(res, err);
   }
 }
 
@@ -299,7 +300,7 @@ export async function getReferralLeaderboard(req, res) {
 
     res.json(leaderboard);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendInternalError(res, err);
   }
 }
 
@@ -327,6 +328,6 @@ export async function validateCode(req, res) {
 
     res.json({ valid: true, referrerName: profile?.name || "A member" });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendInternalError(res, err);
   }
 }

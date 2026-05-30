@@ -26,6 +26,7 @@
 import supabase from "../config/supabase.js";
 import { computeRelationshipState } from "../lib/relationshipState.js";
 import { computeProfileAccess, makePrivateProfileCard } from "../lib/profileAccess.js";
+import { sendInternalError } from "../lib/errorResponse.js";
 
 /* ─────────────────────────────────────────────────────────────
    Shared helper — fetch the three pieces every endpoint needs:
@@ -136,7 +137,7 @@ export async function getProfile(req, res) {
       relationship,
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendInternalError(res, err);
   }
 }
 
@@ -237,7 +238,7 @@ export async function getFriendsList(req, res) {
 
     res.json({ friends, total: count || 0, hiddenByUser: false, page, limit });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendInternalError(res, err);
   }
 }
 
@@ -331,7 +332,7 @@ export async function getActivity(req, res) {
 
     res.json({ items: pageItems, hiddenByUser: false, page, limit, hasMore });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendInternalError(res, err);
   }
 }
 
@@ -398,6 +399,6 @@ export async function getMutualFriends(req, res) {
       count: mutualIds.length,
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendInternalError(res, err);
   }
 }

@@ -19,6 +19,7 @@ import archiver from "archiver";
 // each, plus backfill — see migration 14 for the pattern).
 import supabase from "../../config/supabase.js";
 import { logger } from "../../config/logger.js";
+import { sendInternalError } from "../../lib/errorResponse.js";
 
 /* ═══════════════════════════════════════════════════════════════
    EXPORT ALL DATA — ZIP with CSV files
@@ -101,7 +102,11 @@ export const exportAllData = async (req, res) => {
     res.setHeader("Content-Disposition", `attachment; filename="math-collective-export-${new Date().toISOString().slice(0,10)}.zip"`);
 
     const archive = archiver("zip", { zlib: { level: 9 } });
-    archive.on("error", (err) => res.status(500).json({ error: err.message }));
+    // By the time this fires the zip stream is mid-flight (Content-Type
+    // header is set above), so headersSent is true and the helper's
+    // res-write is a no-op. The point is the structured log + Sentry
+    // hook the helper still triggers.
+    archive.on("error", (err) => sendInternalError(res, err, "data export zip stream"));
     archive.pipe(res);
 
     // Add summary

@@ -5,6 +5,7 @@
  */
 
 import supabase from "../../config/supabase.js";
+import { sendInternalError } from "../../lib/errorResponse.js";
 
 /* ═══════════════════════════════════════════════════════
    IMPERSONATION — Enter an org as admin
@@ -47,7 +48,7 @@ export const startImpersonation = async (req, res) => {
       org_name: org.name,
     });
   } catch (err) {
-    return res.status(500).json({ error: err.message });
+    return sendInternalError(res, err);
   }
 };
 
@@ -76,6 +77,6 @@ export const stopImpersonation = async (req, res) => {
 
     return res.json({ success: true, message: "Exited impersonation mode" });
   } catch (err) {
-    return res.status(500).json({ error: err.message });
+    return sendInternalError(res, err);
   }
 };

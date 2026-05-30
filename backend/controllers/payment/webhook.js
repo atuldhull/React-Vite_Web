@@ -16,6 +16,7 @@ import { webhookSecret } from "./config.js";
 import { applyPlanUpgrade } from "./upgrade.js";
 import { sendNotification } from "../notificationController.js";
 import { logger } from "../../config/logger.js";
+import { sendInternalError } from "../../lib/errorResponse.js";
 
 const isProd = process.env.NODE_ENV === "production";
 
@@ -118,7 +119,7 @@ export const razorpayWebhook = async (req, res) => {
   } catch (err) {
     logger.error({ err: err }, "Webhook Error");
     // Return 500 so Razorpay retries — don't swallow silently.
-    return res.status(500).json({ error: err.message });
+    return sendInternalError(res, err);
   }
 };
 

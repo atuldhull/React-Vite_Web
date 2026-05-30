@@ -42,6 +42,7 @@ import supabase from "../../config/supabase.js";
 import { logger } from "../../config/logger.js";
 import { sendNotification } from "../notificationController.js";
 import { getRazorpay, publicKeyId, isConfigured as razorpayConfigured } from "../payment/config.js";
+import { sendInternalError } from "../../lib/errorResponse.js";
 
 /* ─────────────────────────────────────────────────────────────────
    POST /api/events/:id/registrations/:regId/pay
@@ -454,7 +455,6 @@ export const createEventPaymentOrder = async (req, res) => {
       registration_id: regId,
     });
   } catch (err) {
-    logger.error({ err, regId, eventId }, "createEventPaymentOrder");
-    return res.status(500).json({ error: err.message || "Order creation failed" });
+    return sendInternalError(res, err, "createEventPaymentOrder", { regId, eventId });
   }
 };

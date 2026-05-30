@@ -10,12 +10,15 @@ import { logger } from "../config/logger.js";
 
 const router = express.Router();
 
-/* ── GET comments for a challenge ── */
+/* ── GET comments for a challenge ──
+   Explicit column list. The previous select("*") shipped the user_id
+   of every commenter to every viewer — clients only need the display
+   name + content + is_ai flag for rendering. */
 router.get("/:challengeId", async (req, res) => {
   try {
     const { data, error } = await supabase
       .from("challenge_comments")
-      .select("*")
+      .select("id, challenge_id, user_name, content, is_ai, created_at")
       .eq("challenge_id", req.params.challengeId)
       .order("created_at", { ascending: true })
       .limit(50);
