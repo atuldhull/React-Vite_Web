@@ -46,10 +46,25 @@ CREATE INDEX IF NOT EXISTS idx29_students_weekly_xp
 CREATE INDEX IF NOT EXISTS idx29_students_org_xp
   ON public.students (org_id, xp DESC);
 
--- Presence: "users seen in the last X minutes" surfaces on the
--- admin dashboard and the leaderboard hover-cards.
-CREATE INDEX IF NOT EXISTS idx29_students_last_seen
-  ON public.students (last_seen_at DESC);
+-- Presence: "users seen in the last X minutes". The students table
+-- on this deployment does NOT have a last_seen_at column (the code
+-- in authController.login writes to it but the .then(()=>{}) fire-
+-- and-forget swallows the column-doesn't-exist error). The index is
+-- wrapped in a DO block that checks for the column first so this
+-- migration stays portable: it builds the index where the column
+-- exists, no-ops where it doesn't, and never aborts the whole
+-- script on a single missing column.
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+     WHERE table_schema = 'public' AND table_name = 'students'
+       AND column_name = 'last_seen_at'
+  ) THEN
+    EXECUTE 'CREATE INDEX IF NOT EXISTS idx29_students_last_seen
+             ON public.students (last_seen_at DESC)';
+  END IF;
+END $$;
 
 -- email lookup (Supabase auth → student row). Already a unique
 -- constraint, but explicit index helps the planner pick it
