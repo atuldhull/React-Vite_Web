@@ -52,13 +52,25 @@ export const requireAuth = async (req, res, next) => {
   req.userId = req.session.user.id;
   req.userRole = req.session.user.role;
 
-  // Update last_seen_at (async, don't await — non-blocking)
+  // Best-effort presence ping. Fires on every authenticated request
+  // (every read, every API call) so it MUST stay non-blocking. The
+  // previous .then(()=>{}).catch(()=>{}) buried every error — the
+  // students.last_seen_at column didn't exist on the deploy for
+  // months and nobody noticed because the .catch ate the
+  // "column does not exist" error. Migration 30 added the column;
+  // the explicit error log surfaces any FUTURE schema regression
+  // to operators (rate-limited by pino itself; under normal
+  // operation this branch never fires).
   supabase
     .from("students")
     .update({ last_seen_at: new Date().toISOString() })
     .eq("user_id", req.userId)
-    .then(() => {})
-    .catch(() => {});
+    .then(({ error }) => {
+      if (error) logger.warn({ err: error, userId: req.userId }, "last_seen_at update failed (auth middleware)");
+    })
+    .catch((err) => {
+      logger.warn({ err, userId: req.userId }, "last_seen_at update threw (auth middleware)");
+    });
 
   next();
 };

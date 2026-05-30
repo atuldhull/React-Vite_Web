@@ -313,11 +313,21 @@ const login = async (req, res) => {
       req,
     });
 
-    // Update last_seen
+    // Best-effort presence ping. Doesn't await — login must not
+    // block on a presence write. The old version silently dropped
+    // the result with .then(()=>{}), which masked the fact that
+    // the students.last_seen_at column didn't exist on the deploy
+    // for months (every login was firing a failed UPDATE). Migration
+    // 30 added the column; the .catch here surfaces any FUTURE
+    // schema-regression to operators via the structured logger
+    // (the global error handler isn't on this path because we're
+    // not awaiting).
     supabase.from("students")
       .update({ last_seen_at: new Date().toISOString() })
       .eq("user_id", authUser.id)
-      .then(() => {});
+      .then(({ error }) => {
+        if (error) logger.warn({ err: error, userId: authUser.id }, "last_seen_at update failed (login)");
+      });
 
     // Role-based redirect
     const redirectMap = {
