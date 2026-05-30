@@ -1,0 +1,38 @@
+# gitleaks config — narrow allowlist for KNOWN false positives.
+#
+# This file is read by the Security workflow's gitleaks job
+# (.github/workflows/security.yml). The default ruleset stays on via
+# `useDefault = true` — we ADD allowlist entries, we don't subtract
+# rules. Anything not matched by an allowlist entry is still scanned.
+#
+# When adding a new entry, document WHY it's safe to allow. A blanket
+# `paths = ["tests/.*"]` would hide future real leaks in test fixtures.
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Known false positives in this repo"
+
+paths = [
+  # Phase-8 redaction unit tests. The file's whole point is to assert
+  # the logger scrubs a literal secret-shaped string — it defines
+  # `const SECRET_MARKER = "S3CRET-V4LU3-XYZ"` as a SYNTHETIC sentinel
+  # that gitleaks's generic-api-key rule (16-char alnum literal) matches.
+  # Allowing only this one file keeps the rest of tests/ under scan.
+  '''tests/unit/logger-redaction\.test\.js''',
+
+  # .env.example carries STUB credential values (eyJhbGci... for the
+  # Supabase JWT shape, rzp_test_... for Razorpay) so a new contributor
+  # can `cp .env.example .env.local` and know the field shapes. None
+  # of these are real, but gitleaks's JWT + razorpay rules match the
+  # placeholders.
+  '''\.env\.example$''',
+]
+
+regexes = [
+  # The deliberate sentinel used across redaction tests. Pin it by
+  # value so any other file that legitimately needs this exact marker
+  # (none today, but the test file may grow) is also allowlisted.
+  '''S3CRET-V4LU3-XYZ''',
+]

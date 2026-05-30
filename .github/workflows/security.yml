@@ -155,33 +155,42 @@ jobs:
 
       # 5.1: any new `res.status(500).json({error: err.message})` reverts
       # the Phase-7 hardening. The helper sendInternalError() is the
-      # approved shape.
+      # approved shape. Comment-line matches are filtered out so the
+      # doc strings in errorResponse.js / galleryController.js that
+      # mention the OLD pattern don't trip the gate.
       - name: No raw err.message in 500 responses (Phase 7)
         run: |
           set +e
-          MATCHES=$(grep -rn 'status(500)\.json({\s*error:\s*err\.message' backend/ --include='*.js')
+          MATCHES=$(grep -rn 'status(500)\.json({\s*error:\s*err\.message' backend/ --include='*.js' \
+            | grep -vE ':[[:space:]]*(\*|//|/\*)')
           if [ -n "$MATCHES" ]; then
             echo "::warning::found err.message leak — use sendInternalError(res, err)"
             echo "$MATCHES"
           else
-            echo "✓ no err.message leaks"
+            echo "✓ no err.message leaks (comments allowed)"
           fi
 
       # 5.2: SESSION_SECRET must never have a literal-string `||` fallback.
       # Already pinned by tests/unit/session-secret-no-fallback.test.js;
       # repeating as a CI grep gate so a PR reviewer sees it in the diff
       # context without having to run the test suite.
+      #
+      # The second grep filters out matches that are inside JSDoc /
+      # line comments — sessionConfig.js + env.js both DOCUMENT the
+      # removed fallback in comments, and the gate was mistaking those
+      # for live code. A line whose first non-whitespace chars are
+      # `*`, `//`, or `/*` is a comment and not enforced.
       - name: No SESSION_SECRET literal fallback (Phase 2)
         run: |
           set +e
-          # Pattern: SESSION_SECRET || "...something..."
-          MATCHES=$(grep -rnE 'SESSION_SECRET\s*\|\|\s*["'\'']' backend/ --include='*.js')
+          MATCHES=$(grep -rnE 'SESSION_SECRET\s*\|\|\s*["'\'']' backend/ --include='*.js' \
+            | grep -vE ':[[:space:]]*(\*|//|/\*)')
           if [ -n "$MATCHES" ]; then
             echo "::error::SESSION_SECRET || fallback found — env validator must own this"
             echo "$MATCHES"
             exit 1
           fi
-          echo "✓ no SESSION_SECRET fallback"
+          echo "✓ no SESSION_SECRET fallback (comments allowed)"
 
       # 5.3: VITE_* env-var grep — refuse anything VITE-prefixed in
       # backend/ except in .env.example and config/env.js (the

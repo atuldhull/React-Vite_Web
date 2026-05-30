@@ -40,37 +40,26 @@
          • dns-prefetch to api.razorpay.com — only hit on the payment
            page, but the resolver lookup is essentially free to
            speculatively warm and a few ms saved at checkout matters.
-         • Fontshare CSS request: NON-BLOCKING via the preload-swap
-           pattern below. Without this, the <link rel="stylesheet">
-           was a render-blocking dependency on a third-party CDN that
-           could stall LCP by hundreds of ms on a flaky network. The
-           preload-then-set-rel pattern lets the browser fetch the
-           font CSS in parallel with everything else and apply it
-           once it arrives — FOUT is intentional, matches the
-           display=swap directive in the URL.
-         • The <noscript> fallback keeps fonts working for crawlers
-           and assistive tech that doesn't run JS.
+         • Fontshare CSS: ordinary <link rel="stylesheet"> with
+           font-display=swap. The earlier preload-then-onload-swap
+           trick was reverted because it required an inline `onload`
+           event-handler attribute, which our CSP blocks via
+           script-src-attr 'none' (rightly so — the policy is what
+           keeps a stored-XSS payload from running an onerror= or
+           onclick= handler injected into a comment). With the
+           preconnect already warming the connection, the perf cost
+           of a render-blocking stylesheet over a primed channel is
+           single-digit ms — not worth weakening the CSP for.
          ════════════════════════════════════════════════════════════ -->
     <link rel="preconnect"   href="https://api.fontshare.com" crossorigin />
     <link rel="preconnect"   href="https://cdn.fontshare.com" crossorigin />
     <link rel="dns-prefetch" href="https://api.razorpay.com" />
     <link rel="dns-prefetch" href="https://checkout.razorpay.com" />
 
-    <!-- font-display=swap directive is preserved in the URL — the
-         browser will paint with the fallback stack first and swap in
-         Satoshi / Clash Display once they arrive. -->
     <link
-      rel="preload"
-      as="style"
+      rel="stylesheet"
       href="https://api.fontshare.com/v2/css?f%5B%5D=satoshi@300,400,500,600,700,800,900&f%5B%5D=clash-display@500,600,700&display=swap"
-      onload="this.onload=null;this.rel='stylesheet'"
     />
-    <noscript>
-      <link
-        rel="stylesheet"
-        href="https://api.fontshare.com/v2/css?f%5B%5D=satoshi@300,400,500,600,700,800,900&f%5B%5D=clash-display@500,600,700&display=swap"
-      />
-    </noscript>
 
     <link rel="manifest" href="/app/manifest.json" />
     <meta name="theme-color" content="#7c3aed" />
