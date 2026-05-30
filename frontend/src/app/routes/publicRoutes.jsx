@@ -30,6 +30,10 @@ const RichProfilePage    = lazy(() => import("@/features/profile/pages/RichProfi
 const BillingPage        = lazy(() => import("@/features/student/pages/BillingPage"));
 const LiveQuizPage       = lazy(() => import("@/features/student/pages/LiveQuizPage"));
 const TestHistoryPage    = lazy(() => import("@/features/student/pages/TestHistoryPage"));
+// Problem-statement catalogue — auth-gated browse of SIH / GSoC /
+// Kaggle / MLH / open-source problems. List + detail pages.
+const ProblemsListPage   = lazy(() => import("@/features/problems/pages/ProblemsListPage"));
+const ProblemDetailPage  = lazy(() => import("@/features/problems/pages/ProblemDetailPage"));
 
 /**
  * Phase 15 — redirect the legacy /student/:userId route onto
@@ -71,5 +75,9 @@ export const publicRoutes = (
     <Route path="student/:userId" element={<ProtectedRoute><StudentUserIdRedirect /></ProtectedRoute>} />
     <Route path="live-quiz"     element={<ProtectedRoute><LiveQuizPage /></ProtectedRoute>} />
     <Route path="history"       element={<ProtectedRoute><TestHistoryPage /></ProtectedRoute>} />
+
+    {/* ── Problem-statement catalogue (auth-gated browse) ── */}
+    <Route path="problems"             element={<ProtectedRoute><ProblemsListPage /></ProtectedRoute>} />
+    <Route path="problems/:slugOrId"   element={<ProtectedRoute><ProblemDetailPage /></ProtectedRoute>} />
   </Route>
 );

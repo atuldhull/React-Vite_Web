@@ -31,6 +31,7 @@ import insightsRoutes     from "./insightsRoutes.js";
 import statsRoutes        from "./statsRoutes.js";
 import healthRoutes       from "./healthRoutes.js";
 import coreTeamRoutes     from "./coreTeamRoutes.js";
+import problemRoutes      from "./problemRoutes.js";
 import { authLimiter, contactLimiter } from "../middleware/rateLimiter.js";
 
 export default function registerApiRoutes(app) {
@@ -66,4 +67,5 @@ export default function registerApiRoutes(app) {
   app.use("/api/insights",      insightsRoutes);
   app.use("/api/stats",         statsRoutes);
   app.use("/api/core",          coreTeamRoutes);
+  app.use("/api/problems",      problemRoutes);
 }

@@ -239,6 +239,7 @@ export default function MainLayout() {
                         {[
                           { to: "/dashboard", label: "Dashboard" },
                           { to: "/arena", label: "Arena" },
+                          { to: "/problems", label: "Problems" },
                           { to: "/projects", label: "Projects" },
                           { to: "/profile", label: "Profile" },
                           { to: "/certificates", label: "Certificates" },
@@ -335,6 +336,7 @@ export default function MainLayout() {
             <div className="flex flex-wrap justify-center gap-4 font-mono text-[11px] text-text-muted sm:gap-6">
               <Link to="/leaderboard" className="transition hover:text-white">Leaderboard</Link>
               <Link to="/events" className="transition hover:text-white">Events</Link>
+              <Link to="/problems" className="transition hover:text-white">Problems</Link>
               <Link to="/gallery" className="transition hover:text-white">Gallery</Link>
               <Link to="/contact" className="transition hover:text-white">Contact</Link>
             </div>

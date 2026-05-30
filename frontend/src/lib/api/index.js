@@ -373,6 +373,19 @@ export const core = {
   deleteChatMessage: (id) => http.delete(`/core/chat/${id}`),
 };
 
+// ── Problem Statements — SIH / GSoC / Kaggle / MLH catalogue ──
+// Auth-gated READ for any logged-in student. WRITE is teacher-only
+// (the importer + admin curation flow). Optional axios config for
+// AbortController cancellation.
+export const problems = {
+  list:    (params = {}, config = {}) => http.get("/problems",          { ...config, params }),
+  facets:  (config = {})              => http.get("/problems/facets",   config),
+  get:     (slugOrId, config = {})    => http.get(`/problems/${encodeURIComponent(slugOrId)}`, config),
+  create:  (body)  => http.post("/problems", body),
+  update:  (id, body) => http.patch(`/problems/${id}`, body),
+  remove:  (id)    => http.delete(`/problems/${id}`),
+};
+
 // ── Users / Rich profiles (Phase 15) ──
 // Distinct from the `user` singular namespace (self-actions) above.
 // `users` is plural and takes a user id as first arg — mirrors the
