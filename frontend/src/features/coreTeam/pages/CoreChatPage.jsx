@@ -24,20 +24,55 @@ export default function CoreChatPage() {
   const scrollRef  = useRef(null);
   const atBottomRef = useRef(true);
 
+  // AbortController so an in-flight fetch is cancelled when the
+  // component unmounts or the poll is restarted. Prevents a "set
+  // state after unmount" warning and saves a wasted Supabase hit if
+  // the user navigates away mid-request.
+  const abortRef = useRef(null);
+
   const load = useCallback(async () => {
+    abortRef.current?.abort();
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
     try {
-      const { data } = await core.chatMessages();
+      const { data } = await core.chatMessages({ signal: ctrl.signal });
+      if (ctrl.signal.aborted) return;
       setMessages(data.messages || []);
       setIsOwner(!!data.isOwner);
-    } catch {
+    } catch (err) {
+      if (err?.name === "CanceledError" || err?.name === "AbortError") return;
       setMessages((m) => m || []);
     }
   }, []);
 
   useEffect(() => {
-    load();
-    const t = setInterval(load, 5000);
-    return () => clearInterval(t);
+    // Visibility-paused poll. When the tab goes background we
+    // clearInterval; when it comes back we run a catch-up load() and
+    // restart the 5s loop. This stops a backgrounded /core/chat tab
+    // from burning a /api/core/chat hit every 5 seconds — adds up
+    // fast on a shared school IP behind the route limiter.
+    let timer = null;
+    const start = () => {
+      load();
+      timer = setInterval(load, 5000);
+    };
+    const stop = () => {
+      if (timer) { clearInterval(timer); timer = null; }
+      abortRef.current?.abort();
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") {
+        if (!timer) start();
+      } else {
+        stop();
+      }
+    };
+    if (document.visibilityState === "visible") start();
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      stop();
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
   }, [load]);
 
   // Keep the view pinned to the latest message unless the user has

@@ -363,8 +363,12 @@ export const core = {
   deleteMeeting: (id) => http.delete(`/core/meetings/${id}`),
   // Core badge for a user (main-site profile pages)
   badge:         (userId) => http.get(`/core/badge/${userId}`),
-  // Anonymous chat
-  chatMessages:      () => http.get("/core/chat"),
+  // Anonymous chat. chatMessages takes an optional axios config so
+  // callers can attach an AbortController signal — the chat polls
+  // every 5s and a navigate-away mid-poll should cancel the in-flight
+  // request (saves a wasted Supabase round-trip + the React "set
+  // state after unmount" warning).
+  chatMessages:      (config = {}) => http.get("/core/chat", config),
   sendChatMessage:   (body) => http.post("/core/chat", { body }),
   deleteChatMessage: (id) => http.delete(`/core/chat/${id}`),
 };
