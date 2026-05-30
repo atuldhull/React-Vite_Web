@@ -1,0 +1,211 @@
+# Security pipeline — runs alongside ci.yml on the same triggers.
+#
+# Kept separate so a failing security check is its own clear signal
+# on the PR check list (instead of being lumped in with lint/build/
+# test and obscuring which thing actually broke).
+#
+# Each job is best-effort by default — security-only failures should
+# RAISE A REVIEW SIGNAL, not block honest PRs that don't introduce
+# new vulnerabilities. The strict gates are:
+#   - bundle-secret-scan  (already enforced in ci.yml's build, but
+#                          repeated here so a doc-only PR still gets
+#                          the signal)
+#   - gitleaks            (committed-secret scan — strict; a real
+#                          secret in the diff MUST fail the PR)
+# Everything else (`npm audit`, `semgrep`) annotates but doesn't fail
+# the build, because their false-positive rate is high enough that
+# making them fatal would teach the team to merge-ignore them. They
+# WILL fail when a maintainer reads the summary, which is the goal.
+#
+# Maintainers: when an `npm audit` advisory needs an explicit ignore,
+# do it via package.json's `overrides` (resolution-level) rather than
+# muting this workflow.
+
+name: Security
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  security-events: write   # for SARIF uploads to GitHub Security tab
+
+jobs:
+  # ───────────────────────────────────────────────────────────────
+  # 1. npm audit — known-vulnerable transitive deps.
+  # Non-fatal (continue-on-error: true) because npm's audit signal is
+  # noisy on lockfile churn. The job exit shows up in PR checks; the
+  # `npm audit --json` body is uploaded as an artifact so a reviewer
+  # can read it without re-running locally.
+  # ───────────────────────────────────────────────────────────────
+  npm-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies (omit dev where possible)
+        run: npm ci --legacy-peer-deps
+
+      - name: Run npm audit (HIGH+ severity)
+        continue-on-error: true
+        run: npm audit --audit-level=high
+
+      - name: Run npm audit (full JSON for the artifact)
+        run: npm audit --json > npm-audit.json || true
+
+      - name: Upload audit report
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-audit-report
+          path: npm-audit.json
+          retention-days: 14
+
+  # ───────────────────────────────────────────────────────────────
+  # 2. Bundle secret scan — runs scripts/scan-bundle-secrets.mjs.
+  # The build step in ci.yml already runs this as a postbuild hook,
+  # but reproducing it here means a security-tab PR review can stand
+  # on this one check alone if ci.yml is gated on something else.
+  # ───────────────────────────────────────────────────────────────
+  bundle-secret-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci --legacy-peer-deps
+
+      - name: Build (postbuild runs scan-bundle-secrets.mjs)
+        env:
+          # Dummy values — the scanner only needs the .env.example
+          # name list, not real values, to detect leaks by NAME.
+          # Real values would be a leak themselves.
+          NODE_ENV: production
+          SUPABASE_URL: https://example.supabase.co
+          SUPABASE_SERVICE_ROLE_KEY: stub-stub-stub-stub-stub
+          SESSION_SECRET: ci-session-secret-32-chars-padding
+          FRONTEND_URL: https://example.com
+          SESSION_DB_URL: postgres://ci/stub
+        run: npm run build
+
+  # ───────────────────────────────────────────────────────────────
+  # 3. gitleaks — committed-secret scan. STRICT (no continue-on-error).
+  # A real Supabase key / Razorpay secret in the diff must block the PR.
+  # gitleaks-action emits SARIF that surfaces in the GitHub Security tab.
+  # ───────────────────────────────────────────────────────────────
+  gitleaks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # gitleaks scans HISTORY, not just the diff
+
+      - name: Run gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ───────────────────────────────────────────────────────────────
+  # 4. Semgrep — static analysis (OWASP / JS / React security rules).
+  # Non-fatal; the goal is annotation, not gate. SARIF uploads to
+  # the Security tab so findings persist across PR comments.
+  # ───────────────────────────────────────────────────────────────
+  semgrep:
+    runs-on: ubuntu-latest
+    container:
+      image: returntocorp/semgrep
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Semgrep scan (OWASP + JS audit + React)
+        continue-on-error: true
+        run: |
+          semgrep ci \
+            --config p/owasp-top-ten \
+            --config p/javascript \
+            --config p/react \
+            --sarif --output semgrep.sarif
+
+      - name: Upload SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: semgrep.sarif
+        continue-on-error: true
+
+  # ───────────────────────────────────────────────────────────────
+  # 5. Pattern gates — fast greps for shapes our own audits have
+  # already taught us to refuse. Non-fatal annotations.
+  # When a pattern fails, fix the offending code OR add a one-line
+  # comment in THIS file explaining why the exception is sound.
+  # ───────────────────────────────────────────────────────────────
+  pattern-gates:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # 5.1: any new `res.status(500).json({error: err.message})` reverts
+      # the Phase-7 hardening. The helper sendInternalError() is the
+      # approved shape.
+      - name: No raw err.message in 500 responses (Phase 7)
+        run: |
+          set +e
+          MATCHES=$(grep -rn 'status(500)\.json({\s*error:\s*err\.message' backend/ --include='*.js')
+          if [ -n "$MATCHES" ]; then
+            echo "::warning::found err.message leak — use sendInternalError(res, err)"
+            echo "$MATCHES"
+          else
+            echo "✓ no err.message leaks"
+          fi
+
+      # 5.2: SESSION_SECRET must never have a literal-string `||` fallback.
+      # Already pinned by tests/unit/session-secret-no-fallback.test.js;
+      # repeating as a CI grep gate so a PR reviewer sees it in the diff
+      # context without having to run the test suite.
+      - name: No SESSION_SECRET literal fallback (Phase 2)
+        run: |
+          set +e
+          # Pattern: SESSION_SECRET || "...something..."
+          MATCHES=$(grep -rnE 'SESSION_SECRET\s*\|\|\s*["'\'']' backend/ --include='*.js')
+          if [ -n "$MATCHES" ]; then
+            echo "::error::SESSION_SECRET || fallback found — env validator must own this"
+            echo "$MATCHES"
+            exit 1
+          fi
+          echo "✓ no SESSION_SECRET fallback"
+
+      # 5.3: VITE_* env-var grep — refuse anything VITE-prefixed in
+      # backend/ except in .env.example and config/env.js (the
+      # validator that warns about them).
+      - name: No VITE_ env reads in backend (Phase 2)
+        run: |
+          set +e
+          MATCHES=$(grep -rnE 'process\.env\.VITE_' backend/ --include='*.js')
+          if [ -n "$MATCHES" ]; then
+            echo "::error::VITE_-prefixed env var read in backend — VITE_ is for the browser bundle only"
+            echo "$MATCHES"
+            exit 1
+          fi
+          echo "✓ no VITE_ reads in backend"
+
+      # 5.4: No console.log of secrets-shaped names. Lightweight grep —
+      # catches "console.log(password)" / "console.log({token})" pre-commit.
+      - name: No console.log of secret-shaped vars
+        run: |
+          set +e
+          MATCHES=$(grep -rnE 'console\.(log|debug|info|warn|error)\([^)]*\b(password|currentPassword|newPassword|access_token|refresh_token|service_role)\b' backend/ frontend/src/ --include='*.js' --include='*.jsx')
+          if [ -n "$MATCHES" ]; then
+            echo "::warning::secret-shaped name in console.* — pino redact only covers the logger, console.* bypasses it"
+            echo "$MATCHES"
+          else
+            echo "✓ no secret-shaped console.* calls"
+          fi
