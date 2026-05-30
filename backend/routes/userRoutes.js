@@ -1,13 +1,15 @@
 import express from "express";
 import { getProfile, updateProfile, getUserStats, changePassword, getTestHistory } from "../controllers/userController.js";
 import { requireAuth } from "../middleware/authMiddleware.js";
+import { validateBody } from "../validators/common.js";
+import { updateProfileSchema, changePasswordSchema } from "../validators/user.js";
 
 const router = express.Router();
 
 router.get("/profile",          requireAuth, getProfile);
-router.patch("/profile",        requireAuth, updateProfile);
+router.patch("/profile",        requireAuth, validateBody(updateProfileSchema),  updateProfile);
 router.get("/stats",            requireAuth, getUserStats);
-router.post("/change-password", requireAuth, changePassword);
+router.post("/change-password", requireAuth, validateBody(changePasswordSchema), changePassword);
 router.get("/test-history",     requireAuth, getTestHistory);
 
 // Public student profile (for viewing other students)

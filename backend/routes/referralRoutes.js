@@ -1,6 +1,8 @@
 import { Router } from "express";
 import { requireAuth } from "../middleware/authMiddleware.js";
 import * as rc from "../controllers/referralController.js";
+import { validateBody } from "../validators/common.js";
+import { applyReferralCodeSchema } from "../validators/referral.js";
 
 const router = Router();
 
@@ -12,7 +14,7 @@ router.get("/leaderboard", rc.getReferralLeaderboard);
 
 // Auth required
 router.get("/code", requireAuth, rc.getMyReferralCode);
-router.post("/apply", requireAuth, rc.applyReferralCode);
+router.post("/apply", requireAuth, validateBody(applyReferralCodeSchema), rc.applyReferralCode);
 router.get("/stats", requireAuth, rc.getMyReferralStats);
 
 export default router;

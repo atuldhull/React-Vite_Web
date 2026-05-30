@@ -237,16 +237,22 @@ describe("PATCH /profile — updateProfile", () => {
   });
 
   it("400 when name is an empty string", async () => {
+    // Phase-6: validator returns {error: "Validation failed", issues: [...]}.
+    // The "cannot be empty" copy now lives in issues[].message.
     const res = await request(buildApp()).patch("/api/user/profile").send({ name: "   " });
     expect(res.status).toBe(400);
-    expect(res.body.error).toMatch(/empty/i);
+    expect(JSON.stringify(res.body)).toMatch(/empty|too short/i);
   });
 
-  it("caps name length at 60 chars (silent trim, not an error)", async () => {
+  it("rejects name longer than 60 chars at the validator (was silent-truncated before Phase-6)", async () => {
+    // Pre-hardening the controller silently sliced to 60 — a hostile
+    // client could pass any length and the server would just truncate.
+    // Phase-6 tightens this to an explicit 400, which means the UI's
+    // own length limit and the server agree.
     const long = "X".repeat(100);
     const res = await request(buildApp()).patch("/api/user/profile").send({ name: long });
-    expect(res.status).toBe(200);
-    expect(state.lastUpdate.name.length).toBe(60);
+    expect(res.status).toBe(400);
+    expect(JSON.stringify(res.body)).toMatch(/too long|name/i);
   });
 
   it("500 when the update errors", async () => {
