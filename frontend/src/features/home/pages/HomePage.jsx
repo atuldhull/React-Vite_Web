@@ -260,28 +260,51 @@ export default function HomePage() {
           opacity: titleOpacity,
           willChange: "opacity",
         }}>
-          {/* Title scaled down a touch since the new tagline is a
-              full sentence vs the previous two-word brand. clamp keeps
-              it readable on 375 px viewports without overflow. */}
-          {/* font-display uses the Clash Display stack from tailwind.config —
-              the inline fontFamily that used to live here was hard-coding
-              Space Grotesk, which sidestepped the display font that the rest
-              of the site uses for headings. Clash Display reads more
-              architectural — appropriate for the cathedral library hero. */}
+          {/* Hero typography (refined)
+              ────────────────────────────────────────────────────────
+              Previous styling used weight 800 + -0.04em letter-spacing,
+              which on a heavy display face (Clash Display) crammed the
+              letters together and read as chunky / smushed. The
+              refinements below:
+                weight       800 → 600   (Clash Display's natural
+                                           display weight — still
+                                           confident, much more refined)
+                tracking   -0.04em → -0.015em (subtle tightening
+                                           without crushing)
+                line-height   1.1  → 1.12  (a hair more breathing room)
+                fontSize  ...4.25rem → 3.6rem ceiling (a long-sentence
+                                           hero shouldn't blow past
+                                           ~57px on widescreens)
+                maxWidth    60ch  → 22ch   (forces a 2-line natural
+                                           break at "Mathematics is
+                                           the / Language of the
+                                           Infinite.")
+                text-wrap          balance (modern CSS — distributes
+                                           remaining word width across
+                                           lines so neither line is
+                                           orphan-short)
+                text-align         center (matches the flex container's
+                                           alignItems; explicit so a
+                                           multi-line break visually
+                                           centers on every viewport) */}
           <h1 data-gsap-title className="font-display" style={{
-            fontSize: "clamp(1.5rem, 5.5vw, 4.25rem)",
-            fontWeight: 800, color: "white", margin: 0,
-            letterSpacing: "-0.04em", lineHeight: 1.1,
-            maxWidth: "min(90vw, 60ch)",
+            fontSize: "clamp(2rem, 5.2vw, 3.6rem)",
+            fontWeight: 600, color: "white", margin: 0,
+            letterSpacing: "-0.015em", lineHeight: 1.12,
+            maxWidth: "min(92vw, 22ch)",
+            textAlign: "center",
+            textWrap: "balance",
             textShadow: "0 0 80px rgba(0,0,0,0.6), 0 0 160px rgba(255,177,92,0.10)",
           }}>
             Mathematics is the Language of the Infinite.
           </h1>
           <p data-gsap-subtitle className="font-sans" style={{
-            fontSize: "clamp(0.85rem, 2vw, 1.25rem)",
-            color: "rgba(255,255,255,0.55)", marginTop: "1rem",
-            letterSpacing: "0.04em",
-            maxWidth: "min(90vw, 50ch)",
+            fontSize: "clamp(0.9rem, 1.6vw, 1.125rem)",
+            color: "rgba(255,255,255,0.62)", marginTop: "1.25rem",
+            letterSpacing: "0.01em", lineHeight: 1.55, fontWeight: 400,
+            maxWidth: "min(90vw, 44ch)",
+            textAlign: "center",
+            textWrap: "balance",
           }}>
             The Infinite Library of Mathematics — Math Collective at BMSIT.
           </p>
