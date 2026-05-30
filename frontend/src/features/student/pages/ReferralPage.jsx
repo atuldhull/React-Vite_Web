@@ -89,7 +89,7 @@ export default function ReferralPage() {
             {qrDataUrl && (
               <div className="mt-5 flex justify-center">
                 <div className="rounded-xl border border-line/10 bg-black/20 p-3">
-                  <img src={qrDataUrl} alt="Referral QR Code" loading="lazy" className="h-36 w-36 rounded" />
+                  <img src={qrDataUrl} alt="Referral QR Code" loading="lazy" decoding="async" width="144" height="144" className="h-36 w-36 rounded" />
                   <p className="mt-2 text-center text-[9px] text-text-dim">Scan to join</p>
                 </div>
               </div>

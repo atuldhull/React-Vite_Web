@@ -160,7 +160,8 @@ function PhotoNode({ file, pos, index, onOpen }) {
       >
         <div style={{ height: pos.h }} className="relative overflow-hidden">
           {file.type === "img" ? (
-            <img src={file.url} alt={file.label} loading="lazy"
+            <img src={file.url} alt={file.label} loading="lazy" decoding="async"
+              width="400" height="300"
               className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110" />
           ) : (
             <video controls muted playsInline preload="metadata" className="h-full w-full object-cover">

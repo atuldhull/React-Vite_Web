@@ -114,6 +114,9 @@ export default function CoreTrendsPage() {
                     src={t.image_url}
                     alt=""
                     loading="lazy"
+                    decoding="async"
+                    width="640"
+                    height="160"
                     className="h-full w-full object-cover opacity-90 transition duration-500 group-hover:scale-105"
                     onError={(e) => { e.currentTarget.style.display = "none"; }}
                   />

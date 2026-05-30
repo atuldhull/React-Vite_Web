@@ -210,13 +210,16 @@ export default function AvatarCreator({
   // Determine what to show in preview
   const previewContent = useMemo(() => {
     if (avatarMode === "photo" && avatarUrl) {
-      return <img src={avatarUrl} alt="Avatar" loading="lazy" className="h-full w-full rounded-full object-cover" />;
+      // 144px = h-36 w-36 (the parent container's fixed dimensions);
+      // explicit width/height attrs let the browser reserve the layout
+      // box before the image arrives → no CLS while the preview swaps.
+      return <img src={avatarUrl} alt="Avatar" loading="lazy" decoding="async" width="144" height="144" className="h-full w-full rounded-full object-cover" />;
     }
     if (avatarMode === "emoji") {
       return <span style={{ fontSize: "4rem", lineHeight: 1 }}>{currentEmoji}</span>;
     }
     if (avatarDataUri) {
-      return <img src={avatarDataUri} alt="Avatar" loading="lazy" className="h-full w-full rounded-full object-cover" />;
+      return <img src={avatarDataUri} alt="Avatar" loading="lazy" decoding="async" width="144" height="144" className="h-full w-full rounded-full object-cover" />;
     }
     return <span style={{ fontSize: "4rem", lineHeight: 1 }}>{currentEmoji}</span>;
   }, [avatarMode, avatarUrl, avatarDataUri, currentEmoji]);
@@ -296,7 +299,7 @@ export default function AvatarCreator({
                       }`}
                     >
                       <div className="h-14 w-14 overflow-hidden rounded-full bg-black/20">
-                        {preview && <img src={preview} alt={s.label} loading="lazy" className="h-full w-full object-cover" />}
+                        {preview && <img src={preview} alt={s.label} loading="lazy" decoding="async" width="56" height="56" className="h-full w-full object-cover" />}
                       </div>
                       <div className="text-center">
                         <span className="block text-[10px] text-white">{s.label}</span>

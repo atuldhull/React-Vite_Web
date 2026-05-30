@@ -524,7 +524,7 @@ export default function AdminEventsPage() {
                           className="w-full rounded-xl border border-line/15 bg-panel/70 px-4 py-3 text-sm text-white outline-none file:mr-3 file:rounded-lg file:border-0 file:bg-primary/20 file:px-3 file:py-1 file:text-white" />
                         {form.payment_qr_base64 && (
                           <div className="mt-2 flex items-start gap-2">
-                            <img src={form.payment_qr_base64} alt="QR preview" loading="lazy" className="h-24 w-24 rounded-lg border border-line/15 bg-white p-1" />
+                            <img src={form.payment_qr_base64} alt="QR preview" loading="lazy" decoding="async" width="96" height="96" className="h-24 w-24 rounded-lg border border-line/15 bg-white p-1" />
                             <button type="button" onClick={() => setField("payment_qr_base64", "")}
                               className="font-mono text-[10px] text-danger hover:underline">remove</button>
                           </div>
