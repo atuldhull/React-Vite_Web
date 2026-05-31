@@ -35,7 +35,7 @@ export default function AdminModerationPage() {
         <h1 className="mt-2 font-display text-3xl font-semibold text-white">Moderation</h1>
       </motion.header>
 
-      <div className="mb-5 flex gap-1.5">
+      <div className="mb-5 flex flex-wrap gap-1.5">
         {TABS.map((t) => {
           const active = tab === t.key;
           return (
@@ -47,7 +47,7 @@ export default function AdminModerationPage() {
                 setParams(next, { replace: true });
               }}
               className={
-                "rounded-full px-4 py-1.5 font-mono text-[11px] uppercase tracking-wider transition " +
+                "rounded-full px-4 py-2 font-mono text-[11px] uppercase tracking-wider transition sm:py-1.5 " +
                 (active
                   ? "border border-primary/40 bg-primary/15 text-white"
                   : "border border-line/20 bg-white/[0.04] text-text-soft hover:border-primary/40 hover:text-white")
@@ -130,7 +130,7 @@ function RoadmapQueue() {
     <ul className="space-y-3">
       {items.map((r) => (
         <li key={r.id} className="rounded-2xl border border-warning/30 bg-warning/[0.04] p-4">
-          <div className="flex items-start justify-between gap-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div className="min-w-0 flex-1">
               <p className="text-sm font-semibold text-white">
                 <span className="mr-2 text-lg">{r.cover_emoji || "🧭"}</span>
@@ -150,20 +150,20 @@ function RoadmapQueue() {
                 )}
               </div>
             </div>
-            <div className="flex shrink-0 flex-col items-end gap-1.5">
+            <div className="flex shrink-0 flex-col gap-2 sm:items-end sm:gap-1.5">
               <Link
                 to={`/roadmaps/${encodeURIComponent(r.slug)}`}
                 target="_blank"
-                className="font-mono text-[10px] uppercase tracking-wider text-primary hover:underline"
+                className="rounded-lg border border-line/20 px-3 py-2 text-center font-mono text-[10px] uppercase tracking-wider text-primary transition hover:bg-white/[0.04] sm:border-0 sm:bg-transparent sm:p-0 sm:hover:underline"
               >
                 Open ↗
               </Link>
-              <div className="flex gap-1.5">
+              <div className="flex flex-wrap gap-1.5">
                 <button
                   type="button"
                   onClick={() => onApprove(r.id, false)}
                   disabled={busy.has(r.id)}
-                  className="rounded-lg border border-success/40 bg-success/10 px-3 py-1 font-mono text-[10px] uppercase tracking-wider text-success hover:bg-success/15 disabled:opacity-50"
+                  className="flex-1 rounded-lg border border-success/40 bg-success/10 px-3 py-2.5 font-mono text-[10px] uppercase tracking-wider text-success transition hover:bg-success/15 disabled:opacity-50 sm:flex-none sm:py-1"
                 >
                   Approve
                 </button>
@@ -171,7 +171,7 @@ function RoadmapQueue() {
                   type="button"
                   onClick={() => onApprove(r.id, true)}
                   disabled={busy.has(r.id)}
-                  className="rounded-lg border border-primary/40 bg-primary/15 px-3 py-1 font-mono text-[10px] uppercase tracking-wider text-white hover:bg-primary/20 disabled:opacity-50"
+                  className="flex-1 rounded-lg border border-primary/40 bg-primary/15 px-3 py-2.5 font-mono text-[10px] uppercase tracking-wider text-white transition hover:bg-primary/20 disabled:opacity-50 sm:flex-none sm:py-1"
                 >
                   Feature
                 </button>
@@ -179,7 +179,7 @@ function RoadmapQueue() {
                   type="button"
                   onClick={() => onReject(r.id)}
                   disabled={busy.has(r.id)}
-                  className="rounded-lg border border-danger/30 bg-danger/8 px-3 py-1 font-mono text-[10px] uppercase tracking-wider text-danger hover:bg-danger/12 disabled:opacity-50"
+                  className="flex-1 rounded-lg border border-danger/30 bg-danger/8 px-3 py-2.5 font-mono text-[10px] uppercase tracking-wider text-danger transition hover:bg-danger/12 disabled:opacity-50 sm:flex-none sm:py-1"
                 >
                   Reject
                 </button>
@@ -252,7 +252,7 @@ function ProblemQueue() {
     <ul className="space-y-3">
       {items.map((row) => (
         <li key={row.id} className="rounded-2xl border border-warning/30 bg-warning/[0.04] p-4">
-          <div className="flex items-start justify-between gap-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div className="min-w-0 flex-1">
               <p className="text-sm font-semibold text-white">{row.title}</p>
               <p className="mt-1 text-xs text-text-soft line-clamp-3">{row.description}</p>
@@ -274,12 +274,12 @@ function ProblemQueue() {
                 </a>
               )}
             </div>
-            <div className="flex shrink-0 flex-col gap-1.5">
+            <div className="flex shrink-0 gap-2 sm:flex-col sm:gap-1.5">
               <button
                 type="button"
                 onClick={() => onApprove(row.id)}
                 disabled={busy.has(row.id)}
-                className="rounded-lg border border-success/40 bg-success/10 px-3 py-1 font-mono text-[10px] uppercase tracking-wider text-success hover:bg-success/15 disabled:opacity-50"
+                className="flex-1 rounded-lg border border-success/40 bg-success/10 px-3 py-2.5 font-mono text-[10px] uppercase tracking-wider text-success transition hover:bg-success/15 disabled:opacity-50 sm:flex-none sm:py-1"
               >
                 Approve
               </button>
@@ -287,7 +287,7 @@ function ProblemQueue() {
                 type="button"
                 onClick={() => onReject(row.id)}
                 disabled={busy.has(row.id)}
-                className="rounded-lg border border-danger/30 bg-danger/8 px-3 py-1 font-mono text-[10px] uppercase tracking-wider text-danger hover:bg-danger/12 disabled:opacity-50"
+                className="flex-1 rounded-lg border border-danger/30 bg-danger/8 px-3 py-2.5 font-mono text-[10px] uppercase tracking-wider text-danger transition hover:bg-danger/12 disabled:opacity-50 sm:flex-none sm:py-1"
               >
                 Reject
               </button>

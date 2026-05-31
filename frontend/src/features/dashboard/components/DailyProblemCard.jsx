@@ -99,7 +99,7 @@ export default function DailyProblemCard() {
             onClick={onCheckin}
             disabled={busy || data.checked_in_today}
             className={
-              "rounded-lg px-3 py-1.5 font-mono text-[11px] uppercase tracking-wider transition " +
+              "rounded-lg px-3 py-2 font-mono text-[11px] uppercase tracking-wider transition sm:py-1.5 " +
               (data.checked_in_today
                 ? "border border-success/40 bg-success/10 text-success cursor-default"
                 : "border border-warning/40 bg-warning/12 text-white hover:bg-warning/20")
@@ -109,7 +109,7 @@ export default function DailyProblemCard() {
           </button>
           <Link
             to={`/problems/${encodeURIComponent(p.slug || p.id)}`}
-            className="font-mono text-[10px] uppercase tracking-wider text-primary hover:text-secondary"
+            className="rounded-lg px-2 py-2 font-mono text-[10px] uppercase tracking-wider text-primary transition hover:text-secondary sm:px-0 sm:py-0"
           >
             Open problem →
           </Link>

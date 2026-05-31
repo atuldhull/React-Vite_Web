@@ -51,9 +51,12 @@ export default function BookmarkButton({
     }
   }, [busy, saved, type, id, onToggle]);
 
+  // Mobile gets a slightly bigger compact target (32px vs 28px) so a
+  // thumb-tap on a list card's star button is accurate. Desktop keeps
+  // the tighter shape so the star doesn't dominate the card corner.
   const sizes = compact
-    ? "h-7 w-7 text-sm"
-    : "h-9 px-2.5 text-base";
+    ? "h-8 w-8 text-base sm:h-7 sm:w-7 sm:text-sm"
+    : "h-10 px-3 text-base sm:h-9 sm:px-2.5";
 
   return (
     <button
