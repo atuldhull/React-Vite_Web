@@ -121,7 +121,7 @@ export default function PublicPortfolioPage() {
                     href={absoluteUrl(v)}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="rounded-lg border border-line/20 bg-white/[0.04] px-2.5 py-1 font-mono text-[10px] uppercase tracking-wider text-text-soft transition hover:border-primary/40 hover:text-white"
+                    className="rounded-lg border border-line/20 bg-white/[0.04] px-3 py-1.5 font-mono text-[10px] uppercase tracking-wider text-text-soft transition hover:border-primary/40 hover:text-white sm:py-1"
                   >
                     {k}
                   </a>

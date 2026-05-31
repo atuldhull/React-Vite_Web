@@ -95,7 +95,7 @@ export default function SubmitProblemPage() {
         className="mb-8"
       >
         <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-text-dim">Contribute</p>
-        <h1 className="mt-2 font-display text-3xl font-semibold tracking-tight text-white sm:text-4xl"
+        <h1 className="mt-2 font-display text-2xl font-semibold tracking-tight text-white sm:text-3xl md:text-4xl"
             style={{ textWrap: "balance" }}>
           Submit a problem
         </h1>
@@ -120,7 +120,7 @@ export default function SubmitProblemPage() {
           <button
             type="submit"
             disabled={!url.trim() || draftingFromUrl}
-            className="rounded-lg border border-primary/40 bg-primary/15 px-4 py-2 font-mono text-xs uppercase tracking-wider text-white transition hover:bg-primary/20 disabled:opacity-50"
+            className="rounded-lg border border-primary/40 bg-primary/15 px-4 py-2.5 font-mono text-xs uppercase tracking-wider text-white transition hover:bg-primary/20 disabled:opacity-50 sm:py-2"
           >
             {draftingFromUrl ? "Drafting…" : "Draft with AI"}
           </button>
@@ -254,14 +254,14 @@ export default function SubmitProblemPage() {
 
         {error && <p className="mt-4 text-sm text-danger">{error}</p>}
 
-        <div className="mt-6 flex flex-wrap items-center justify-end gap-3">
-          <Link to="/problems" className="font-mono text-[11px] uppercase tracking-wider text-text-soft hover:text-white">
+        <div className="mt-6 flex flex-col items-stretch gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end sm:gap-3">
+          <Link to="/problems" className="order-2 rounded-lg border border-line/20 bg-white/[0.04] px-4 py-2.5 text-center font-mono text-[11px] uppercase tracking-wider text-text-soft transition hover:text-white sm:order-1 sm:border-0 sm:bg-transparent sm:px-0 sm:py-0">
             Cancel
           </Link>
           <button
             type="submit"
             disabled={submitting}
-            className="rounded-lg border border-success/40 bg-success/10 px-4 py-2 font-mono text-[11px] uppercase tracking-wider text-white transition hover:bg-success/20 disabled:opacity-50"
+            className="order-1 rounded-lg border border-success/40 bg-success/10 px-4 py-2.5 font-mono text-[11px] uppercase tracking-wider text-white transition hover:bg-success/20 disabled:opacity-50 sm:order-2 sm:py-2"
           >
             {submitting ? "Submitting…" : "Submit for review"}
           </button>
@@ -328,10 +328,11 @@ function LinkListEditor({ label, links, kindKey, kindOptions, onChange }) {
             <button
               type="button"
               onClick={() => del(i)}
-              className="rounded-lg border border-danger/30 bg-danger/8 text-danger hover:bg-danger/12"
+              className="flex h-10 items-center justify-center rounded-lg border border-danger/30 bg-danger/8 text-lg text-danger transition hover:bg-danger/12 sm:h-auto sm:text-base"
               aria-label="Remove link"
             >
-              ×
+              <span className="sm:hidden">Remove link</span>
+              <span className="hidden sm:inline">×</span>
             </button>
           </div>
         ))}

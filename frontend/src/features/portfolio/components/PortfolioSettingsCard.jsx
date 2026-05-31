@@ -93,15 +93,15 @@ export default function PortfolioSettingsCard() {
   }
 
   return (
-    <form onSubmit={onSubmit} className="rounded-2xl border border-line/15 bg-white/[0.025] p-6">
-      <div className="flex items-start justify-between gap-3">
+    <form onSubmit={onSubmit} className="rounded-2xl border border-line/15 bg-white/[0.025] p-5 sm:p-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h3 className="font-display text-lg font-semibold text-white">Public portfolio</h3>
           <p className="mt-1 text-xs text-text-soft">
             A shareable, login-free URL that shows off your writeups, projects, and achievements. Paste it on LinkedIn / your résumé.
           </p>
         </div>
-        <label className="flex shrink-0 items-center gap-2">
+        <label className="flex shrink-0 cursor-pointer items-center gap-2">
           <input
             type="checkbox"
             checked={form.public_portfolio}
@@ -115,14 +115,20 @@ export default function PortfolioSettingsCard() {
       {/* Handle */}
       <div className="mt-5">
         <label className="font-mono text-[11px] uppercase tracking-wider text-text-dim">Handle</label>
-        <div className="mt-1.5 flex items-center gap-2 rounded-lg border border-line/20 bg-bg/40 px-3 py-2">
-          <span className="font-mono text-xs text-text-dim">mathcollective.bmsit.in/u/</span>
+        <div className="mt-1.5 flex items-center gap-2 rounded-lg border border-line/20 bg-bg/40 px-3 py-2.5">
+          {/* Full prefix on sm+, short '/u/' on mobile so the input
+              actually has room to display the handle being typed. */}
+          <span className="hidden font-mono text-xs text-text-dim sm:inline">mathcollective.bmsit.in/u/</span>
+          <span className="font-mono text-xs text-text-dim sm:hidden">/u/</span>
           <input
             type="text"
             value={form.handle}
             onChange={(e) => setForm((f) => ({ ...f, handle: e.target.value.toLowerCase() }))}
             placeholder="atul-dhull"
             maxLength={40}
+            autoCapitalize="off"
+            autoCorrect="off"
+            spellCheck="false"
             className="flex-1 bg-transparent font-mono text-sm text-white placeholder:text-text-dim focus:outline-none"
           />
         </div>
@@ -181,7 +187,7 @@ export default function PortfolioSettingsCard() {
         <button
           type="submit"
           disabled={saving}
-          className="rounded-lg border border-primary/40 bg-primary/15 px-4 py-1.5 font-mono text-[11px] uppercase tracking-wider text-white transition hover:bg-primary/20 disabled:opacity-50"
+          className="rounded-lg border border-primary/40 bg-primary/15 px-5 py-2.5 font-mono text-[11px] uppercase tracking-wider text-white transition hover:bg-primary/20 disabled:opacity-50 sm:py-1.5"
         >
           {saving ? "Saving…" : "Save"}
         </button>

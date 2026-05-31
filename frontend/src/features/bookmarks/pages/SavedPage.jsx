@@ -71,7 +71,7 @@ export default function SavedPage() {
         className="mb-6"
       >
         <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-text-dim">Personal</p>
-        <h1 className="mt-2 font-display text-3xl font-semibold tracking-tight text-white sm:text-4xl">
+        <h1 className="mt-2 font-display text-2xl font-semibold tracking-tight text-white sm:text-3xl md:text-4xl">
           Saved
         </h1>
         <p className="mt-2 max-w-2xl text-sm text-text-soft">
@@ -92,7 +92,7 @@ export default function SavedPage() {
                 setParams(next, { replace: true });
               }}
               className={
-                "rounded-full px-3.5 py-1.5 font-mono text-[11px] uppercase tracking-wider transition " +
+                "rounded-full px-3.5 py-2 font-mono text-[11px] uppercase tracking-wider transition sm:py-1.5 " +
                 (active
                   ? "border border-primary/40 bg-primary/15 text-white"
                   : "border border-line/20 bg-white/[0.04] text-text-soft hover:border-primary/40 hover:text-white")
@@ -159,9 +159,10 @@ function SavedRow({ row, onUnsave }) {
         <button
           type="button"
           onClick={onUnsave}
-          className="shrink-0 rounded-lg border border-line/20 bg-white/[0.04] px-2.5 py-1 font-mono text-[10px] uppercase tracking-wider text-text-soft transition hover:border-warning/40 hover:text-warning"
+          className="shrink-0 rounded-lg border border-line/20 bg-white/[0.04] px-3 py-2 font-mono text-[10px] uppercase tracking-wider text-text-soft transition hover:border-warning/40 hover:text-warning sm:px-2.5 sm:py-1"
         >
-          ★ Unsave
+          <span className="sm:hidden">★</span>
+          <span className="hidden sm:inline">★ Unsave</span>
         </button>
       </div>
     </motion.li>
