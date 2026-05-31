@@ -29,6 +29,12 @@ playwright/.cache/
 # not for public consumption.
 docs/
 
+# Staging dir — intermediate JSON files used by migration composers
+# (e.g. .staging/{sih,gsoc,kaggle,mlh}.json + .staging/compose-*.mjs).
+# The compiled SQL migrations are what gets committed; the source
+# JSON would just double the diff and inflate the repo.
+.staging/
+
 # Internal development notes. Rule: any root-level .md file is
 # gitignored UNLESS it's README.md. This protects against future
 # "quick doc I wrote about the architecture" files accidentally
