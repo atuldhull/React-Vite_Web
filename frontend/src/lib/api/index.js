@@ -384,6 +384,40 @@ export const problems = {
   create:  (body)  => http.post("/problems", body),
   update:  (id, body) => http.patch(`/problems/${id}`, body),
   remove:  (id)    => http.delete(`/problems/${id}`),
+  // ── Engagement (interest beacons + writeups + votes) ──
+  engagement:      (slugOrId, config = {}) => http.get(`/problems/${encodeURIComponent(slugOrId)}/engagement`, config),
+  toggleInterest:  (slugOrId)              => http.post(`/problems/${encodeURIComponent(slugOrId)}/interest`),
+  postWriteup:     (slugOrId, body)        => http.post(`/problems/${encodeURIComponent(slugOrId)}/writeups`, body),
+  deleteWriteup:   (slugOrId, writeupId)   => http.delete(`/problems/${encodeURIComponent(slugOrId)}/writeups/${writeupId}`),
+  voteWriteup:     (writeupId)             => http.post(`/problems/writeups/${writeupId}/vote`),
+  // AI study companion — Socratic Q&A scoped to one problem. Shared
+  // 20/hr/user budget with /bot/chat. Returns { reply }.
+  aiAsk:           (slugOrId, question)    => http.post(`/problems/${encodeURIComponent(slugOrId)}/ai-ask`, { question }),
+  // Daily problem-of-the-day. `daily()` returns today's pick + the
+  // viewer's streak; `dailyCheckin()` bumps the streak.
+  daily:           (config = {})           => http.get("/problems/daily", config),
+  dailyCheckin:    ()                       => http.post("/problems/daily/checkin"),
+};
+
+// ── Roadmaps — sequenced learning bundles ──
+// Auth-gated like /problems. `list()` returns each roadmap with the
+// viewer's done/total counts; `get(slug)` returns the full step list
+// with per-step completion + the referenced problem metadata.
+export const roadmaps = {
+  list:       (config = {})        => http.get("/roadmaps", config),
+  get:        (slug, config = {})  => http.get(`/roadmaps/${encodeURIComponent(slug)}`, config),
+  toggleStep: (stepId)             => http.post(`/roadmaps/steps/${stepId}/toggle`),
+};
+
+// ── Public Portfolio — /u/:handle ──
+// `public(handle)` is auth-FREE — works for logged-out viewers too.
+// The owner-side endpoints (`mySettings`, `updateSettings`) require
+// auth and gate the public surface (toggle public_portfolio, set
+// handle, set headline + socials).
+export const portfolio = {
+  public:          (handle, config = {}) => http.get(`/portfolio/${encodeURIComponent(handle)}`, config),
+  mySettings:      (config = {})         => http.get("/portfolio/me", config),
+  updateSettings:  (patch)                => http.patch("/portfolio/me", patch),
 };
 
 // ── Users / Rich profiles (Phase 15) ──

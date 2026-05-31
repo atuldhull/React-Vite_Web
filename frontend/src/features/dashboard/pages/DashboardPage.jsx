@@ -11,6 +11,7 @@ import AnimatedNumber from "@/components/ui/AnimatedNumber";
 import { user, arena, announcements as announcementsApi, notifications as notifApi, chat, achievements as achievementsApi } from "@/lib/api";
 import AchievementBadge from "@/components/ui/AchievementBadge";
 import UserHoverCard from "@/components/social/UserHoverCard";
+import DailyProblemCard from "@/features/dashboard/components/DailyProblemCard";
 
 // Ambient math glyphs scattered across the page background — same
 // visual signature as the auth pages, anchors the logged-in surfaces
@@ -344,6 +345,10 @@ export default function DashboardPage() {
             transition={{ delay: 0.5 }}
             className="space-y-6"
           >
+            {/* Daily problem of the day — rotating widget that drives
+                daily return visits. Streak badge sits in the header. */}
+            <DailyProblemCard />
+
             {/* Announcements */}
             <Card variant="glow">
               <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-glow">Announcements</p>

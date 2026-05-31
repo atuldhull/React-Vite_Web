@@ -22,6 +22,8 @@ import { useParams, Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { problems } from "@/lib/api";
 import Loader from "@/components/ui/Loader";
+import EngagementPanel from "../components/EngagementPanel";
+import AiCompanion from "../components/AiCompanion";
 
 const SOURCE_COLOR = {
   SIH:        { bg: "rgba(249, 115, 22, 0.12)", border: "rgba(249, 115, 22, 0.4)", text: "#fdba74" },
@@ -154,6 +156,9 @@ export default function ProblemDetailPage() {
         </Section>
       )}
 
+      {/* ── AI companion — collapsible Socratic Q&A scoped to this problem ── */}
+      <AiCompanion slugOrId={p.slug || p.id} />
+
       {/* ── Datasets ── */}
       {p.dataset_links?.length > 0 && (
         <Section title="Datasets" delay={0.15}>
@@ -190,6 +195,9 @@ export default function ProblemDetailPage() {
           <p className="mt-2 break-all font-mono text-[11px] text-text-dim">{p.official_url}</p>
         </Section>
       )}
+
+      {/* ── Engagement (interest beacon + writeups) ── */}
+      <EngagementPanel slugOrId={p.slug || p.id} />
 
       {/* ── Tags footer ── */}
       {p.tags?.length > 0 && (

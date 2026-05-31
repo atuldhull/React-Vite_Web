@@ -15,6 +15,7 @@ import XPSidebar from "./profile/XPSidebar";
 import AchievementsSection from "./profile/AchievementsSection";
 import EventsAttendedSection from "./profile/EventsAttendedSection";
 import FriendsSection from "./profile/FriendsSection";
+import PortfolioSettingsCard from "@/features/portfolio/components/PortfolioSettingsCard";
 
 /* ── fallback XP titles (used if backend doesn't provide them) ── */
 const FALLBACK_XP_TITLES = [
@@ -337,6 +338,11 @@ export default function ProfilePage() {
               stats={stats}
               currentTitle={currentTitle}
             />
+
+            {/* Public portfolio settings — handle, public toggle,
+                headline, socials. The portfolio itself lives at
+                /u/:handle and is auth-free for anyone with the URL. */}
+            <PortfolioSettingsCard />
 
             <PasswordChangeSection
               showPassword={showPassword}

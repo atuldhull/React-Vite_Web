@@ -117,6 +117,14 @@ export default function MainLayout() {
                           </>
                         )}
                       </NavLink>
+                      <NavLink to="/roadmaps" className={({ isActive }) => navClass(isActive)}>
+                        {({ isActive }) => (
+                          <>
+                            {isActive && <motion.span layoutId="nav-pill" className="absolute inset-0 rounded-full border border-primary/30 bg-primary/12" transition={{ type: "spring", bounce: 0.2, duration: 0.5 }} />}
+                            <span className="relative z-[1]">Roadmaps</span>
+                          </>
+                        )}
+                      </NavLink>
                       <NavLink to="/projects" className={({ isActive }) => navClass(isActive)}>
                         {({ isActive }) => (
                           <>
@@ -248,6 +256,7 @@ export default function MainLayout() {
                           { to: "/dashboard", label: "Dashboard" },
                           { to: "/arena", label: "Arena" },
                           { to: "/problems", label: "Problems" },
+                          { to: "/roadmaps", label: "Roadmaps" },
                           { to: "/projects", label: "Projects" },
                           { to: "/profile", label: "Profile" },
                           { to: "/certificates", label: "Certificates" },
@@ -345,6 +354,7 @@ export default function MainLayout() {
               <Link to="/leaderboard" className="transition hover:text-white">Leaderboard</Link>
               <Link to="/events" className="transition hover:text-white">Events</Link>
               <Link to="/problems" className="transition hover:text-white">Problems</Link>
+              <Link to="/roadmaps" className="transition hover:text-white">Roadmaps</Link>
               <Link to="/gallery" className="transition hover:text-white">Gallery</Link>
               <Link to="/contact" className="transition hover:text-white">Contact</Link>
             </div>

@@ -94,6 +94,14 @@ const ALLOWLIST = [
     file: "backend/controllers/event/achievementController.js",
     why:  "checkEventAchievements/checkWinAchievements helpers take only userId (no req); user_id comes from auth.users which is unique across orgs, so user_id-filtered student updates are safe without org_id scoping",
   },
+  {
+    file: "backend/controllers/problemController.js",
+    why:  "problem_statements is platform-wide and org_id-less by design (migration 31 — cross-tenant catalogue). The engagement endpoints look up name/avatar from `students` cross-tenant to render writeup authors / interest avatars; this is intentional (a SIH problem is the same problem for every org, so showing a name + avatar from another org on its detail page is correct). Daily-checkin updates the viewer's own student row via user_id, which is unique across orgs.",
+  },
+  {
+    file: "backend/controllers/portfolioController.js",
+    why:  "Public portfolio (/u/:handle) is internet-public by design. It deliberately reads `students`, `teams`, `projects`, `certificates` cross-tenant — the whole point of /u/:handle is that a LinkedIn recruiter (no session, no org) can view a student's work. Per-handle resolution + the public_portfolio opt-in flag provide the privacy layer; org-scoping would defeat the feature.",
+  },
 ];
 
 const ALLOWED_FILES = new Set(ALLOWLIST.map(a => a.file));

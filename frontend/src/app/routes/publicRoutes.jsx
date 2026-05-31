@@ -34,6 +34,13 @@ const TestHistoryPage    = lazy(() => import("@/features/student/pages/TestHisto
 // Kaggle / MLH / open-source problems. List + detail pages.
 const ProblemsListPage   = lazy(() => import("@/features/problems/pages/ProblemsListPage"));
 const ProblemDetailPage  = lazy(() => import("@/features/problems/pages/ProblemDetailPage"));
+// Roadmaps — sequenced learning bundles, sister-concept to problem
+// statements. Same auth gate.
+const RoadmapsListPage   = lazy(() => import("@/features/roadmaps/pages/RoadmapsListPage"));
+const RoadmapDetailPage  = lazy(() => import("@/features/roadmaps/pages/RoadmapDetailPage"));
+// Public portfolio — /u/:handle. AUTH-FREE so it works for LinkedIn /
+// résumé recipients. The backend returns 404 unless the owner opted in.
+const PublicPortfolioPage = lazy(() => import("@/features/portfolio/pages/PublicPortfolioPage"));
 
 /**
  * Phase 15 — redirect the legacy /student/:userId route onto
@@ -79,5 +86,12 @@ export const publicRoutes = (
     {/* ── Problem-statement catalogue (auth-gated browse) ── */}
     <Route path="problems"             element={<ProtectedRoute><ProblemsListPage /></ProtectedRoute>} />
     <Route path="problems/:slugOrId"   element={<ProtectedRoute><ProblemDetailPage /></ProtectedRoute>} />
+
+    {/* ── Roadmaps (auth-gated; sequenced learning paths) ── */}
+    <Route path="roadmaps"             element={<ProtectedRoute><RoadmapsListPage /></ProtectedRoute>} />
+    <Route path="roadmaps/:slug"       element={<ProtectedRoute><RoadmapDetailPage /></ProtectedRoute>} />
+
+    {/* ── Public portfolio — AUTH-FREE shareable page. ── */}
+    <Route path="u/:handle"            element={<PublicPortfolioPage />} />
   </Route>
 );

@@ -41,3 +41,14 @@ export const createProblemSchema = z.object({
 
 // PATCH variant — every field optional, but the same caps apply.
 export const updateProblemSchema = createProblemSchema.partial();
+
+// ─── Engagement: writeups ──────────────────────────────────────
+// Students can post one writeup per problem (UNIQUE(problem,user)).
+// 16KB body cap matches the column cap in the controller — keeps a
+// hostile client from shipping a 5MB markdown blob. repo_url is
+// optional; when present must be a URL.
+export const writeupSchema = z.object({
+  title:    z.string().trim().min(3, "title too short").max(200, "title too long"),
+  body:     z.string().trim().min(20, "body too short").max(16000, "body too long"),
+  repo_url: z.string().trim().url("must be a URL").max(500).optional().or(z.literal("")),
+}).strict();

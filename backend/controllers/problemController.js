@@ -11,6 +11,7 @@
  * leaves problem_statements.org_id off entirely.
  */
 
+import axios from "axios";
 import supabase from "../config/supabase.js";
 import { sendInternalError } from "../lib/errorResponse.js";
 import { logger } from "../config/logger.js";
@@ -227,6 +228,511 @@ export const deleteProblem = async (req, res) => {
     return res.json({ success: true });
   } catch (err) {
     return sendInternalError(res, err, "delete problem");
+  }
+};
+
+// ════════════════════════════════════════════════════════════
+// ENGAGEMENT — interest beacons + writeups
+// ════════════════════════════════════════════════════════════
+//
+// All endpoints below operate on a problem identified by slug or UUID.
+// We resolve the slug → id once up front so the engagement rows can
+// reference the canonical UUID even when the user lands on a slug URL.
+
+async function resolveProblemId(handleRaw) {
+  const handle = String(handleRaw || "").slice(0, 100);
+  if (!handle) return null;
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(handle);
+  if (isUuid) return handle;
+  const { data } = await supabase
+    .from("problem_statements")
+    .select("id")
+    .eq("slug", handle)
+    .eq("is_active", true)
+    .maybeSingle();
+  return data?.id || null;
+}
+
+// ─── GET /api/problems/:slugOrId/engagement ───────────────────
+// Returns the interest count, the viewer's own interest flag,
+// a small preview avatar list, and the top writeups. One round
+// trip from the client so the detail page can render the full
+// engagement strip in one fetch.
+export const getEngagement = async (req, res) => {
+  try {
+    const problemId = await resolveProblemId(req.params.slugOrId);
+    if (!problemId) return res.status(404).json({ error: "Problem not found" });
+
+    // Interest count + viewer flag.
+    const [{ count: interestCount }, { data: myRow }] = await Promise.all([
+      supabase.from("problem_interests").select("user_id", { count: "exact", head: true }).eq("problem_id", problemId),
+      supabase.from("problem_interests").select("user_id").eq("problem_id", problemId).eq("user_id", req.userId).maybeSingle(),
+    ]);
+
+    // Top 5 most-recent interested users — for the avatar strip.
+    const { data: recent } = await supabase
+      .from("problem_interests")
+      .select("user_id, created_at")
+      .eq("problem_id", problemId)
+      .order("created_at", { ascending: false })
+      .limit(5);
+
+    let interestedUsers = [];
+    if (recent && recent.length) {
+      const userIds = recent.map((r) => r.user_id);
+      const { data: profiles } = await supabase
+        .from("students")
+        .select("user_id, name, avatar_url")
+        .in("user_id", userIds);
+      const byId = new Map((profiles || []).map((p) => [p.user_id, p]));
+      interestedUsers = recent.map((r) => ({
+        user_id:    r.user_id,
+        name:       byId.get(r.user_id)?.name || "Anonymous",
+        avatar_url: byId.get(r.user_id)?.avatar_url || null,
+      }));
+    }
+
+    // Top writeups — vote_count desc, then recency. We render the
+    // body inside the panel so 16KB cap is fine to ship inline.
+    const { data: writeups } = await supabase
+      .from("problem_writeups")
+      .select("id, user_id, title, body, repo_url, vote_count, created_at")
+      .eq("problem_id", problemId)
+      .eq("is_published", true)
+      .order("vote_count", { ascending: false })
+      .order("created_at", { ascending: false })
+      .limit(20);
+
+    let writeupRows = [];
+    if (writeups && writeups.length) {
+      const userIds = [...new Set(writeups.map((w) => w.user_id))];
+      const { data: profiles } = await supabase
+        .from("students")
+        .select("user_id, name, avatar_url")
+        .in("user_id", userIds);
+      const byId = new Map((profiles || []).map((p) => [p.user_id, p]));
+
+      // Which writeups has the viewer upvoted?
+      const ids = writeups.map((w) => w.id);
+      const { data: myVotes } = await supabase
+        .from("writeup_votes")
+        .select("writeup_id")
+        .in("writeup_id", ids)
+        .eq("user_id", req.userId);
+      const votedSet = new Set((myVotes || []).map((v) => v.writeup_id));
+
+      writeupRows = writeups.map((w) => ({
+        ...w,
+        author_name:   byId.get(w.user_id)?.name || "Anonymous",
+        author_avatar: byId.get(w.user_id)?.avatar_url || null,
+        voted_by_me:   votedSet.has(w.id),
+        is_mine:       w.user_id === req.userId,
+      }));
+    }
+
+    return res.json({
+      problem_id:       problemId,
+      interest_count:   interestCount || 0,
+      i_am_interested:  Boolean(myRow),
+      interested_users: interestedUsers,
+      writeups:         writeupRows,
+    });
+  } catch (err) {
+    return sendInternalError(res, err, "fetch problem engagement");
+  }
+};
+
+// ─── POST /api/problems/:slugOrId/interest ───────────────────
+// Toggles the viewer's interest beacon on this problem. Idempotent:
+// re-clicking removes it.
+export const toggleInterest = async (req, res) => {
+  try {
+    const problemId = await resolveProblemId(req.params.slugOrId);
+    if (!problemId) return res.status(404).json({ error: "Problem not found" });
+
+    // Is the row already present? Cheaper than a try/catch on a
+    // unique-violation insert because we want a *toggle*, not retry.
+    const { data: existing } = await supabase
+      .from("problem_interests")
+      .select("user_id")
+      .eq("problem_id", problemId)
+      .eq("user_id", req.userId)
+      .maybeSingle();
+
+    if (existing) {
+      const { error } = await supabase
+        .from("problem_interests")
+        .delete()
+        .eq("problem_id", problemId)
+        .eq("user_id", req.userId);
+      if (error) throw error;
+      return res.json({ i_am_interested: false });
+    }
+
+    const { error } = await supabase
+      .from("problem_interests")
+      .insert({ problem_id: problemId, user_id: req.userId });
+    if (error && error.code !== "23505") throw error; // double-click race → ignore
+    return res.json({ i_am_interested: true });
+  } catch (err) {
+    return sendInternalError(res, err, "toggle problem interest");
+  }
+};
+
+// ─── POST /api/problems/:slugOrId/writeups ───────────────────
+// Create or update the viewer's writeup. One per (problem, user) —
+// the UNIQUE constraint means a re-submit overwrites. We do that
+// explicitly with upsert(onConflict) so the DB does the right thing
+// regardless of whether the client already has a draft id.
+export const upsertWriteup = async (req, res) => {
+  try {
+    const problemId = await resolveProblemId(req.params.slugOrId);
+    if (!problemId) return res.status(404).json({ error: "Problem not found" });
+
+    const { title, body, repo_url } = req.body || {};
+    if (!title || !title.trim())  return res.status(400).json({ error: "title required" });
+    if (!body  || !body.trim())   return res.status(400).json({ error: "body required" });
+
+    const payload = {
+      problem_id:   problemId,
+      user_id:      req.userId,
+      title:        String(title).trim().slice(0, 200),
+      body:         String(body).trim().slice(0, 16000),
+      repo_url:     repo_url ? String(repo_url).trim().slice(0, 500) : null,
+      is_published: true,
+    };
+
+    const { data, error } = await supabase
+      .from("problem_writeups")
+      .upsert(payload, { onConflict: "problem_id,user_id" })
+      .select()
+      .single();
+    if (error) throw error;
+    return res.status(201).json(data);
+  } catch (err) {
+    return sendInternalError(res, err, "upsert writeup");
+  }
+};
+
+// ─── DELETE /api/problems/:slugOrId/writeups/:writeupId ──────
+// Soft-deletes the viewer's own writeup (is_published=false). Admin /
+// teacher can hard-delete via DELETE on the catalogue; for student
+// self-service we just hide.
+export const deleteWriteup = async (req, res) => {
+  try {
+    const writeupId = String(req.params.writeupId || "").slice(0, 100);
+    // Lookup author so a malicious client can't delete someone else's
+    // writeup by guessing the id (UUID brute is ~impossible, but
+    // belt-and-braces).
+    const { data: row } = await supabase
+      .from("problem_writeups")
+      .select("user_id")
+      .eq("id", writeupId)
+      .maybeSingle();
+    if (!row) return res.status(404).json({ error: "Writeup not found" });
+
+    const isAuthor    = row.user_id === req.userId;
+    const isModerator = ["admin", "teacher", "super_admin"].includes(req.userRole);
+    if (!isAuthor && !isModerator) {
+      return res.status(403).json({ error: "Not your writeup" });
+    }
+
+    const { error } = await supabase
+      .from("problem_writeups")
+      .update({ is_published: false })
+      .eq("id", writeupId);
+    if (error) throw error;
+    return res.json({ success: true });
+  } catch (err) {
+    return sendInternalError(res, err, "delete writeup");
+  }
+};
+
+// ─── POST /api/problems/writeups/:writeupId/vote ─────────────
+// Toggle upvote. The DB trigger keeps problem_writeups.vote_count in
+// sync; we return the fresh count so the client can update without a
+// re-fetch of the whole engagement payload.
+export const toggleWriteupVote = async (req, res) => {
+  try {
+    const writeupId = String(req.params.writeupId || "").slice(0, 100);
+
+    const { data: existing } = await supabase
+      .from("writeup_votes")
+      .select("writeup_id")
+      .eq("writeup_id", writeupId)
+      .eq("user_id", req.userId)
+      .maybeSingle();
+
+    if (existing) {
+      const { error } = await supabase
+        .from("writeup_votes")
+        .delete()
+        .eq("writeup_id", writeupId)
+        .eq("user_id", req.userId);
+      if (error) throw error;
+    } else {
+      const { error } = await supabase
+        .from("writeup_votes")
+        .insert({ writeup_id: writeupId, user_id: req.userId });
+      if (error && error.code !== "23505") throw error;
+    }
+
+    const { data: fresh } = await supabase
+      .from("problem_writeups")
+      .select("vote_count")
+      .eq("id", writeupId)
+      .maybeSingle();
+
+    return res.json({
+      voted_by_me: !existing,
+      vote_count:  fresh?.vote_count ?? 0,
+    });
+  } catch (err) {
+    return sendInternalError(res, err, "toggle writeup vote");
+  }
+};
+
+// ════════════════════════════════════════════════════════════
+// AI STUDY COMPANION
+// ════════════════════════════════════════════════════════════
+//
+// POST /api/problems/:slugOrId/ai-ask
+//
+// Scoped Socratic assistant: the problem's title + description +
+// how_to_start are injected into the system prompt so the model has
+// the problem on hand without the client having to ship it. The model
+// is asked to give HINTS not solutions — this is study support, not
+// homework-completion.
+//
+// Auth: requireAuth upstream. Rate-limit: aiLimiter (20/hr/user)
+// applied at the route layer (shared budget with /comments/ask-ai and
+// /bot/chat so a single student can't drain the OpenRouter spend by
+// jumping between surfaces).
+export const askProblemAi = async (req, res) => {
+  try {
+    const problemId = await resolveProblemId(req.params.slugOrId);
+    if (!problemId) return res.status(404).json({ error: "Problem not found" });
+
+    const { question } = req.body || {};
+    const q = String(question || "").trim();
+    if (!q)              return res.status(400).json({ error: "question required" });
+    if (q.length > 2000) return res.status(400).json({ error: "question too long (max 2000 chars)" });
+
+    // Fetch just the fields we feed into the prompt. Keep the
+    // description trimmed — long SIH writeups are 4-6KB which would
+    // burn tokens on every call.
+    const { data: problem, error } = await supabase
+      .from("problem_statements")
+      .select("title, description, how_to_start, domain, source")
+      .eq("id", problemId)
+      .maybeSingle();
+    if (error) throw error;
+    if (!problem) return res.status(404).json({ error: "Problem not found" });
+
+    const description  = String(problem.description  || "").slice(0, 2000);
+    const howToStart   = String(problem.how_to_start || "").slice(0, 1500);
+
+    const system =
+      `You are a study companion helping a student tackle the following ${problem.source || "open-source"} problem.\n\n` +
+      `TITLE: ${problem.title}\n` +
+      `DOMAIN: ${problem.domain}\n\n` +
+      `DESCRIPTION:\n${description}\n\n` +
+      (howToStart ? `HOW TO START (canonical guidance for this problem):\n${howToStart}\n\n` : "") +
+      `Rules:\n` +
+      `- Be Socratic — guide the student to the answer with hints, leading questions, and pointers. NEVER hand over a complete solution.\n` +
+      `- Cite specific parts of the problem when you reference them.\n` +
+      `- If the student asks for code, give a small targeted snippet (≤ 15 lines) plus an explanation, not a full solution.\n` +
+      `- If the question is off-topic for THIS problem, say so briefly and steer back.\n` +
+      `- Keep responses under 280 words. Use plain text, no markdown headers.`;
+
+    const apiKey = process.env.OPENROUTER_API_KEY;
+    if (!apiKey) {
+      logger.warn("askProblemAi called but OPENROUTER_API_KEY is unset");
+      return res.status(503).json({ error: "AI study companion is not configured. Try again later." });
+    }
+
+    const response = await axios.post(
+      "https://openrouter.ai/api/v1/chat/completions",
+      {
+        model:    "deepseek/deepseek-chat",
+        messages: [
+          { role: "system", content: system },
+          { role: "user",   content: q },
+        ],
+        temperature: 0.6,
+        max_tokens:  500,
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+          "HTTP-Referer":  "https://mathcollective.bmsit.in",
+          "X-Title":       "Math Collective — Problem Companion",
+        },
+        timeout: 30000,
+      },
+    );
+
+    const reply = response.data?.choices?.[0]?.message?.content?.trim()
+      || "Couldn't get a response. Try rephrasing your question.";
+
+    return res.json({ reply });
+  } catch (err) {
+    // axios timeouts and OpenRouter 5xx land here. Don't leak the
+    // OpenRouter stack to the client — generic 502.
+    if (err?.response?.status) {
+      logger.warn({ status: err.response.status, data: err.response.data }, "OpenRouter upstream error");
+      return res.status(502).json({ error: "AI is unavailable right now. Try again in a minute." });
+    }
+    return sendInternalError(res, err, "problem ai-ask");
+  }
+};
+
+// ════════════════════════════════════════════════════════════
+// DAILY PROBLEM OF THE DAY
+// ════════════════════════════════════════════════════════════
+//
+// GET /api/problems/daily
+//
+// Returns today's pick + the viewer's streak info in one trip. If
+// daily_picks has no row for today, we lazily insert one (random
+// active problem) — no cron needed. Race-safe via ON CONFLICT.
+//
+// POST /api/problems/daily/checkin
+//
+// Marks the viewer as having engaged with today's problem. Bumps the
+// streak if yesterday was also checked in; resets to 1 otherwise.
+// Idempotent — re-calling on the same day is a no-op.
+
+// Today in the server's local TZ. The pick is global, so we pick a
+// single TZ — UTC is the obvious choice and lets us avoid any
+// "different timezones see different daily problems" confusion.
+function todayUtc() {
+  return new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+}
+
+function yesterdayUtc() {
+  const d = new Date();
+  d.setUTCDate(d.getUTCDate() - 1);
+  return d.toISOString().slice(0, 10);
+}
+
+// ─── GET /api/problems/daily ──────────────────────────────────
+export const getDailyProblem = async (req, res) => {
+  try {
+    const today = todayUtc();
+
+    // 1. Is today's pick already chosen?
+    let pickRow;
+    {
+      const { data, error } = await supabase
+        .from("daily_picks")
+        .select("pick_date, problem_id")
+        .eq("pick_date", today)
+        .maybeSingle();
+      if (error) throw error;
+      pickRow = data;
+    }
+
+    // 2. If not, choose one and insert (race-safe).
+    if (!pickRow) {
+      // Pull a random active problem. PostgREST doesn't have
+      // ORDER BY random(), so we fetch ids and sample in JS. With
+      // ~365 rows this is a 4KB read — fine.
+      const { data: ids, error: idsErr } = await supabase
+        .from("problem_statements")
+        .select("id")
+        .eq("is_active", true);
+      if (idsErr) throw idsErr;
+      if (!ids || ids.length === 0) {
+        return res.status(503).json({ error: "No active problems to pick from yet." });
+      }
+      const choice = ids[Math.floor(Math.random() * ids.length)];
+
+      // Insert. ON CONFLICT (pick_date) DO NOTHING via upsert. If two
+      // first requests race, both supply different problem_ids but
+      // only the first INSERT wins; we then read the winning row back.
+      await supabase
+        .from("daily_picks")
+        .upsert({ pick_date: today, problem_id: choice.id }, { onConflict: "pick_date", ignoreDuplicates: true });
+
+      const { data: stored, error: re } = await supabase
+        .from("daily_picks")
+        .select("pick_date, problem_id")
+        .eq("pick_date", today)
+        .maybeSingle();
+      if (re) throw re;
+      pickRow = stored;
+    }
+
+    // 3. Fetch the problem metadata (slim — list-card shape).
+    const { data: problem, error: pErr } = await supabase
+      .from("problem_statements")
+      .select("id, slug, title, domain, difficulty, organisation, source, source_event, tags")
+      .eq("id", pickRow.problem_id)
+      .maybeSingle();
+    if (pErr) throw pErr;
+
+    // 4. The viewer's streak.
+    const { data: stu } = await supabase
+      .from("students")
+      .select("streak_days, streak_last_date")
+      .eq("user_id", req.userId)
+      .maybeSingle();
+
+    const checkedInToday = stu?.streak_last_date === today;
+
+    return res.json({
+      date:               today,
+      problem,
+      streak_days:        stu?.streak_days || 0,
+      streak_last_date:   stu?.streak_last_date || null,
+      checked_in_today:   checkedInToday,
+    });
+  } catch (err) {
+    return sendInternalError(res, err, "fetch daily problem");
+  }
+};
+
+// ─── POST /api/problems/daily/checkin ─────────────────────────
+export const dailyCheckin = async (req, res) => {
+  try {
+    const today = todayUtc();
+    const yest  = yesterdayUtc();
+
+    const { data: stu, error } = await supabase
+      .from("students")
+      .select("streak_days, streak_last_date")
+      .eq("user_id", req.userId)
+      .maybeSingle();
+    if (error) throw error;
+    if (!stu) return res.status(404).json({ error: "Student record not found" });
+
+    // Already done today → idempotent no-op.
+    if (stu.streak_last_date === today) {
+      return res.json({
+        streak_days:      stu.streak_days,
+        streak_last_date: stu.streak_last_date,
+        already_today:    true,
+      });
+    }
+
+    // Continue or reset the streak.
+    const newDays = stu.streak_last_date === yest ? (stu.streak_days || 0) + 1 : 1;
+
+    const { error: uErr } = await supabase
+      .from("students")
+      .update({ streak_days: newDays, streak_last_date: today })
+      .eq("user_id", req.userId);
+    if (uErr) throw uErr;
+
+    return res.json({
+      streak_days:      newDays,
+      streak_last_date: today,
+      already_today:    false,
+    });
+  } catch (err) {
+    return sendInternalError(res, err, "daily checkin");
   }
 };
 
