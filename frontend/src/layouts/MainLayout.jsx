@@ -141,12 +141,15 @@ export default function MainLayout() {
               {/* Right: Actions + Hamburger */}
               <div className="flex items-center gap-2">
                 {/* Install as PWA (Chrome/Edge show native prompt; iOS Safari shows a hint) */}
-                <InstallPwaButton className="hidden sm:block" />
+                <InstallPwaButton className="hidden md:block" />
 
-                {/* Theme toggle — hidden on very small screens */}
+                {/* Theme toggle — hidden below md: so it doesn't crowd
+                    the BrandMark + auth actions on tablet-portrait
+                    widths (sm: 640px is still too narrow once both
+                    Sign In + Join show up next to the brand). */}
                 <button
                   onClick={toggleTheme}
-                  className="hidden items-center gap-1.5 rounded-full border border-line/15 bg-white/[0.03] px-2.5 py-1.5 font-mono text-[9px] uppercase tracking-wider text-text-muted transition hover:border-primary/25 hover:text-white sm:flex"
+                  className="hidden items-center gap-1.5 rounded-full border border-line/15 bg-white/[0.03] px-2.5 py-1.5 font-mono text-[9px] uppercase tracking-wider text-text-muted transition hover:border-primary/25 hover:text-white md:flex"
                   aria-label={`${theme} theme — click to switch`}
                 >
                   {theme === "light" ? (
@@ -168,13 +171,16 @@ export default function MainLayout() {
                       </svg>
                     </Link>
 
-                    {/* User dropdown — desktop only */}
-                    <div className="group relative hidden sm:block">
+                    {/* User dropdown — desktop only (md:+). Below that
+                        the bell + hamburger combo handles navigation
+                        via the mobile drawer, where Profile / Saved /
+                        Sign Out all live. */}
+                    <div className="group relative hidden md:block">
                       <button className="flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.15em] text-white">
                         <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/30 text-[10px] font-bold">
                           {(user.name || user.email || "U")[0].toUpperCase()}
                         </span>
-                        <span className="hidden sm:inline">{user.name?.split(" ")[0] || "User"}</span>
+                        <span>{user.name?.split(" ")[0] || "User"}</span>
                       </button>
                       <div className="invisible absolute right-0 top-full mt-2 w-48 rounded-xl border border-line/15 bg-surface/95 p-2 shadow-panel backdrop-blur-2xl transition-all group-hover:visible">
                         <p className="px-3 py-1.5 font-mono text-[10px] uppercase tracking-wider text-text-dim">{role}</p>
@@ -195,7 +201,11 @@ export default function MainLayout() {
                     <Link to="/login" className="rounded-full border border-line/15 bg-white/[0.03] px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.2em] text-text-muted transition hover:text-white sm:px-4 sm:text-[11px]">
                       Sign in
                     </Link>
-                    <Link to="/register" className="hidden rounded-full border border-primary/30 bg-primary/12 px-4 py-1.5 font-mono text-[11px] uppercase tracking-[0.2em] text-white transition hover:bg-primary/20 sm:block">
+                    {/* Join CTA hidden until md: so the right side of the
+                        header doesn't crowd the brand on tablet-portrait
+                        widths; the hamburger drawer below has its own
+                        'Join the Collective' link for narrow viewports. */}
+                    <Link to="/register" className="hidden rounded-full border border-primary/30 bg-primary/12 px-4 py-1.5 font-mono text-[11px] uppercase tracking-[0.2em] text-white transition hover:bg-primary/20 md:block">
                       Join
                     </Link>
                   </>

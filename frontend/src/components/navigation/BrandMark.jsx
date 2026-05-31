@@ -30,11 +30,15 @@ export default function BrandMark({ to = "/", compact = false, className }) {
         </span>
       </span>
 
+      {/* Title block — on mobile the subtitle is hidden so the title
+          can stay on one line next to the avatar without competing
+          with the header's action row for horizontal space. Subtitle
+          only shows from md: (768px) up, where there's actual room. */}
       <span className="flex flex-col">
-        <span className="font-display text-lg font-bold tracking-[-0.06em] text-white">
+        <span className="whitespace-nowrap font-display text-base font-bold tracking-[-0.06em] text-white sm:text-lg">
           Math Collective
         </span>
-        <span className="font-mono text-[11px] uppercase tracking-[0.28em] text-text-muted">
+        <span className="hidden whitespace-nowrap font-mono text-[11px] uppercase tracking-[0.28em] text-text-muted md:inline">
           {orgName || "BMSIT Chapter"}
         </span>
       </span>
