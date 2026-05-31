@@ -11,7 +11,7 @@
     "dev:frontend": "vite --config vite.config.js",
     "build": "vite build --config vite.config.js",
     "build:analyze": "node -e \"process.env.ANALYZE='1';require('child_process').execSync('vite build --config vite.config.js',{stdio:'inherit',env:process.env})\"",
-    "postbuild": "node scripts/scan-bundle-secrets.mjs",
+    "postbuild": "node scripts/strip-source-maps.mjs && node scripts/scan-bundle-secrets.mjs",
     "build:frontend": "vite build --config vite.config.js",
     "preview:frontend": "vite preview --config vite.config.js",
     "lint": "eslint frontend/src/ backend/ --ext .js,.jsx --quiet",
@@ -35,8 +35,9 @@
     "competitive",
     "university"
   ],
-  "author": "Math Collective, BMSIT",
-  "license": "MIT",
+  "author": "Atul Dhull / Math Collective, BMSIT",
+  "license": "SEE LICENSE IN LICENSE",
+  "private": true,
   "dependencies": {
     "@dicebear/collection": "9.4.2",
     "@dicebear/core": "9.4.2",

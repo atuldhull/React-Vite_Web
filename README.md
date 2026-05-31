@@ -14,6 +14,11 @@ out the social layer.
 
 > **Status:** 1195 tests passing across 90 files · 0 ESLint issues · production build < 20s
 
+> ⚠️ **Proprietary — All Rights Reserved.** This repository is **public for review,
+> not for reuse.** You may read the source on GitHub but you may NOT clone, fork,
+> redeploy, or copy any portion of it without written permission. See
+> [LICENSE](LICENSE) for the full terms. Unauthorised use is a copyright violation.
+
 ---
 
 ## Quick Start
@@ -417,4 +422,13 @@ buttons and cards automatically match the current scene.
 
 ## License
 
-MIT © 2026 Math Collective, BMSIT
+**Proprietary — All Rights Reserved.** See [LICENSE](LICENSE) for the full
+terms.
+
+This repository is public so that students, recruiters, and the wider community
+can read the code and understand how Math Collective is built. **It is not open
+source.** You may not clone, fork, redeploy, copy code from, or submit derivatives
+of this codebase without prior written permission. Licensing inquiries:
+<24ug1byai146@bmsit.in>.
+
+© 2026 Atul Dhull · Math Collective · BMS Institute of Technology &amp; Management

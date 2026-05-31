@@ -98,7 +98,15 @@ export default defineConfig({
     outDir: path.resolve(__dirname, "public/app"),
     emptyOutDir: true,
     manifest: true,
-    sourcemap: true,
+    // `hidden`: still emit .map files (so the Sentry plugin can upload
+    // them at build time when configured) but DROP the
+    // `//# sourceMappingURL=...` comment from the JS bundles. Even if
+    // a .map file leaks into the deployed asset folder, DevTools won't
+    // auto-load it because the JS doesn't reference it. The companion
+    // `scripts/strip-source-maps.mjs` postbuild step also nukes the
+    // .map files outright on every build, so the proprietary code in
+    // the repo never round-trips as a `.map` to end users.
+    sourcemap: "hidden",
     rollupOptions: {
       output: {
         // Content-hashed filenames. Previously stable names (`app.js`,
