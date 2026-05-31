@@ -256,7 +256,7 @@ function StepRow({ step, index, onToggle, disabled }) {
             {step.problem && (
               <Link
                 to={`/problems/${encodeURIComponent(step.problem.slug || step.problem.id)}`}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-primary/30 bg-primary/10 px-2.5 py-1 font-mono text-[10px] uppercase tracking-wider text-white hover:bg-primary/15"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-primary/30 bg-primary/10 px-3 py-1.5 font-mono text-[10px] uppercase tracking-wider text-white transition hover:bg-primary/15 sm:px-2.5 sm:py-1"
               >
                 ↗ Problem · {step.problem.title.slice(0, 40)}{step.problem.title.length > 40 ? "…" : ""}
               </Link>
@@ -266,7 +266,7 @@ function StepRow({ step, index, onToggle, disabled }) {
                 href={step.resource_url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 rounded-lg border border-line/25 bg-white/[0.04] px-2.5 py-1 font-mono text-[10px] uppercase tracking-wider text-text-soft hover:border-primary/40 hover:text-white"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-line/25 bg-white/[0.04] px-3 py-1.5 font-mono text-[10px] uppercase tracking-wider text-text-soft transition hover:border-primary/40 hover:text-white sm:px-2.5 sm:py-1"
               >
                 ↗ {step.resource_label || "Resource"}
               </a>

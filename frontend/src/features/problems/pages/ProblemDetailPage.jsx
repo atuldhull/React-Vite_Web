@@ -226,7 +226,7 @@ export default function ProblemDetailPage() {
             <Link
               key={t}
               to={`/problems?tag=${encodeURIComponent(t)}`}
-              className="rounded-full bg-white/[0.04] px-2.5 py-1 font-mono text-[10px] text-text-muted transition hover:bg-white/[0.08] hover:text-white"
+              className="rounded-full bg-white/[0.04] px-3 py-1.5 font-mono text-[10px] text-text-muted transition hover:bg-white/[0.08] hover:text-white sm:px-2.5 sm:py-1"
             >
               #{t}
             </Link>
