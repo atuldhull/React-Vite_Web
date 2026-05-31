@@ -1,16 +1,18 @@
 # Math Collective
 
-**A multi-tenant competitive mathematics platform for university students.**
+**A multi-tenant competitive mathematics + open-source-discovery platform for university students.**
 
 React 19 + Vite 7 frontend, Express 5 + Supabase backend, Three.js for the 3D homepage,
-Socket.IO for live quiz + real-time chat. AI-assisted challenges via OpenRouter, XP
-gamification, end-to-end encrypted messaging, rich profile pages, and a monument-themed
-visual system.
+Socket.IO for live quiz + real-time chat. AI-assisted challenge generation, an
+auth-gated catalogue of 365+ real-world problem statements (SIH / GSoC / Kaggle / MLH /
+open-source), community-authored learning roadmaps, shareable public portfolios, and a
+monument-themed visual system. XP gamification + end-to-end encrypted messaging round
+out the social layer.
 
 🔗 **Live:** <https://math-collective.onrender.com>
 🟢 **Status:** <https://stats.uptimerobot.com/lT3HeIUX4q>
 
-> **Status:** 813 tests passing · 0 ESLint issues · production build < 15s
+> **Status:** 1195 tests passing across 90 files · 0 ESLint issues · production build < 20s
 
 ---
 
@@ -48,13 +50,13 @@ SPA served by Express.
 | 3D | Three.js 0.183, @react-three/fiber 9, @react-three/drei 10 |
 | Animation | Framer Motion 12, GSAP 3.14 |
 | Backend | Express 5, Socket.IO 4.7 |
-| Database | Supabase PostgreSQL (multi-tenant with RLS) |
+| Database | Supabase PostgreSQL (multi-tenant with RLS on identity, disabled on data-plane) |
 | Auth | Supabase Auth (email/password) + express-session |
-| AI | OpenRouter API (DeepSeek model) — question generation + tutor bot |
+| AI | OpenRouter API (DeepSeek model) — question generation, problem-statement tutor, problem-submission drafter |
 | Payments | Razorpay (subscriptions) + manual UPI/QR (paid events) |
 | Messaging | E2EE (ECDH-P256 + AES-GCM, keys derived from a 12-word recovery phrase) |
 | Identity | Deterministic keypair + visual math sigils from a custom 2048-word wordlist |
-| Social | Rich profile pages with hovercards, FriendButton state machine, privacy tiers |
+| Social | Rich profile pages, hovercards, FriendButton state machine, public portfolios at `/u/:handle` |
 | Monitoring | UptimeRobot (liveness) + Sentry (errors — optional, feature-gated) |
 | Media | Cloudinary (hero video frame extraction via `so_<time>` transforms) |
 | Fonts | Space Grotesk, JetBrains Mono, Outfit |
@@ -63,7 +65,42 @@ SPA served by Express.
 
 ## Features
 
-### For Students
+### Catalogue & Discovery
+- **Problem-statement repository** — 365+ curated SIH / GSoC / Kaggle / MLH /
+  Devfolio / Unstop / open-source problems at `/problems`. Each entry has a full
+  description, a 2-3 paragraph "how to start" guide, dataset + resource links,
+  and tag-based filters. Auth-gated browse — students only.
+- **AI-assisted problem submission** — students paste any catalogue URL → server
+  fetches the page (SSRF-guarded) → LLM drafts the catalogue fields → student
+  reviews and submits → admin moderates from `/admin/moderation`.
+- **Learning roadmaps** — sequenced learning paths at `/roadmaps`. Six featured
+  paths shipped (GSoC prep, ICPC fundamentals, ML researcher track, full-stack
+  web, GenAI tooling, Olympiad-to-Research). Any student can author + submit a
+  community roadmap for moderation.
+- **Bookmarks** — universal "save for later" across problems, writeups, and
+  roadmaps. Personal feed at `/saved`.
+
+### Engagement Loop
+- **Interest beacons** — "🔥 I'm tackling this" toggle on every problem; counts
+  + avatar strip make the catalogue feel alive.
+- **Writeups + upvotes** — markdown post-mortems anchored to each problem. One
+  writeup per (problem, user) — re-submit overwrites. Upvotes order the feed.
+- **Per-problem AI study companion** — Socratic Q&A scoped to the current
+  problem. Hints, not solutions. Shared 20/hr/user rate limit with the rest of
+  the AI surface.
+- **Daily Problem of the Day** — auto-rotating pick on `/dashboard` with
+  per-student check-in streaks. Milestones (7, 14, 30, 50, 100, 200, 365 days)
+  fire achievement notifications.
+- **Notifications** — fire on writeup upvotes, new writeups on a problem you're
+  interested in, streak milestones, moderation decisions (approved / rejected),
+  and roadmap feature promotions.
+
+### Public Portfolio
+- **`/u/:handle`** — auth-free, share-anywhere portfolio aggregating writeups,
+  projects, achievements, certificates, and completed roadmaps. Opt-in via the
+  profile settings card. Designed for "paste on LinkedIn / résumé" use.
+
+### Classic Student Features
 - **Challenge Arena** — randomised questions with XP rewards/penalties and streak tracking.
 - **Live Quizzes** — Socket.IO-backed real-time quiz sessions with host controls.
 - **Leaderboards** — weekly, all-time, and per-event rankings.
@@ -80,6 +117,8 @@ SPA served by Express.
 - **PANDA Bot** — AI math tutor embedded in every challenge.
 
 ### For Teachers / Admins
+- **Moderation queue** — `/admin/moderation` for pending community roadmaps + AI-
+  drafted problem submissions. Approve / Feature / Reject inline.
 - **AI Question Generator** — DeepSeek-powered MCQ generation with preview / regenerate
   / save. Bulk generation for admins.
 - **Event Management** — create, edit, toggle registration, view registrations +
@@ -91,6 +130,11 @@ SPA served by Express.
 - **Platform Insights** — active users, registration trends, top events, achievement
   stats, and per-event health.
 - **Feature Management** — toggle platform features on/off within a subscription plan.
+
+### Core Team Portal
+- **`/core`** — separate portal for Club Asymptotes' organising team. Tasks (claim →
+  submit → confirm), anonymous feedback channel, idea board, weekly meetings + RSVPs,
+  trend tracking, and a member-only chat. Roster view shows roles + XP + streaks.
 
 ### For Super Admins
 - **Organisation Management** — create, suspend, activate, delete orgs.
@@ -110,7 +154,7 @@ SPA served by Express.
 | `SESSION_SECRET` | yes | Random 32+ char string — used for express-session signing |
 | `FRONTEND_URL` | prod | CORS allow-list origin in production |
 | `SESSION_DB_URL` or `REDIS_URL` | prod | Postgres or Redis backing store for sessions |
-| `OPENROUTER_API_KEY` | feature | Enables AI question generation + PANDA tutor |
+| `OPENROUTER_API_KEY` | feature | Enables AI question generation, PANDA tutor, per-problem study companion, and AI-assisted problem drafting |
 | `CONTACT_EMAIL` / `CONTACT_APP_PASSWORD` | feature | Gmail + app password for contact form + invoice emails |
 | `RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET` / `RAZORPAY_WEBHOOK_SECRET` | feature | Razorpay (for org subscriptions) |
 | `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_CONTACT` | feature | Web push notifications. Generate with `node backend/scripts/generateVapidKeys.js` |
@@ -131,7 +175,14 @@ super_admin > admin > teacher > student
 
 Higher roles inherit every lower-role permission. Protection is enforced at three layers:
 `ProtectedRoute` in the router, role-specific Express middleware on each `/api/*` route,
-and database-level Row Level Security policies on every tenant table.
+and database-level Row Level Security policies on the identity-plane tables.
+
+The catalogue / engagement / portfolio surfaces (problem statements, writeups,
+bookmarks, roadmaps, portfolios) are deliberately cross-tenant — a SIH problem
+is the same problem for a BMSIT student as for any other org's student. The
+tenant-scoping invariant test (`tests/unit/tenant-scoping-invariant.test.js`)
+allowlists the controllers that bypass the org-scoping proxy with a documented
+reason per file.
 
 ---
 
@@ -145,18 +196,22 @@ Express 5 server (:3000)
   ├── REST API (/api/*)
   ├── Socket.IO (quiz engine, chat relays, notifications, presence)
   ├── express-session with Postgres-backed store in production
-  ├── Tenant middleware — auto-injects org_id into every Supabase query
+  ├── Tenant middleware — auto-injects org_id into every Supabase query on the identity plane
   ├── Auth middleware — role-based route guards
   ├── CSRF middleware — double-submit cookie pattern (csrf-csrf)
   ├── Zod validation on every mutating request body
+  ├── aiLimiter (20/hr/user) — shared budget across PANDA, study companion, and problem drafter
   ├── Pino structured logging with request-ID tagging (AsyncLocalStorage)
   └── Global error handler → pino + optional Sentry capture
         │
         ▼
   Supabase PostgreSQL
-  ├── 20+ tables (students, orgs, challenges, events, messages, …)
-  ├── Row Level Security: default-deny on every tenant table
-  └── Service-role key for backend writes (service-role bypasses RLS by design)
+  ├── 35+ tables (students, orgs, challenges, events, messages, problem_statements,
+  │             problem_writeups, roadmaps, bookmarks, daily_picks, …)
+  ├── Identity-plane tables: RLS enabled, default-deny
+  ├── Data-plane catalogue tables: RLS disabled, cross-tenant by design (problem
+  │             statements, writeups, roadmaps, bookmarks, portfolios)
+  └── Service-role key for backend writes (bypasses RLS by design)
 ```
 
 ---
@@ -185,10 +240,31 @@ files, numbered in the order they must run. Each file is self-contained —
 | `13_push_subscriptions.sql` | Web-push subscription rows (VAPID) |
 | `14_multitenant_org_columns.sql` | `org_id NOT NULL` across tenant tables |
 | `16_session_store.sql` | Postgres-backed express-session table |
-| `17_rls_policies.sql` | Row-level-security default-deny on tenant tables |
+| `17_rls_policies.sql` | Row-level-security default-deny on identity-plane tables |
 | `18_idempotency_keys.sql` | Idempotency for payment webhooks |
 | `19_paid_events.sql` | UPI/QR manual payment flow |
 | `20_profile_visibility.sql` | Per-user privacy tiers for profile pages |
+| `21_disable_rls_dataplane.sql` | RLS off on data-plane tables; tenant scoping moves to the controller layer |
+| `22_team_events.sql` | Per-event team-up support |
+| `23_event_razorpay.sql` | Razorpay auto-verify flow for paid events |
+| `24_project_slides_url.sql` | Slides link on project submissions |
+| `25_core_team.sql` | Core-team portal — tasks, feedback, ideas, trends |
+| `26_core_meetings.sql` | Core-team meetings + RSVPs |
+| `27_core_member_link.sql` | Linking core-team identity to main account |
+| `28_core_chat.sql` | Core-team anonymous chat channel |
+| `29_perf_indexes.sql` | Hot-query indexes (login, profile, events) |
+| `30_students_last_seen_at.sql` | Presence ping column + index |
+| `31_problem_statements.sql` | Catalogue table + 8 indexes + auto-updated_at trigger |
+| `32_seed_problem_statements.sql` | First 41 hand-curated problems |
+| `33_seed_problem_statements_v2.sql` | +125 research-backed entries (4-agent batch) |
+| `34_seed_problem_statements_v3.sql` | +199 entries from deeper sources (SIH older years, GSoC archive, FOSSEE, university courses) — total 365 |
+| `35_problem_engagement.sql` | `problem_interests`, `problem_writeups`, `writeup_votes` + denorm vote-count trigger |
+| `36_daily_problem_streaks.sql` | `daily_picks` + `students.streak_days` / `streak_last_date` |
+| `37_roadmaps.sql` | `roadmaps`, `roadmap_steps`, `roadmap_progress` + 6 seeded learning paths |
+| `38_public_portfolio.sql` | `students.handle` (UNIQUE, auto-backfilled) + `public_portfolio` opt-in + headline + socials JSON |
+| `39_bookmarks.sql` | Polymorphic save-for-later across problems / writeups / roadmaps |
+| `40_roadmap_authoring.sql` | `roadmaps.author_id` + `is_featured` + `submission_status` (draft / pending / approved / rejected) |
+| `41_problem_submissions.sql` | Pending-queue table for AI-drafted catalogue submissions |
 
 ### Applying migrations
 
@@ -202,12 +278,22 @@ Supabase doesn't ship a CLI migration runner by default. Two ways to apply:
 
 The order matters — later files reference columns/tables added by earlier ones.
 
-### Row Level Security
+### Row Level Security — two-plane model
 
-Every tenant table has RLS enabled + a default-deny policy (`17_rls_policies.sql`).
+The schema is intentionally split into two planes with different RLS policies:
+
+- **Identity plane** (students, conversations, messages, events, notifications,
+  certificates, …): RLS enabled, default-deny. Org-scoped. Tenant middleware
+  injects `org_id` into every read via `req.db`.
+- **Data plane** (problem_statements, problem_writeups, roadmaps, bookmarks,
+  daily_picks, portfolios): RLS disabled. Deliberately cross-tenant — a SIH
+  problem is the same problem for every org. Controllers use raw `supabase` and
+  the `tests/unit/tenant-scoping-invariant.test.js` allowlist documents why
+  each cross-tenant controller is safe.
+
 Backend writes bypass RLS via the service-role key; the frontend never talks
 to Supabase directly, so no RLS policies need to account for unauthenticated
-reads. If you're extending the schema, add the same pattern:
+reads. If you're extending the identity plane:
 
 ```sql
 ALTER TABLE your_new_table ENABLE ROW LEVEL SECURITY;
@@ -216,9 +302,10 @@ CREATE POLICY "default_deny" ON your_new_table FOR ALL USING (false);
 
 ### Seeding dev data
 
-No automated seed exists — if you want sample content for local
-development, create an organisation + students via the SQL editor or the
-admin UI after logging in for the first time.
+The catalogue ships with 365 problem statements + 6 learning roadmaps already
+seeded across migrations 32-34 and 37 — you'll have content the moment you
+apply migrations. For accounts: create an organisation + students via the SQL
+editor or the admin UI after logging in for the first time.
 
 ---
 
@@ -230,7 +317,7 @@ npm run dev            # concurrently — backend (nodemon) + frontend (vite)
 npm run build          # Production frontend build → public/app/
 npm run lint           # ESLint check
 npm run typecheck      # TypeScript check (JSDoc + checkJs — no compile)
-npm test               # Vitest run — 813 tests
+npm test               # Vitest run — 1195 tests
 npm run test:coverage  # Vitest with coverage gate (CI)
 npm run e2e            # Playwright E2E smoke tests
 ```
@@ -239,12 +326,12 @@ npm run e2e            # Playwright E2E smoke tests
 
 ## Testing
 
-**813 tests across 66 files**:
+**1195 tests across 90 files**:
 
 | Layer | What it covers |
 |-------|----------------|
-| **Unit** | Pure logic — roles, feature flags, crypto primitives, mnemonic/sigil derivation, relationship state helpers, arena scoring |
-| **Integration** | Express routes via `supertest` — auth, payment, messaging, chat settings, relationship endpoints, profile aggregation, paid events |
+| **Unit** | Pure logic — roles, feature flags, crypto primitives, mnemonic/sigil derivation, relationship state helpers, arena scoring, tenant-scoping invariant |
+| **Integration** | Express routes via `supertest` — auth, payment, messaging, chat settings, relationship endpoints, profile aggregation, paid events, problem catalogue + engagement |
 | **Component (jsdom)** | React components with mocked stores — FriendButton state machine, MessageButton, ProfileTabs, tab content, IdentityGlyph |
 | **E2E (Playwright)** | 7 browser-level smoke tests against a production build — health probes, CSRF, SPA shell, security headers |
 
@@ -267,7 +354,7 @@ GitHub Actions workflow at `.github/workflows/ci.yml`:
 7. `npm run e2e`
 
 Every push to `main` + every PR runs the full pipeline. Dependabot checks npm deps
-weekly.
+weekly. A separate `security.yml` workflow runs pattern-gates + gitleaks on every PR.
 
 ---
 
@@ -298,7 +385,11 @@ connection which serverless functions can't provide.
 |---------|---------|--------------|------------|
 | Arena + Leaderboard | ✓ | ✓ | ✓ |
 | Events + Notifications | ✓ | ✓ | ✓ |
+| Problem catalogue + Roadmaps | ✓ | ✓ | ✓ |
+| Bookmarks + Public portfolios | ✓ | ✓ | ✓ |
 | AI Question Generator | — | ✓ | ✓ |
+| Per-problem AI study companion | — | ✓ | ✓ |
+| AI-assisted problem submission | — | ✓ | ✓ |
 | Certificates | — | ✓ | ✓ |
 | Live Quiz | — | ✓ | ✓ |
 | Team Projects | — | ✓ | ✓ |
