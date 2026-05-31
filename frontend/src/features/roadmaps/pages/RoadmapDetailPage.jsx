@@ -123,7 +123,7 @@ export default function RoadmapDetailPage() {
         {r.is_owner && (
           <Link
             to={`/roadmaps/${encodeURIComponent(r.slug)}/edit`}
-            className="rounded-lg border border-line/25 bg-white/[0.04] px-3 py-1 font-mono text-[11px] uppercase tracking-wider text-text-soft transition hover:border-primary/40 hover:text-white"
+            className="rounded-lg border border-line/25 bg-white/[0.04] px-3 py-2 font-mono text-[11px] uppercase tracking-wider text-text-soft transition hover:border-primary/40 hover:text-white sm:py-1.5"
           >
             Edit
           </Link>
@@ -135,8 +135,8 @@ export default function RoadmapDetailPage() {
         initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
       >
-        <div className="flex items-start gap-4">
-          <span className="text-5xl leading-none" aria-hidden="true">{r.cover_emoji || "🧭"}</span>
+        <div className="flex items-start gap-3 sm:gap-4">
+          <span className="text-4xl leading-none sm:text-5xl" aria-hidden="true">{r.cover_emoji || "🧭"}</span>
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
               <span className="rounded-full bg-white/[0.04] px-2.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-text-muted">
@@ -154,7 +154,7 @@ export default function RoadmapDetailPage() {
                 </span>
               ) : null}
             </div>
-            <h1 className="mt-3 font-display text-3xl font-semibold tracking-tight text-white sm:text-4xl"
+            <h1 className="mt-3 font-display text-2xl font-semibold tracking-tight text-white sm:text-3xl md:text-4xl"
                 style={{ textWrap: "balance" }}>
               {r.title}
             </h1>
@@ -234,13 +234,13 @@ function StepRow({ step, index, onToggle, disabled }) {
           disabled={disabled}
           aria-label={step.done ? "Mark step incomplete" : "Mark step complete"}
           className={
-            "mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md border transition " +
+            "mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md border transition sm:h-6 sm:w-6 " +
             (step.done
               ? "border-success bg-success text-bg"
               : "border-line/30 bg-white/[0.04] hover:border-primary/60")
           }
         >
-          {step.done && <span className="font-mono text-xs">✓</span>}
+          {step.done && <span className="font-mono text-sm sm:text-xs">✓</span>}
         </button>
 
         <div className="min-w-0 flex-1">

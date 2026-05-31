@@ -327,7 +327,7 @@ export default function RoadmapEditorPage() {
             type="button"
             onClick={onSaveMeta}
             disabled={readOnly || saving}
-            className="rounded-lg border border-primary/40 bg-primary/15 px-4 py-1.5 font-mono text-[11px] uppercase tracking-wider text-white transition hover:bg-primary/20 disabled:opacity-50"
+            className="rounded-lg border border-primary/40 bg-primary/15 px-4 py-2.5 font-mono text-[11px] uppercase tracking-wider text-white transition hover:bg-primary/20 disabled:opacity-50 sm:py-1.5"
           >
             {saving ? "Saving…" : "Save meta"}
           </button>
@@ -342,7 +342,7 @@ export default function RoadmapEditorPage() {
             type="button"
             onClick={onAddStep}
             disabled={readOnly}
-            className="rounded-lg border border-primary/40 bg-primary/15 px-3 py-1.5 font-mono text-[11px] uppercase tracking-wider text-white transition hover:bg-primary/20 disabled:opacity-50"
+            className="rounded-lg border border-primary/40 bg-primary/15 px-3 py-2 font-mono text-[11px] uppercase tracking-wider text-white transition hover:bg-primary/20 disabled:opacity-50 sm:py-1.5"
           >
             + Add step
           </button>
@@ -378,14 +378,14 @@ export default function RoadmapEditorPage() {
       {roadmap.is_owner && (
         <section className="mt-10 rounded-2xl border border-line/15 bg-white/[0.025] p-5">
           <h2 className="font-mono text-[11px] uppercase tracking-[0.25em] text-text-dim">Submission</h2>
-          <div className="mt-3 flex flex-wrap items-center gap-3">
+          <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3">
             {(roadmap.submission_status === "draft" || roadmap.submission_status === "rejected") && (
               <button
                 type="button"
                 onClick={onSubmit}
                 disabled={steps.length < 3}
                 title={steps.length < 3 ? "Need at least 3 steps" : "Send to moderation"}
-                className="rounded-lg border border-success/40 bg-success/10 px-4 py-2 font-mono text-[11px] uppercase tracking-wider text-white transition hover:bg-success/20 disabled:opacity-50"
+                className="rounded-lg border border-success/40 bg-success/10 px-4 py-2.5 font-mono text-[11px] uppercase tracking-wider text-white transition hover:bg-success/20 disabled:opacity-50 sm:py-2"
               >
                 {roadmap.submission_status === "rejected" ? "Re-submit for review" : "Submit for review"}
               </button>
@@ -394,7 +394,7 @@ export default function RoadmapEditorPage() {
               <button
                 type="button"
                 onClick={onWithdraw}
-                className="rounded-lg border border-line/25 bg-white/[0.04] px-4 py-2 font-mono text-[11px] uppercase tracking-wider text-text-soft transition hover:border-warning/40 hover:text-warning"
+                className="rounded-lg border border-line/25 bg-white/[0.04] px-4 py-2.5 font-mono text-[11px] uppercase tracking-wider text-text-soft transition hover:border-warning/40 hover:text-warning sm:py-2"
               >
                 Withdraw
               </button>
@@ -402,7 +402,7 @@ export default function RoadmapEditorPage() {
             <button
               type="button"
               onClick={onDeleteRoadmap}
-              className="ml-auto rounded-lg border border-danger/30 bg-danger/8 px-3 py-2 font-mono text-[11px] uppercase tracking-wider text-danger hover:bg-danger/12"
+              className="rounded-lg border border-danger/30 bg-danger/8 px-3 py-2.5 font-mono text-[11px] uppercase tracking-wider text-danger transition hover:bg-danger/12 sm:ml-auto sm:py-2"
             >
               Delete roadmap
             </button>
@@ -456,22 +456,26 @@ function StepEditor({ step, index, isFirst, isLast, readOnly, onUpdate, onDelete
       transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
       className="rounded-xl border border-line/15 bg-white/[0.025] p-3"
     >
-      <div className="flex items-start gap-3">
-        <span className="mt-0.5 w-7 shrink-0 font-mono text-[11px] text-text-dim">{String(index + 1).padStart(2, "0")}</span>
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold text-white">{step.title}</p>
-          {step.description && <p className="mt-1 text-xs leading-5 text-text-soft line-clamp-2">{step.description}</p>}
-          <div className="mt-1.5 flex flex-wrap gap-2 font-mono text-[10px] text-text-dim">
-            {step.problem && <span className="text-primary">Problem · {step.problem.title?.slice(0, 30)}</span>}
-            {step.resource_url && <span>↗ {step.resource_label || step.resource_url}</span>}
-            {step.est_minutes ? <span>~{step.est_minutes}m</span> : null}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:gap-3">
+        <div className="flex items-start gap-3 sm:contents">
+          <span className="mt-0.5 w-7 shrink-0 font-mono text-[11px] text-text-dim">{String(index + 1).padStart(2, "0")}</span>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold text-white">{step.title}</p>
+            {step.description && <p className="mt-1 text-xs leading-5 text-text-soft line-clamp-2">{step.description}</p>}
+            <div className="mt-1.5 flex flex-wrap gap-2 font-mono text-[10px] text-text-dim">
+              {step.problem && <span className="text-primary">Problem · {step.problem.title?.slice(0, 30)}</span>}
+              {step.resource_url && <span>↗ {step.resource_label || step.resource_url}</span>}
+              {step.est_minutes ? <span>~{step.est_minutes}m</span> : null}
+            </div>
           </div>
         </div>
-        <div className="flex shrink-0 items-center gap-1">
-          <button type="button" onClick={onMoveUp}   disabled={readOnly || isFirst} className="h-7 w-7 rounded-lg border border-line/20 text-text-soft hover:border-primary/40 disabled:opacity-30">↑</button>
-          <button type="button" onClick={onMoveDown} disabled={readOnly || isLast}  className="h-7 w-7 rounded-lg border border-line/20 text-text-soft hover:border-primary/40 disabled:opacity-30">↓</button>
-          <button type="button" onClick={() => setOpen((v) => !v)} disabled={readOnly} className="rounded-lg border border-line/20 bg-white/[0.04] px-2 py-1 font-mono text-[10px] uppercase tracking-wider text-text-soft hover:border-primary/40 hover:text-white disabled:opacity-50">{open ? "Cancel" : "Edit"}</button>
-          <button type="button" onClick={onDelete}   disabled={readOnly} className="rounded-lg border border-danger/30 bg-danger/8 px-2 py-1 font-mono text-[10px] uppercase tracking-wider text-danger hover:bg-danger/12 disabled:opacity-50">×</button>
+        {/* Actions row — wraps to its own line on mobile so the step
+            content has the full width to itself. */}
+        <div className="flex shrink-0 items-center justify-end gap-1.5">
+          <button type="button" onClick={onMoveUp}   disabled={readOnly || isFirst} aria-label="Move step up"   className="h-9 w-9 rounded-lg border border-line/20 text-text-soft transition hover:border-primary/40 disabled:opacity-30 sm:h-7 sm:w-7">↑</button>
+          <button type="button" onClick={onMoveDown} disabled={readOnly || isLast}  aria-label="Move step down" className="h-9 w-9 rounded-lg border border-line/20 text-text-soft transition hover:border-primary/40 disabled:opacity-30 sm:h-7 sm:w-7">↓</button>
+          <button type="button" onClick={() => setOpen((v) => !v)} disabled={readOnly} className="rounded-lg border border-line/20 bg-white/[0.04] px-3 py-2 font-mono text-[10px] uppercase tracking-wider text-text-soft transition hover:border-primary/40 hover:text-white disabled:opacity-50 sm:px-2 sm:py-1">{open ? "Cancel" : "Edit"}</button>
+          <button type="button" onClick={onDelete}   disabled={readOnly} aria-label="Delete step" className="rounded-lg border border-danger/30 bg-danger/8 px-3 py-2 font-mono text-sm text-danger transition hover:bg-danger/12 disabled:opacity-50 sm:px-2 sm:py-1 sm:text-[10px]">×</button>
         </div>
       </div>
 
@@ -517,7 +521,7 @@ function StepEditor({ step, index, isFirst, isLast, readOnly, onUpdate, onDelete
                 />
               </div>
               <div className="flex items-center justify-end">
-                <button type="button" onClick={onSave} className="rounded-lg border border-primary/40 bg-primary/15 px-4 py-1.5 font-mono text-[11px] uppercase tracking-wider text-white hover:bg-primary/20">
+                <button type="button" onClick={onSave} className="rounded-lg border border-primary/40 bg-primary/15 px-4 py-2.5 font-mono text-[11px] uppercase tracking-wider text-white transition hover:bg-primary/20 sm:py-1.5">
                   Save step
                 </button>
               </div>

@@ -87,11 +87,11 @@ export default function RoadmapsListPage() {
       <motion.header
         initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-        className="mb-8 flex flex-wrap items-end justify-between gap-3"
+        className="mb-8 flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between"
       >
         <div>
           <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-text-dim">Learning</p>
-          <h1 className="mt-2 font-display text-3xl font-semibold tracking-tight text-white sm:text-4xl"
+          <h1 className="mt-2 font-display text-2xl font-semibold tracking-tight text-white sm:text-3xl md:text-4xl"
               style={{ textWrap: "balance" }}>
             Roadmaps
           </h1>
@@ -104,7 +104,7 @@ export default function RoadmapsListPage() {
           type="button"
           onClick={onCreate}
           disabled={creating}
-          className="rounded-lg border border-primary/40 bg-primary/15 px-4 py-2 font-mono text-[11px] uppercase tracking-wider text-white transition hover:bg-primary/20 disabled:opacity-50"
+          className="self-start rounded-lg border border-primary/40 bg-primary/15 px-4 py-2.5 font-mono text-[11px] uppercase tracking-wider text-white transition hover:bg-primary/20 disabled:opacity-50 sm:self-auto sm:py-2"
         >
           {creating ? "Creating…" : "+ Create roadmap"}
         </button>
