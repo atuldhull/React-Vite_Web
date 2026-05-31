@@ -206,7 +206,7 @@ export default function RoadmapEditorPage() {
 
   if (error === "not-found") {
     return (
-      <div className="mx-auto max-w-2xl px-4 py-20 text-center">
+      <div className="mx-auto w-full max-w-2xl py-20 text-center">
         <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-text-dim">404</p>
         <h1 className="font-display mt-2 text-2xl text-white">Roadmap not found.</h1>
         <Link to="/roadmaps" className="mt-4 inline-block font-mono text-xs text-primary hover:underline">← All roadmaps</Link>
@@ -216,7 +216,7 @@ export default function RoadmapEditorPage() {
 
   if (error) {
     return (
-      <div className="mx-auto max-w-2xl px-4 py-20">
+      <div className="mx-auto w-full max-w-2xl py-20">
         <div className="rounded-2xl border border-danger/30 bg-danger/8 p-6 text-sm text-danger">{error}</div>
       </div>
     );
@@ -230,7 +230,7 @@ export default function RoadmapEditorPage() {
   const status = STATUS_CLASS[roadmap.submission_status] || STATUS_CLASS.draft;
 
   return (
-    <div className="mx-auto max-w-4xl px-4 pb-24 pt-8 sm:px-8">
+    <div className="mx-auto w-full max-w-4xl pb-24 pt-8">
       <Link
         to={`/roadmaps/${encodeURIComponent(roadmap.slug)}`}
         className="mb-6 inline-flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.2em] text-text-dim transition hover:text-white"

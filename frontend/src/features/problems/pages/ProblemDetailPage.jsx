@@ -86,7 +86,7 @@ export default function ProblemDetailPage() {
 
   if (state.error === "not-found") {
     return (
-      <div className="mx-auto max-w-2xl px-4 py-20 text-center">
+      <div className="mx-auto w-full max-w-2xl py-20 text-center">
         <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-text-dim">404</p>
         <h1 className="font-display mt-2 text-2xl text-white">This problem doesn't exist (anymore).</h1>
         <p className="mt-2 text-sm text-text-muted">It may have been archived. Back to the catalogue:</p>
@@ -102,7 +102,7 @@ export default function ProblemDetailPage() {
 
   if (state.error) {
     return (
-      <div className="mx-auto max-w-2xl px-4 py-20">
+      <div className="mx-auto w-full max-w-2xl py-20">
         <div className="rounded-2xl border border-danger/30 bg-danger/8 p-6 text-sm text-danger">
           {state.error}
         </div>
@@ -114,7 +114,7 @@ export default function ProblemDetailPage() {
   const colors = SOURCE_COLOR[p.source] || SOURCE_COLOR.OpenSource;
 
   return (
-    <article className="mx-auto max-w-4xl px-4 pb-20 pt-8 sm:px-8">
+    <article className="mx-auto w-full max-w-4xl pb-20 pt-8">
       {/* Back link */}
       <Link
         to="/problems"

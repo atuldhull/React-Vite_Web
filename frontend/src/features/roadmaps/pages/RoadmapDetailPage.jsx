@@ -84,7 +84,7 @@ export default function RoadmapDetailPage() {
 
   if (state.error === "not-found") {
     return (
-      <div className="mx-auto max-w-2xl px-4 py-20 text-center">
+      <div className="mx-auto w-full max-w-2xl py-20 text-center">
         <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-text-dim">404</p>
         <h1 className="font-display mt-2 text-2xl text-white">Roadmap not found.</h1>
         <Link
@@ -99,7 +99,7 @@ export default function RoadmapDetailPage() {
 
   if (state.error) {
     return (
-      <div className="mx-auto max-w-2xl px-4 py-20">
+      <div className="mx-auto w-full max-w-2xl py-20">
         <div className="rounded-2xl border border-danger/30 bg-danger/8 p-6 text-sm text-danger">
           {state.error}
         </div>
@@ -112,7 +112,7 @@ export default function RoadmapDetailPage() {
   const pct  = r.step_count > 0 ? Math.round((r.done_count / r.step_count) * 100) : 0;
 
   return (
-    <article className="mx-auto max-w-4xl px-4 pb-20 pt-8 sm:px-8">
+    <article className="mx-auto w-full max-w-4xl pb-20 pt-8">
       <div className="mb-6 flex items-center justify-between">
         <Link
           to="/roadmaps"

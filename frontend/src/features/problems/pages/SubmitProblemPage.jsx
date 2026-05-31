@@ -84,7 +84,7 @@ export default function SubmitProblemPage() {
   const setField = (k, v) => setDraft((d) => ({ ...d, [k]: v }));
 
   return (
-    <div className="mx-auto max-w-3xl px-4 pb-24 pt-8 sm:px-8">
+    <div className="mx-auto w-full max-w-3xl pb-24 pt-8">
       <Link to="/problems" className="mb-6 inline-flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.2em] text-text-dim transition hover:text-white">
         ← Back to problems
       </Link>

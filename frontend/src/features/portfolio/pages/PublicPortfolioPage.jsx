@@ -54,7 +54,7 @@ export default function PublicPortfolioPage() {
 
   if (state.error === "not-found") {
     return (
-      <div className="mx-auto max-w-2xl px-4 py-24 text-center">
+      <div className="mx-auto w-full max-w-2xl py-24 text-center">
         <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-text-dim">404</p>
         <h1 className="font-display mt-2 text-2xl text-white">Portfolio not available.</h1>
         <p className="mt-3 text-sm text-text-soft">
@@ -73,7 +73,7 @@ export default function PublicPortfolioPage() {
 
   if (state.error) {
     return (
-      <div className="mx-auto max-w-2xl px-4 py-20">
+      <div className="mx-auto w-full max-w-2xl py-20">
         <div className="rounded-2xl border border-danger/30 bg-danger/8 p-6 text-sm text-danger">
           {state.error}
         </div>
@@ -84,7 +84,7 @@ export default function PublicPortfolioPage() {
   const d = state.data;
 
   return (
-    <article className="mx-auto max-w-3xl px-4 pb-24 pt-12 sm:px-8">
+    <article className="mx-auto w-full max-w-3xl pb-24 pt-12">
       {/* ── Header card ── */}
       <motion.header
         initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}

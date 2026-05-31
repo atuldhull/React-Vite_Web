@@ -343,10 +343,18 @@ export default function MainLayout() {
             empty list, login form) sits at the top with empty space
             below it because <main className="flex-1"> only pushes the
             footer down — it doesn't expand the page content itself.
-            With it, every page's root div fills the viewport between
-            the sticky header and the footer. */}
+
+            The inner wrapper applies the SAME horizontal gutters as the
+            sticky header (`px-4 sm:px-8 lg:px-10`) + a max-width cap so
+            pages align with the header instead of bleeding to the
+            viewport edges. Pages that need full-bleed (the 3D hero, any
+            future bg-image scenes) escape this container with the
+            standard `width: 100vw; margin-left: calc(-50vw + 50%)`
+            trick which still works inside a centred parent. */}
         <main className="flex flex-1 flex-col [&>*]:flex-1">
-          <Outlet />
+          <div className="flex w-full flex-1 flex-col px-4 sm:px-8 lg:px-10 [&>*]:flex-1">
+            <Outlet />
+          </div>
         </main>
 
         <footer className="mt-16 w-full border-t border-line/10 px-4 pb-10 pt-8 sm:px-8 lg:px-10">

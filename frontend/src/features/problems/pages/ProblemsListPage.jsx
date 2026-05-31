@@ -118,7 +118,7 @@ export default function ProblemsListPage() {
   const hasFilters = q || source || domain || difficulty;
 
   return (
-    <div className="mx-auto max-w-7xl px-4 pb-20 pt-10 sm:px-8">
+    <div className="mx-auto w-full max-w-7xl pb-20 pt-10">
       {/* ── Header ── */}
       <motion.header
         initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}

@@ -185,7 +185,7 @@ export default function LeaderboardPage() {
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="mx-auto w-full max-w-6xl px-4"
+            className="mx-auto w-full max-w-6xl"
           >
             {/* Top 3 podium */}
             {current.length >= 3 && tab !== "winners" && (
