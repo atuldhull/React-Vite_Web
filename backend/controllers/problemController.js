@@ -15,6 +15,12 @@ import axios from "axios";
 import supabase from "../config/supabase.js";
 import { sendInternalError } from "../lib/errorResponse.js";
 import { logger } from "../config/logger.js";
+import { sendNotification } from "./notificationController.js";
+
+// Streak milestones we celebrate explicitly. 7 = first week (sticky
+// habit), 30 = a month, 100 = serious commitment, 365 = once-a-year
+// trophy. Anything else is just a count.
+const STREAK_MILESTONES = new Set([7, 14, 30, 50, 100, 200, 365]);
 
 // Cap pagination so a curious client can't ship `limit=10000` and
 // pin the DB. 50 is comfortably above the visible-page count at
@@ -402,12 +408,57 @@ export const upsertWriteup = async (req, res) => {
       is_published: true,
     };
 
+    // Was this an INSERT or an UPDATE? If a row already exists for
+    // (problem_id, user_id) the upsert is an update — don't spam
+    // interested users about an edit. We peek first so we can tell.
+    const { data: previously } = await supabase
+      .from("problem_writeups")
+      .select("id")
+      .eq("problem_id", problemId)
+      .eq("user_id", req.userId)
+      .maybeSingle();
+    const isNew = !previously;
+
     const { data, error } = await supabase
       .from("problem_writeups")
       .upsert(payload, { onConflict: "problem_id,user_id" })
       .select()
       .single();
     if (error) throw error;
+
+    // Fan out a notification to everyone who marked interest on this
+    // problem (except the writeup author themselves). This is the
+    // moment the catalogue feels alive — "Hey, someone else just
+    // shared how they solved the thing you're working on."
+    if (isNew) {
+      try {
+        const { data: interested } = await supabase
+          .from("problem_interests")
+          .select("user_id")
+          .eq("problem_id", problemId)
+          .neq("user_id", req.userId);
+        const recipients = (interested || []).map((r) => r.user_id);
+        if (recipients.length) {
+          const { data: prob } = await supabase
+            .from("problem_statements")
+            .select("slug, title")
+            .eq("id", problemId)
+            .maybeSingle();
+          const authorName = req.session?.user?.name || "A student";
+          sendNotification({
+            userIds: recipients,
+            title:   "New writeup on a problem you're tackling",
+            body:    `${authorName} posted "${data.title.slice(0, 60)}" on ${(prob?.title || "the problem").slice(0, 60)}`,
+            type:    "info",
+            link:    prob?.slug ? `/problems/${prob.slug}` : "/problems",
+          }).catch((err) => logger.warn({ err }, "new-writeup notify failed"));
+        }
+      } catch (err) {
+        // Non-fatal — the writeup itself is already saved.
+        logger.warn({ err }, "interested-users fan-out lookup failed");
+      }
+    }
+
     return res.status(201).json(data);
   } catch (err) {
     return sendInternalError(res, err, "upsert writeup");
@@ -479,9 +530,28 @@ export const toggleWriteupVote = async (req, res) => {
 
     const { data: fresh } = await supabase
       .from("problem_writeups")
-      .select("vote_count")
+      .select("vote_count, user_id, title, problem_id")
       .eq("id", writeupId)
       .maybeSingle();
+
+    // Notify the author on a fresh UPVOTE (not on un-vote, not on
+    // self-vote). Fire-and-forget; failures here are non-fatal —
+    // the vote already landed.
+    if (!existing && fresh && fresh.user_id && fresh.user_id !== req.userId) {
+      const { data: problem } = await supabase
+        .from("problem_statements")
+        .select("slug")
+        .eq("id", fresh.problem_id)
+        .maybeSingle();
+      const voterName = req.session?.user?.name || "Someone";
+      sendNotification({
+        userIds: [fresh.user_id],
+        title:   "Your writeup got an upvote",
+        body:    `${voterName} upvoted "${(fresh.title || "your writeup").slice(0, 60)}"`,
+        type:    "info",
+        link:    problem?.slug ? `/problems/${problem.slug}` : "/problems",
+      }).catch((err) => logger.warn({ err }, "writeup-vote notify failed"));
+    }
 
     return res.json({
       voted_by_me: !existing,
@@ -725,6 +795,19 @@ export const dailyCheckin = async (req, res) => {
       .update({ streak_days: newDays, streak_last_date: today })
       .eq("user_id", req.userId);
     if (uErr) throw uErr;
+
+    // Milestone? Self-notify so the bell + service-worker push fire.
+    if (STREAK_MILESTONES.has(newDays)) {
+      sendNotification({
+        userIds: [req.userId],
+        title:   `${newDays}-day streak 🔥`,
+        body:    newDays === 365
+          ? "A full year of daily check-ins. Truly legendary."
+          : `Daily streak at ${newDays} days. Keep going — momentum is the whole game.`,
+        type:    "achievement",
+        link:    "/dashboard",
+      }).catch((err) => logger.warn({ err }, "streak-milestone notify failed"));
+    }
 
     return res.json({
       streak_days:      newDays,

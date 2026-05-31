@@ -25,8 +25,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
-import { problems } from "@/lib/api";
+import { problems, bookmarks as bookmarksApi } from "@/lib/api";
 import Loader from "@/components/ui/Loader";
+import BookmarkButton from "@/components/ui/BookmarkButton";
 
 const SOURCE_COLOR = {
   SIH:        { bg: "rgba(249, 115, 22, 0.10)", border: "rgba(249, 115, 22, 0.35)", text: "#fdba74" },
@@ -50,6 +51,11 @@ export default function ProblemsListPage() {
   const [params, setParams] = useSearchParams();
   const [state,  setState]  = useState({ data: [], total: 0, loading: true, error: null });
   const [facets, setFacets] = useState({ domains: [], sources: [], tags: [] });
+  // Bookmark state for the currently-loaded page of problems. Keyed
+  // by problem id → boolean. Populated by a single batch call after
+  // the page lands so each card knows its initial saved state
+  // without N+1 round trips.
+  const [savedMap, setSavedMap] = useState({});
 
   // Derived filter values from URL — single source of truth so
   // back/forward + deep-links work for free.
@@ -75,9 +81,20 @@ export default function ProblemsListPage() {
   useEffect(() => {
     const ctrl = new AbortController();
     setState((s) => ({ ...s, loading: true, error: null }));
+    setSavedMap({});  // clear stale stars while the new page loads
     problems
       .list({ q, source, domain, difficulty, page, limit: PAGE_SIZE }, { signal: ctrl.signal })
-      .then(({ data }) => setState({ data: data.data, total: data.total, loading: false, error: null }))
+      .then(({ data }) => {
+        setState({ data: data.data, total: data.total, loading: false, error: null });
+        // Bulk-fetch bookmark state for the visible page in the
+        // background — the page renders without waiting for it.
+        const ids = (data.data || []).map((p) => p.id);
+        if (ids.length) {
+          bookmarksApi.state("problem", ids, { signal: ctrl.signal })
+            .then(({ data: map }) => setSavedMap(map || {}))
+            .catch(() => { /* non-fatal — stars stay un-pre-filled */ });
+        }
+      })
       .catch((err) => {
         if (err?.code === "ERR_CANCELED" || err?.name === "CanceledError") return;
         setState({ data: [], total: 0, loading: false, error: err?.response?.data?.error || "Failed to load problems" });
@@ -106,17 +123,25 @@ export default function ProblemsListPage() {
       <motion.header
         initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-        className="mb-8"
+        className="mb-8 flex flex-wrap items-end justify-between gap-3"
       >
-        <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-text-dim">PROBLEM REPOSITORY</p>
-        <h1 className="font-display mt-1 text-3xl font-semibold tracking-tight text-white sm:text-4xl">
-          Real-world problems to actually build.
-        </h1>
-        <p className="mt-2 max-w-2xl text-sm text-text-muted">
-          Hand-curated catalogue of problem statements from SIH, GSoC, Kaggle, MLH and
-          the open-source world. Each one has the official source, datasets if any, and
-          a short "how to start" so you don't stare at a blank file.
-        </p>
+        <div>
+          <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-text-dim">PROBLEM REPOSITORY</p>
+          <h1 className="font-display mt-1 text-3xl font-semibold tracking-tight text-white sm:text-4xl">
+            Real-world problems to actually build.
+          </h1>
+          <p className="mt-2 max-w-2xl text-sm text-text-muted">
+            Hand-curated catalogue of problem statements from SIH, GSoC, Kaggle, MLH and
+            the open-source world. Each one has the official source, datasets if any, and
+            a short "how to start" so you don't stare at a blank file.
+          </p>
+        </div>
+        <Link
+          to="/problems/submit"
+          className="rounded-lg border border-primary/40 bg-primary/15 px-4 py-2 font-mono text-[11px] uppercase tracking-wider text-white transition hover:bg-primary/20"
+        >
+          + Submit problem
+        </Link>
       </motion.header>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[260px,1fr]">
@@ -183,7 +208,7 @@ export default function ProblemsListPage() {
           {!state.loading && state.data.length > 0 && (
             <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               {state.data.map((p, i) => (
-                <ProblemCard key={p.id} p={p} index={i} />
+                <ProblemCard key={p.id} p={p} index={i} saved={Boolean(savedMap[p.id])} />
               ))}
             </ul>
           )}
@@ -252,19 +277,26 @@ function FilterGroup({ label, value, onChange, options }) {
   );
 }
 
-function ProblemCard({ p, index }) {
+function ProblemCard({ p, index, saved }) {
   const colors = SOURCE_COLOR[p.source] || SOURCE_COLOR.OpenSource;
   return (
     <motion.li
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35, delay: Math.min(index * 0.03, 0.3), ease: [0.16, 1, 0.3, 1] }}
+      className="relative"
     >
+      {/* Bookmark sits OUTSIDE the <Link> so a click on it doesn't
+          navigate. Absolutely positioned over the card's top-right. */}
+      <div className="absolute right-3 top-3 z-10">
+        <BookmarkButton type="problem" id={p.id} initial={saved} compact />
+      </div>
+
       <Link
         to={`/problems/${p.slug || p.id}`}
         className="flex h-full flex-col rounded-2xl border border-line/15 bg-surface/60 p-5 shadow-panel transition hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-lg"
       >
-        <div className="mb-3 flex items-center gap-2">
+        <div className="mb-3 flex items-center gap-2 pr-9">
           <span
             className="rounded-full px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider"
             style={{ background: colors.bg, border: `1px solid ${colors.border}`, color: colors.text }}

@@ -14,6 +14,7 @@ const AdminEventsPage     = lazy(() => import("@/features/admin/pages/AdminEvent
 const AdminDataPage       = lazy(() => import("@/features/admin/pages/AdminDataPage"));
 const AdminSettingsPage   = lazy(() => import("@/features/admin/pages/AdminSettingsPage"));
 const AdminFeaturesPage   = lazy(() => import("@/features/admin/pages/AdminFeaturesPage"));
+const AdminModerationPage = lazy(() => import("@/features/admin/pages/AdminModerationPage"));
 
 export const adminRoutes = (
   <Route
@@ -31,5 +32,6 @@ export const adminRoutes = (
     <Route path="data"       element={<AdminDataPage />} />
     <Route path="settings"   element={<AdminSettingsPage />} />
     <Route path="features"   element={<AdminFeaturesPage />} />
+    <Route path="moderation" element={<AdminModerationPage />} />
   </Route>
 );

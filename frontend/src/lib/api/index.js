@@ -404,9 +404,23 @@ export const problems = {
 // viewer's done/total counts; `get(slug)` returns the full step list
 // with per-step completion + the referenced problem metadata.
 export const roadmaps = {
-  list:       (config = {})        => http.get("/roadmaps", config),
-  get:        (slug, config = {})  => http.get(`/roadmaps/${encodeURIComponent(slug)}`, config),
-  toggleStep: (stepId)             => http.post(`/roadmaps/steps/${stepId}/toggle`),
+  list:       (params = {}, config = {}) => http.get("/roadmaps", { ...config, params }),
+  get:        (slug, config = {})        => http.get(`/roadmaps/${encodeURIComponent(slug)}`, config),
+  toggleStep: (stepId)                   => http.post(`/roadmaps/steps/${stepId}/toggle`),
+  // ── Authoring ──
+  create:     (body)                     => http.post("/roadmaps", body),
+  update:     (id, body)                 => http.patch(`/roadmaps/${id}`, body),
+  remove:     (id)                       => http.delete(`/roadmaps/${id}`),
+  addStep:    (roadmapId, body)          => http.post(`/roadmaps/${roadmapId}/steps`, body),
+  updateStep: (stepId, body)             => http.patch(`/roadmaps/steps/${stepId}`, body),
+  removeStep: (stepId)                   => http.delete(`/roadmaps/steps/${stepId}`),
+  reorderSteps: (roadmapId, stepIds)     => http.post(`/roadmaps/${roadmapId}/reorder`, { step_ids: stepIds }),
+  submit:     (id)                       => http.post(`/roadmaps/${id}/submit`),
+  withdraw:   (id)                       => http.post(`/roadmaps/${id}/withdraw`),
+  // ── Moderation ──
+  queue:      (config = {})              => http.get("/roadmaps/admin/queue", config),
+  approve:    (id, isFeatured = false)   => http.post(`/roadmaps/${id}/approve`, { is_featured: isFeatured }),
+  reject:     (id, reason)               => http.post(`/roadmaps/${id}/reject`, { reason }),
 };
 
 // ── Public Portfolio — /u/:handle ──
@@ -418,6 +432,28 @@ export const portfolio = {
   public:          (handle, config = {}) => http.get(`/portfolio/${encodeURIComponent(handle)}`, config),
   mySettings:      (config = {})         => http.get("/portfolio/me", config),
   updateSettings:  (patch)                => http.patch("/portfolio/me", patch),
+};
+
+// ── Bookmarks — universal "save for later" across problems, writeups, roadmaps ──
+// `state(type, ids)` returns { [id]: true } for the viewer's saved
+// targets in this batch — used by list pages to decorate cards.
+export const bookmarks = {
+  list:    (params = {}, config = {}) => http.get("/bookmarks", { ...config, params }),
+  toggle:  (type, id)                 => http.post(`/bookmarks/${type}/${encodeURIComponent(id)}`),
+  state:   (type, ids, config = {})   => http.get("/bookmarks/state", { ...config, params: { type, ids: (ids || []).join(",") } }),
+};
+
+// ── Problem submissions (AI-assisted catalogue growth) ──
+// `draftFromUrl` POSTs the URL; backend fetches it server-side,
+// asks the LLM to draft, returns a JSON the student edits before
+// `create()`. Queue / approve / reject are admin-only.
+export const problemSubmissions = {
+  draftFromUrl: (url)        => http.post("/problem-submissions/draft-from-url", { url }),
+  create:       (body)       => http.post("/problem-submissions", body),
+  mine:         (config = {}) => http.get("/problem-submissions/mine", config),
+  queue:        (config = {}) => http.get("/problem-submissions/queue", config),
+  approve:      (id)          => http.post(`/problem-submissions/${id}/approve`),
+  reject:       (id, reason)  => http.post(`/problem-submissions/${id}/reject`, { reason }),
 };
 
 // ── Users / Rich profiles (Phase 15) ──

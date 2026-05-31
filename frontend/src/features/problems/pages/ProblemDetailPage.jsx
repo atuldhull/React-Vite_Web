@@ -24,6 +24,8 @@ import { problems } from "@/lib/api";
 import Loader from "@/components/ui/Loader";
 import EngagementPanel from "../components/EngagementPanel";
 import AiCompanion from "../components/AiCompanion";
+import BookmarkButton from "@/components/ui/BookmarkButton";
+import { bookmarks as bookmarksApi } from "@/lib/api";
 
 const SOURCE_COLOR = {
   SIH:        { bg: "rgba(249, 115, 22, 0.12)", border: "rgba(249, 115, 22, 0.4)", text: "#fdba74" },
@@ -44,12 +46,25 @@ const DIFFICULTY_COLOR = {
 export default function ProblemDetailPage() {
   const { slugOrId } = useParams();
   const [state, setState] = useState({ problem: null, loading: true, error: null });
+  // Initial bookmark state for the "Save" pill in the header. We
+  // fetch this alongside the problem itself so the star isn't
+  // empty-then-flips-true on first paint.
+  const [savedInitial, setSavedInitial] = useState(false);
 
   useEffect(() => {
     const ctrl = new AbortController();
     setState({ problem: null, loading: true, error: null });
+    setSavedInitial(false);
     problems.get(slugOrId, { signal: ctrl.signal })
-      .then(({ data }) => setState({ problem: data, loading: false, error: null }))
+      .then(({ data }) => {
+        setState({ problem: data, loading: false, error: null });
+        // Now that we have the canonical id, ask if the viewer
+        // already saved it. Non-blocking — if it fails the star just
+        // shows as un-saved and the user can re-toggle.
+        bookmarksApi.state("problem", [data.id], { signal: ctrl.signal })
+          .then(({ data: map }) => setSavedInitial(Boolean(map?.[data.id])))
+          .catch(() => {});
+      })
       .catch((err) => {
         if (err?.code === "ERR_CANCELED" || err?.name === "CanceledError") return;
         setState({
@@ -131,10 +146,13 @@ export default function ProblemDetailPage() {
           </span>
         </div>
 
-        <h1 className="font-display text-3xl font-semibold leading-tight tracking-tight text-white sm:text-4xl"
-            style={{ textWrap: "balance" }}>
-          {p.title}
-        </h1>
+        <div className="flex items-start justify-between gap-4">
+          <h1 className="font-display text-3xl font-semibold leading-tight tracking-tight text-white sm:text-4xl"
+              style={{ textWrap: "balance" }}>
+            {p.title}
+          </h1>
+          <BookmarkButton type="problem" id={p.id} initial={savedInitial} withLabel />
+        </div>
 
         {p.organisation && (
           <p className="mt-3 text-sm text-text-muted">

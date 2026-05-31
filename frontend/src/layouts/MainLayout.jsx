@@ -179,6 +179,7 @@ export default function MainLayout() {
                       <div className="invisible absolute right-0 top-full mt-2 w-48 rounded-xl border border-line/15 bg-surface/95 p-2 shadow-panel backdrop-blur-2xl transition-all group-hover:visible">
                         <p className="px-3 py-1.5 font-mono text-[10px] uppercase tracking-wider text-text-dim">{role}</p>
                         <Link to="/profile" className="block rounded-lg px-3 py-2 text-sm text-text-muted transition hover:bg-white/5 hover:text-white">Profile</Link>
+                        <Link to="/saved" className="block rounded-lg px-3 py-2 text-sm text-text-muted transition hover:bg-white/5 hover:text-white">Saved</Link>
                         <Link to="/certificates" className="block rounded-lg px-3 py-2 text-sm text-text-muted transition hover:bg-white/5 hover:text-white">Certificates</Link>
                         <Link to="/billing" className="block rounded-lg px-3 py-2 text-sm text-text-muted transition hover:bg-white/5 hover:text-white">Billing</Link>
                         {roleLinks.filter((r) => r.to !== "/dashboard" && r.to !== "/profile").map((link) => (
@@ -257,6 +258,7 @@ export default function MainLayout() {
                           { to: "/arena", label: "Arena" },
                           { to: "/problems", label: "Problems" },
                           { to: "/roadmaps", label: "Roadmaps" },
+                          { to: "/saved", label: "Saved" },
                           { to: "/projects", label: "Projects" },
                           { to: "/profile", label: "Profile" },
                           { to: "/certificates", label: "Certificates" },

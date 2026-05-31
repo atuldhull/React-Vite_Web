@@ -113,12 +113,22 @@ export default function RoadmapDetailPage() {
 
   return (
     <article className="mx-auto max-w-4xl px-4 pb-20 pt-8 sm:px-8">
-      <Link
-        to="/roadmaps"
-        className="mb-6 inline-flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.2em] text-text-dim transition hover:text-white"
-      >
-        ← Roadmaps
-      </Link>
+      <div className="mb-6 flex items-center justify-between">
+        <Link
+          to="/roadmaps"
+          className="inline-flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.2em] text-text-dim transition hover:text-white"
+        >
+          ← Roadmaps
+        </Link>
+        {r.is_owner && (
+          <Link
+            to={`/roadmaps/${encodeURIComponent(r.slug)}/edit`}
+            className="rounded-lg border border-line/25 bg-white/[0.04] px-3 py-1 font-mono text-[11px] uppercase tracking-wider text-text-soft transition hover:border-primary/40 hover:text-white"
+          >
+            Edit
+          </Link>
+        )}
+      </div>
 
       {/* ── Header ── */}
       <motion.header
@@ -149,6 +159,18 @@ export default function RoadmapDetailPage() {
               {r.title}
             </h1>
             <p className="mt-3 text-sm leading-7 text-text-soft">{r.summary}</p>
+            {r.author && (
+              <p className="mt-3 font-mono text-[11px] text-text-dim">
+                By {r.author.handle ? (
+                  <Link to={`/u/${r.author.handle}`} className="text-primary hover:underline">@{r.author.handle}</Link>
+                ) : <span className="text-text-soft">{r.author.name || "a student"}</span>}
+                {r.submission_status !== "approved" && (
+                  <span className="ml-2 rounded-full border border-warning/40 bg-warning/10 px-2 py-0.5 text-[10px] uppercase tracking-wider text-warning">
+                    {r.submission_status}
+                  </span>
+                )}
+              </p>
+            )}
           </div>
         </div>
 

@@ -23,6 +23,7 @@ import { useEffect, useState, useCallback } from "react";
 import { motion } from "framer-motion";
 import { problems } from "@/lib/api";
 import Loader from "@/components/ui/Loader";
+import BookmarkButton from "@/components/ui/BookmarkButton";
 
 export default function EngagementPanel({ slugOrId }) {
   const [data,    setData]    = useState(null);
@@ -334,19 +335,23 @@ function WriteupCard({ w, onVote }) {
             · {new Date(w.created_at).toLocaleDateString()}
           </span>
         </div>
-        <button
-          type="button"
-          onClick={onVote}
-          className={
-            "shrink-0 rounded-full px-2.5 py-1 font-mono text-[11px] transition " +
-            (w.voted_by_me
-              ? "border border-primary/40 bg-primary/15 text-white"
-              : "border border-line/20 bg-white/[0.04] text-text-soft hover:border-primary/40")
-          }
-          aria-label={w.voted_by_me ? "Remove upvote" : "Upvote"}
-        >
-          ▲ {w.vote_count}
-        </button>
+        <div className="shrink-0 flex items-center gap-1.5">
+          {/* Save writeup for later */}
+          <BookmarkButton type="writeup" id={w.id} compact />
+          <button
+            type="button"
+            onClick={onVote}
+            className={
+              "shrink-0 rounded-full px-2.5 py-1 font-mono text-[11px] transition " +
+              (w.voted_by_me
+                ? "border border-primary/40 bg-primary/15 text-white"
+                : "border border-line/20 bg-white/[0.04] text-text-soft hover:border-primary/40")
+            }
+            aria-label={w.voted_by_me ? "Remove upvote" : "Upvote"}
+          >
+            ▲ {w.vote_count}
+          </button>
+        </div>
       </header>
       <h4 className="mt-2.5 text-base font-semibold text-white">{w.title}</h4>
       <Prose text={w.body} />

@@ -102,6 +102,18 @@ const ALLOWLIST = [
     file: "backend/controllers/portfolioController.js",
     why:  "Public portfolio (/u/:handle) is internet-public by design. It deliberately reads `students`, `teams`, `projects`, `certificates` cross-tenant — the whole point of /u/:handle is that a LinkedIn recruiter (no session, no org) can view a student's work. Per-handle resolution + the public_portfolio opt-in flag provide the privacy layer; org-scoping would defeat the feature.",
   },
+  {
+    file: "backend/controllers/bookmarkController.js",
+    why:  "Bookmarks enrich saved rows with target metadata across `problem_statements` (cross-tenant catalogue), `problem_writeups` (cross-tenant engagement), and `roadmaps` (cross-tenant). Bookmarks themselves are keyed by user_id which is unique across orgs. The enrichment reads on `problem_statements` are catalogue lookups, not tenant data; no org_id field exists on those tables to scope by.",
+  },
+  {
+    file: "backend/controllers/roadmapController.js",
+    why:  "Roadmaps are cross-tenant by design (migration 37 — same data-plane policy as problem_statements). Author lookups touch `students` cross-tenant because a featured roadmap by a student in org A should be visible to a student in org B with author attribution intact. Ownership is enforced by author_id match in-controller; submission_status gates public visibility.",
+  },
+  {
+    file: "backend/controllers/problemSubmissionController.js",
+    why:  "Problem submissions feed into the cross-tenant catalogue on approval. submitter_id is the only tenant-scopable column, but we deliberately allow any org's student to contribute to the platform-wide catalogue. The approve-into-`problem_statements` write inherits the catalogue's cross-tenant policy; org-scoping the submitter lookup would prevent admins of any one org from moderating the queue.",
+  },
 ];
 
 const ALLOWED_FILES = new Set(ALLOWLIST.map(a => a.file));
