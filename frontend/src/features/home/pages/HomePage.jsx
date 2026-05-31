@@ -355,7 +355,7 @@ export default function HomePage() {
         <section className="relative z-[1] mx-auto max-w-5xl text-center">
           <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }}>
             <motion.p custom={0} variants={fadeUp} className="font-mono text-xs uppercase tracking-[0.4em] text-secondary">Welcome to the Collective</motion.p>
-            <motion.h2 custom={1} variants={fadeUp} className="mt-6 text-5xl font-extrabold leading-[0.92] tracking-[-0.06em] text-white sm:text-6xl lg:text-7xl">
+            <motion.h2 custom={1} variants={fadeUp} className="mt-6 text-4xl font-extrabold leading-[0.92] tracking-[-0.06em] text-white sm:text-6xl lg:text-7xl">
               Where Math<br />
               <span className="bg-gradient-to-r from-primary via-secondary to-glow bg-clip-text text-transparent">Becomes Epic</span>
             </motion.h2>
@@ -380,7 +380,7 @@ export default function HomePage() {
         <section className="relative z-[1] mx-auto max-w-6xl">
           <motion.div initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: "-100px" }} transition={{ duration: 0.7 }} className="text-center">
             <p className="font-mono text-xs uppercase tracking-[0.3em] text-primary">Platform Features</p>
-            <h2 className="mt-4 text-4xl font-bold tracking-[-0.04em] text-white sm:text-5xl">
+            <h2 className="mt-4 text-3xl font-bold tracking-[-0.04em] text-white sm:text-4xl md:text-5xl">
               Everything you need to compete
             </h2>
             <p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-text-muted">
@@ -432,7 +432,7 @@ export default function HomePage() {
         <section className="relative z-[1] mx-auto max-w-5xl">
           <motion.div initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.7 }} className="text-center">
             <p className="font-mono text-xs uppercase tracking-[0.3em] text-secondary">How It Works</p>
-            <h2 className="mt-4 text-4xl font-bold tracking-[-0.04em] text-white sm:text-5xl">Three steps to greatness</h2>
+            <h2 className="mt-4 text-3xl font-bold tracking-[-0.04em] text-white sm:text-4xl md:text-5xl">Three steps to greatness</h2>
           </motion.div>
           <div className="mt-14 grid gap-8 md:grid-cols-3">
             {[
@@ -452,8 +452,8 @@ export default function HomePage() {
 
         <section className="relative z-[1] mx-auto max-w-4xl text-center">
           <motion.div initial={{ opacity: 0, scale: 0.95 }} whileInView={{ opacity: 1, scale: 1 }} viewport={{ once: true }} transition={{ duration: 0.7 }}
-            className="border border-primary/20 bg-gradient-to-br from-primary/10 via-surface/80 to-secondary/10 p-12 shadow-orbit backdrop-blur-2xl sm:p-16" style={{ clipPath: "var(--clip-notch)" }}>
-            <h2 className="text-4xl font-extrabold tracking-[-0.05em] text-white sm:text-5xl">Ready to prove yourself?</h2>
+            className="border border-primary/20 bg-gradient-to-br from-primary/10 via-surface/80 to-secondary/10 p-6 shadow-orbit backdrop-blur-2xl sm:p-12 lg:p-16" style={{ clipPath: "var(--clip-notch)" }}>
+            <h2 className="text-3xl font-extrabold tracking-[-0.05em] text-white sm:text-4xl md:text-5xl">Ready to prove yourself?</h2>
             <p className="mx-auto mt-5 max-w-xl text-lg text-text-muted">Join hundreds of students who are already competing. The next challenge drops weekly — don't miss it.</p>
             <div className="mt-8 flex flex-wrap justify-center gap-4">
               <Link to="/register"><Button size="lg">Get Started Free</Button></Link>

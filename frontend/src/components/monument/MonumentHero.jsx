@@ -310,7 +310,11 @@ export default function MonumentHero({
       <motion.div
         style={{ position: "relative", zIndex: 3, width: "100%", y: contentY }}
       >
-        <div className="mx-auto max-w-5xl px-4 sm:px-8">
+        {/* No horizontal padding here — the parent MainLayout already
+            provides `px-4 sm:px-8 lg:px-10` so pages stay aligned with
+            the header card across breakpoints. Doubling it up gave a
+            noticeably wider gutter than the rest of the app. */}
+        <div className="mx-auto w-full max-w-5xl">
           {subtitle && (
             <motion.p
               initial={{ opacity: 0, y: 15 }}
