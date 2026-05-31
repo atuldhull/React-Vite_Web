@@ -127,9 +127,18 @@ export default function AiCompanion({ slugOrId }) {
                   maxLength={2000}
                   className="flex-1 resize-y rounded-lg border border-line/20 bg-bg/40 px-3 py-2 text-sm text-text-soft placeholder:text-text-dim focus:border-primary/50 focus:outline-none"
                   onKeyDown={(e) => {
-                    // Enter to submit (Shift+Enter = newline) — common
-                    // pattern, matches the chat surface elsewhere.
-                    if (e.key === "Enter" && !e.shiftKey) {
+                    // Desktop convenience: Enter to submit (Shift+Enter
+                    // for newline). On mobile, Enter on the on-screen
+                    // keyboard is expected to insert a newline like in
+                    // any chat app — submitting on Enter there is a
+                    // foot-gun that loses unfinished questions. The
+                    // (min-width: 640px) gate matches our `sm:` breakpoint.
+                    if (
+                      e.key === "Enter" &&
+                      !e.shiftKey &&
+                      typeof window !== "undefined" &&
+                      window.matchMedia("(min-width: 640px)").matches
+                    ) {
                       e.preventDefault();
                       onAsk(e);
                     }

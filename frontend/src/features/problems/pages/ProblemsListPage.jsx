@@ -56,6 +56,11 @@ export default function ProblemsListPage() {
   // the page lands so each card knows its initial saved state
   // without N+1 round trips.
   const [savedMap, setSavedMap] = useState({});
+  // Mobile: the source/domain/difficulty filter stack is hidden by
+  // default behind a "Filters" toggle so students don't have to
+  // scroll past the entire option pile to see the first result. On
+  // lg+ the sidebar is always visible (state ignored).
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   // Derived filter values from URL — single source of truth so
   // back/forward + deep-links work for free.
@@ -123,11 +128,11 @@ export default function ProblemsListPage() {
       <motion.header
         initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-        className="mb-8 flex flex-wrap items-end justify-between gap-3"
+        className="mb-8 flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between"
       >
         <div>
           <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-text-dim">PROBLEM REPOSITORY</p>
-          <h1 className="font-display mt-1 text-3xl font-semibold tracking-tight text-white sm:text-4xl">
+          <h1 className="font-display mt-1 text-2xl font-semibold tracking-tight text-white sm:text-3xl md:text-4xl">
             Real-world problems to actually build.
           </h1>
           <p className="mt-2 max-w-2xl text-sm text-text-muted">
@@ -138,7 +143,7 @@ export default function ProblemsListPage() {
         </div>
         <Link
           to="/problems/submit"
-          className="rounded-lg border border-primary/40 bg-primary/15 px-4 py-2 font-mono text-[11px] uppercase tracking-wider text-white transition hover:bg-primary/20"
+          className="self-start rounded-lg border border-primary/40 bg-primary/15 px-4 py-2.5 text-center font-mono text-[11px] uppercase tracking-wider text-white transition hover:bg-primary/20 sm:self-auto sm:py-2"
         >
           + Submit problem
         </Link>
@@ -146,34 +151,61 @@ export default function ProblemsListPage() {
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[260px,1fr]">
         {/* ── Sidebar (sticky on desktop) ── */}
-        <aside className="space-y-5 lg:sticky lg:top-24 lg:self-start">
+        <aside className="space-y-4 lg:sticky lg:top-24 lg:self-start">
+          {/* Search bar — always visible on every breakpoint. The
+              one filter students reach for constantly. */}
           <SearchBox value={q} onChange={(v) => setFilter("q", v)} />
-          <FilterGroup
-            label="Source"
-            value={source}
-            onChange={(v) => setFilter("source", v)}
-            options={facets.sources}
-          />
-          <FilterGroup
-            label="Domain"
-            value={domain}
-            onChange={(v) => setFilter("domain", v)}
-            options={facets.domains}
-          />
-          <FilterGroup
-            label="Difficulty"
-            value={difficulty}
-            onChange={(v) => setFilter("difficulty", v)}
-            options={["beginner", "intermediate", "advanced"]}
-          />
-          {hasFilters && (
-            <button
-              onClick={clearAll}
-              className="w-full rounded-lg border border-line/20 bg-white/[0.03] px-3 py-2 font-mono text-[11px] uppercase tracking-wider text-text-muted transition hover:border-primary/40 hover:text-white"
-            >
-              clear filters
-            </button>
-          )}
+
+          {/* Mobile-only "Filters" toggle. On lg+ this button hides
+              and the filter groups below are always rendered. */}
+          <button
+            type="button"
+            onClick={() => setFiltersOpen((v) => !v)}
+            aria-expanded={filtersOpen}
+            className="flex w-full items-center justify-between rounded-lg border border-line/20 bg-white/[0.03] px-3 py-3 font-mono text-[11px] uppercase tracking-wider text-text-soft transition hover:border-primary/40 hover:text-white lg:hidden"
+          >
+            <span>
+              Filters
+              {hasFilters && (
+                <span className="ml-2 rounded-full bg-primary/20 px-1.5 py-0.5 text-[9px] text-white">
+                  active
+                </span>
+              )}
+            </span>
+            <span className={"transition " + (filtersOpen ? "rotate-90" : "")}>▶</span>
+          </button>
+
+          {/* Filter groups — collapsed by default on mobile, always
+              visible on lg. The `lg:!block` override beats the
+              conditional `hidden`. */}
+          <div className={"space-y-4 " + (filtersOpen ? "block" : "hidden") + " lg:!block"}>
+            <FilterGroup
+              label="Source"
+              value={source}
+              onChange={(v) => setFilter("source", v)}
+              options={facets.sources}
+            />
+            <FilterGroup
+              label="Domain"
+              value={domain}
+              onChange={(v) => setFilter("domain", v)}
+              options={facets.domains}
+            />
+            <FilterGroup
+              label="Difficulty"
+              value={difficulty}
+              onChange={(v) => setFilter("difficulty", v)}
+              options={["beginner", "intermediate", "advanced"]}
+            />
+            {hasFilters && (
+              <button
+                onClick={clearAll}
+                className="w-full rounded-lg border border-line/20 bg-white/[0.03] px-3 py-2.5 font-mono text-[11px] uppercase tracking-wider text-text-muted transition hover:border-primary/40 hover:text-white"
+              >
+                clear filters
+              </button>
+            )}
+          </div>
         </aside>
 
         {/* ── Results ── */}
@@ -262,10 +294,10 @@ function FilterGroup({ label, value, onChange, options }) {
             <button
               key={opt}
               onClick={() => onChange(active ? "" : opt)}
-              className={`rounded-md px-2.5 py-1.5 text-left text-xs transition ${
+              className={`rounded-md px-3 py-2 text-left text-sm transition sm:py-1.5 sm:text-xs ${
                 active
                   ? "bg-primary/15 text-white ring-1 ring-primary/40"
-                  : "text-text-muted hover:bg-white/[0.04] hover:text-white"
+                  : "text-text-muted active:bg-white/[0.06] hover:bg-white/[0.04] hover:text-white"
               }`}
             >
               {opt}
@@ -341,11 +373,12 @@ function Pagination({ page, totalPages, onChange }) {
   }, [page, totalPages]);
 
   return (
-    <nav className="mt-8 flex items-center justify-center gap-1 font-mono text-xs">
+    <nav className="mt-8 flex flex-wrap items-center justify-center gap-1 font-mono text-xs">
       <button
         disabled={page <= 1}
         onClick={() => onChange(page - 1)}
-        className="rounded-md border border-line/20 bg-white/[0.03] px-3 py-1.5 text-text-muted transition hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
+        aria-label="Previous page"
+        className="flex h-10 min-w-[40px] items-center justify-center rounded-md border border-line/20 bg-white/[0.03] px-3 text-text-muted transition hover:text-white disabled:cursor-not-allowed disabled:opacity-30 sm:h-8"
       >
         ←
       </button>
@@ -356,7 +389,9 @@ function Pagination({ page, totalPages, onChange }) {
             {gap && <span className="px-1 text-text-dim">…</span>}
             <button
               onClick={() => onChange(n)}
-              className={`rounded-md px-3 py-1.5 transition ${
+              aria-label={`Page ${n}`}
+              aria-current={n === page ? "page" : undefined}
+              className={`flex h-10 min-w-[40px] items-center justify-center rounded-md px-3 transition sm:h-8 ${
                 n === page
                   ? "bg-primary/20 text-white ring-1 ring-primary/40"
                   : "border border-line/20 bg-white/[0.03] text-text-muted hover:text-white"
@@ -370,7 +405,8 @@ function Pagination({ page, totalPages, onChange }) {
       <button
         disabled={page >= totalPages}
         onClick={() => onChange(page + 1)}
-        className="rounded-md border border-line/20 bg-white/[0.03] px-3 py-1.5 text-text-muted transition hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
+        aria-label="Next page"
+        className="flex h-10 min-w-[40px] items-center justify-center rounded-md border border-line/20 bg-white/[0.03] px-3 text-text-muted transition hover:text-white disabled:cursor-not-allowed disabled:opacity-30 sm:h-8"
       >
         →
       </button>

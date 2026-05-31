@@ -146,12 +146,14 @@ export default function ProblemDetailPage() {
           </span>
         </div>
 
-        <div className="flex items-start justify-between gap-4">
-          <h1 className="font-display text-3xl font-semibold leading-tight tracking-tight text-white sm:text-4xl"
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+          <h1 className="font-display text-2xl font-semibold leading-tight tracking-tight text-white sm:text-3xl md:text-4xl"
               style={{ textWrap: "balance" }}>
             {p.title}
           </h1>
-          <BookmarkButton type="problem" id={p.id} initial={savedInitial} withLabel />
+          <div className="self-start sm:self-auto">
+            <BookmarkButton type="problem" id={p.id} initial={savedInitial} withLabel />
+          </div>
         </div>
 
         {p.organisation && (

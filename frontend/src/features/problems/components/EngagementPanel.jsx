@@ -252,7 +252,7 @@ export default function EngagementPanel({ slugOrId }) {
             onClick={onToggleInterest}
             disabled={busy}
             className={
-              "shrink-0 rounded-xl px-4 py-2 font-mono text-xs uppercase tracking-wider transition " +
+              "w-full shrink-0 rounded-xl px-4 py-2.5 font-mono text-xs uppercase tracking-wider transition sm:w-auto sm:py-2 " +
               (data.i_am_interested
                 ? "border border-primary/40 bg-primary/15 text-white hover:bg-primary/20"
                 : "border border-line/25 bg-white/[0.04] text-text-soft hover:border-primary/40 hover:text-white")
@@ -265,14 +265,14 @@ export default function EngagementPanel({ slugOrId }) {
 
       {/* ── Writeups ── */}
       <div>
-        <div className="mb-3 flex items-center justify-between">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <h3 className="font-mono text-[11px] uppercase tracking-[0.25em] text-text-dim">
             Writeups · {data.writeups?.length || 0}
           </h3>
           <button
             type="button"
             onClick={openComposer}
-            className="rounded-lg border border-line/25 bg-white/[0.04] px-3 py-1.5 font-mono text-[11px] uppercase tracking-wider text-text-soft transition hover:border-primary/40 hover:text-white"
+            className="rounded-lg border border-line/25 bg-white/[0.04] px-3 py-2 font-mono text-[11px] uppercase tracking-wider text-text-soft transition hover:border-primary/40 hover:text-white sm:py-1.5"
           >
             {myWriteup ? "Edit my writeup" : "+ Post a writeup"}
           </button>
@@ -342,7 +342,7 @@ function WriteupCard({ w, onVote }) {
             type="button"
             onClick={onVote}
             className={
-              "shrink-0 rounded-full px-2.5 py-1 font-mono text-[11px] transition " +
+              "shrink-0 rounded-full px-3 py-1.5 font-mono text-[11px] transition sm:py-1 " +
               (w.voted_by_me
                 ? "border border-primary/40 bg-primary/15 text-white"
                 : "border border-line/20 bg-white/[0.04] text-text-soft hover:border-primary/40")
@@ -404,7 +404,7 @@ function ComposerForm({ draft, setDraft, onSubmit, onCancel, onRemoveMine, posti
           <button
             type="button"
             onClick={onRemoveMine}
-            className="mr-auto rounded-lg border border-danger/30 bg-danger/8 px-3 py-1.5 font-mono text-[11px] uppercase tracking-wider text-danger hover:bg-danger/12"
+            className="mr-auto rounded-lg border border-danger/30 bg-danger/8 px-3 py-2.5 font-mono text-[11px] uppercase tracking-wider text-danger transition hover:bg-danger/12 sm:py-1.5"
           >
             Remove
           </button>
@@ -412,14 +412,14 @@ function ComposerForm({ draft, setDraft, onSubmit, onCancel, onRemoveMine, posti
         <button
           type="button"
           onClick={onCancel}
-          className="rounded-lg border border-line/20 bg-white/[0.04] px-3 py-1.5 font-mono text-[11px] uppercase tracking-wider text-text-soft hover:text-white"
+          className="rounded-lg border border-line/20 bg-white/[0.04] px-3 py-2.5 font-mono text-[11px] uppercase tracking-wider text-text-soft transition hover:text-white sm:py-1.5"
         >
           Cancel
         </button>
         <button
           type="submit"
           disabled={posting}
-          className="rounded-lg border border-primary/40 bg-primary/15 px-4 py-1.5 font-mono text-[11px] uppercase tracking-wider text-white transition hover:bg-primary/20 disabled:opacity-50"
+          className="rounded-lg border border-primary/40 bg-primary/15 px-4 py-2.5 font-mono text-[11px] uppercase tracking-wider text-white transition hover:bg-primary/20 disabled:opacity-50 sm:py-1.5"
         >
           {posting ? "Posting…" : (onRemoveMine ? "Save changes" : "Post writeup")}
         </button>
