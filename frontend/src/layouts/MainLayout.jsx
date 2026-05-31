@@ -109,6 +109,14 @@ export default function MainLayout() {
                           </>
                         )}
                       </NavLink>
+                      <NavLink to="/problems" className={({ isActive }) => navClass(isActive)}>
+                        {({ isActive }) => (
+                          <>
+                            {isActive && <motion.span layoutId="nav-pill" className="absolute inset-0 rounded-full border border-primary/30 bg-primary/12" transition={{ type: "spring", bounce: 0.2, duration: 0.5 }} />}
+                            <span className="relative z-[1]">Problems</span>
+                          </>
+                        )}
+                      </NavLink>
                       <NavLink to="/projects" className={({ isActive }) => navClass(isActive)}>
                         {({ isActive }) => (
                           <>
