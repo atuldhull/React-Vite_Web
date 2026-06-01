@@ -71,6 +71,12 @@ export const sendContactMessage = async (req, res) => {
       to:      process.env.CONTACT_EMAIL,
       replyTo: email,
       subject: `[Math Collective] ${headerSubject}`,
+      // nosemgrep: javascript.express.security.injection.raw-html-format — every interpolated
+      // value in this template literal (safeName, safeEmail, safeSubject, safeMessage, etc.)
+      // is the output of the local escapeHtml() helper defined at the top of this file,
+      // which escapes &, <, >, ", and '. The URL params (mailto: hrefs) go through
+      // encodeURIComponent. Inputs are also trimmed + length-capped by the contact
+      // validator middleware before reaching this controller.
       html: `
         <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;background:#0f172a;color:#f1f5f9;padding:32px;border-radius:12px;">
           <div style="text-align:center;margin-bottom:24px;">
@@ -117,6 +123,11 @@ export const sendContactMessage = async (req, res) => {
       from:    `"Math Collective" <${process.env.CONTACT_EMAIL}>`,
       to:      email,
       subject: `We got your message \u2014 Math Collective`,
+      // nosemgrep: javascript.express.security.injection.raw-html-format \u2014 same
+      // rationale as the operator email above: ${safeGreeting} and ${safeMessage}
+      // are escapeHtml() outputs; the \n\u2192<br> swap on message runs AFTER escape,
+      // so HTML special chars are already neutralised when the static <br> tags
+      // get inserted. Outbound email body, not an in-app HTML response \u2014 no XSS sink.
       html: `
         <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;background:#0f172a;color:#f1f5f9;padding:32px;border-radius:12px;">
           <div style="text-align:center;margin-bottom:24px;">

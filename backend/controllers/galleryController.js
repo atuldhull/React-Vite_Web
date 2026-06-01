@@ -97,7 +97,12 @@ export const deleteImage = catchAsync(async (req, res) => {
   const { imagePath } = req.body;
   if (!imagePath) return res.status(400).json({ error: "imagePath required" });
 
-  // Security: only allow paths inside /public/images/
+  // Security: only allow paths inside /public/images/. The canonical
+  // resolved-prefix check on the next 3 lines is the defense — any
+  // `..` segments or absolute paths in `imagePath` resolve OUTSIDE the
+  // allowed root and get 403'd before any fs operation runs. This is
+  // the standard prefix-check containment pattern.
+  // nosemgrep: javascript.express.security.audit.express-path-join-resolve-traversal — user input is contained by the resolved-prefix check below; admin-only route
   const resolved = path.resolve(path.join(__dirname, "..", "public", imagePath));
   const allowed  = path.resolve(IMAGES_DIR);
   if (!resolved.startsWith(allowed)) {

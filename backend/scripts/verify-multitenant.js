@@ -46,6 +46,10 @@ if (!url) {
   process.exit(2);
 }
 
+// nosemgrep: javascript.node.security.audit.bypass-tls-verification — operator-run
+// read-only verification script connecting to Supabase Postgres pooler. The pooler
+// cert isn't in Node's default trust store, hence the documented workaround. Not
+// part of the app runtime; matches verify-rls.js.
 const c = new Client({ connectionString: url, ssl: { rejectUnauthorized: false } });
 await c.connect();
 

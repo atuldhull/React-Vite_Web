@@ -40,6 +40,11 @@ if (!url) {
   process.exit(2);
 }
 
+// nosemgrep: javascript.node.security.audit.bypass-tls-verification — admin-run
+// read-only ops script against Supabase Postgres pooler. PGURL/DIRECT_URL/DATABASE_URL
+// are admin-controlled env vars pointing at the project's own database; cert chain
+// relaxation is the documented workaround for Supabase's pooler cert which is not in
+// Node's default trust store. Not used in app runtime.
 const c = new Client({ connectionString: url, ssl: { rejectUnauthorized: false } });
 await c.connect();
 

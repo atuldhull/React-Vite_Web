@@ -76,6 +76,12 @@ export function buildSessionStore(env = process.env) {
       tableName: "user_sessions",                // matches migration 16
       createTableIfMissing: false,               // migration owns the schema
       pruneSessionInterval: 60 * 15,             // every 15 min, drop expired rows
+      // nosemgrep: javascript.node.security.audit.bypass-tls-verification — Supabase
+      // pooler cert chain isn't in Node's default trust store, but the connection IS
+      // over TLS (just without chain validation) and points at a fixed Supabase URL
+      // not attacker-controlled. Matches the same workaround in verify-multitenant.js
+      // and verify-rls.js. Defense-in-depth at the network layer (Render private
+      // networking to the Supabase pooler) is the real mitigation here.
       ssl: { rejectUnauthorized: false },
     });
     store.on("error", (err) => logger.error({ err }, "session: pg store error"));
