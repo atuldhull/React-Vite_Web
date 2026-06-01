@@ -35,6 +35,17 @@ import registerApiRoutes from "./routes/registerRoutes.js";
 import csrfRoutes        from "./routes/csrfRoutes.js";
 import authController    from "./controllers/authController.js";
 
+// SEO + share-card surface. seoRoutes serves /robots.txt + /sitemap.xml
+// at the ROOT and must be mounted BEFORE express.static so it shadows
+// the stale public/sitemap.xml and public/robots.txt files. ogRoutes
+// serves /og/<type>/<key>.png and registerOgMetaRoutes rewrites the
+// <head> meta block of index.html for crawler unfurls — both must
+// be mounted AFTER express.static (so /app/assets/* still wins) and
+// BEFORE the SPA fallback (so they intercept the share targets).
+import seoRoutes               from "./routes/seoRoutes.js";
+import ogRoutes                from "./routes/ogRoutes.js";
+import { registerOgMetaRoutes } from "./middleware/ogMetaInjector.js";
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
 const PROJECT_ROOT = path.resolve(__dirname, "..");
@@ -127,7 +138,34 @@ export function createApp() {
       next();
     });
   }
+
+  /* ── SEO routes ──
+     /robots.txt + /sitemap.xml. Mounted at the ROOT and BEFORE
+     express.static so the dynamic handlers shadow the stale
+     public/robots.txt + public/sitemap.xml files. Both responses
+     are cached in-process (sitemap for 1h; robots is static). */
+  app.use(seoRoutes);
+
   app.use(express.static(PUBLIC_DIR));
+
+  /* ── OG image cards ──
+     /og/portfolio/<handle>.png, /og/problem/<slug>.png,
+     /og/roadmap/<slug>.png. Mounted on /og (outside /api) so CSRF
+     and the /api generalLimiter don't apply; the module brings its
+     own 60/min/IP rate limiter and per-image LRU cache. PNGs are
+     generated via hand-written SVG + @resvg/resvg-js. */
+  app.use("/og", ogRoutes);
+
+  /* ── OG meta-tag injector ──
+     Rewrites the static og:* / twitter:* block in index.html for
+     /u/:handle, /problems/:slug, /roadmaps/:slug (+ /app/ aliases)
+     so crawlers (LinkedIn, Twitter, Facebook, Discord, Slack,
+     Telegram — none of which run JS) see per-route share metadata.
+     Reads index.html ONCE at module load; string-replaces in-memory
+     per request. Mounted AFTER express.static so /app/assets/* still
+     resolves directly to disk, and BEFORE the SPA fallback so it
+     wins over the catch-all sendFile. */
+  registerOgMetaRoutes(app);
   app.use(express.urlencoded({ extended: true }));
   app.use(express.json({
     limit: "2mb",
