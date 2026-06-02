@@ -456,6 +456,44 @@ export const problemSubmissions = {
   reject:       (id, reason)  => http.post(`/problem-submissions/${id}/reject`, { reason }),
 };
 
+// ── Solution Sprints — weekly featured problem + window leaderboard ──
+// `active()` returns the current sprint + its problem and a fresh
+// writeup count. `leaderboard(slug?)` returns the sprint's ranked
+// writeups (defaults to active). `list()` is the archive.
+export const sprints = {
+  active:      (config = {})            => http.get("/sprints/active", config),
+  leaderboard: (slug, config = {})      => http.get("/sprints/leaderboard", { ...config, params: slug ? { slug } : {} }),
+  list:        (config = {})            => http.get("/sprints", config),
+  pin:         (problem_id, reason)     => http.post("/sprints/pin", { problem_id, reason }),
+  unpin:       ()                       => http.delete("/sprints/pin"),
+};
+
+// ── Writeup comments — flat thread per writeup ──
+// list() pulls every visible comment (oldest first, capped at 50).
+// post() creates one; the server returns the row enriched with the
+// viewer's display name so the client can splice it in without a
+// second round-trip.
+export const writeupComments = {
+  list:    (writeupId, config = {})    => http.get(`/writeups/${writeupId}/comments`, config),
+  post:    (writeupId, body)           => http.post(`/writeups/${writeupId}/comments`, { body }),
+  edit:    (commentId, body)           => http.patch(`/writeups/comments/${commentId}`, { body }),
+  remove:  (commentId)                 => http.delete(`/writeups/comments/${commentId}`),
+};
+
+// ── Search — global Ctrl+K command palette ──
+// `query()` fans out parallel ilike lookups across problems, roadmaps,
+// writeups, and public portfolios. Server caps per-group at 8 and
+// scrubs PostgREST-special chars from the needle. AbortSignal piped
+// through `config` so the palette can cancel in-flight requests when
+// the user keeps typing.
+export const search = {
+  query: (q, types, config = {}) =>
+    http.get("/search", {
+      ...config,
+      params: { q, ...(types ? { types: Array.isArray(types) ? types.join(",") : types } : {}) },
+    }),
+};
+
 // ── Users / Rich profiles (Phase 15) ──
 // Distinct from the `user` singular namespace (self-actions) above.
 // `users` is plural and takes a user id as first arg — mirrors the

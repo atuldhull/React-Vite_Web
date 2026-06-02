@@ -24,6 +24,7 @@ import { motion } from "framer-motion";
 import { problems } from "@/lib/api";
 import Loader from "@/components/ui/Loader";
 import BookmarkButton from "@/components/ui/BookmarkButton";
+import WriteupComments from "./WriteupComments";
 
 export default function EngagementPanel({ slugOrId }) {
   const [data,    setData]    = useState(null);
@@ -365,6 +366,7 @@ function WriteupCard({ w, onVote }) {
           ↗ {w.repo_url.replace(/^https?:\/\//, "").slice(0, 60)}
         </a>
       )}
+      <WriteupComments writeupId={w.id} initialCount={w.comment_count || 0} />
     </article>
   );
 }

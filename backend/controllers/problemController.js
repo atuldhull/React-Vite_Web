@@ -302,7 +302,7 @@ export const getEngagement = async (req, res) => {
     // body inside the panel so 16KB cap is fine to ship inline.
     const { data: writeups } = await supabase
       .from("problem_writeups")
-      .select("id, user_id, title, body, repo_url, vote_count, created_at")
+      .select("id, user_id, title, body, repo_url, vote_count, comment_count, created_at")
       .eq("problem_id", problemId)
       .eq("is_published", true)
       .order("vote_count", { ascending: false })

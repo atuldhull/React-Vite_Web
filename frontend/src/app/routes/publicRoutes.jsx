@@ -47,6 +47,8 @@ const PublicPortfolioPage = lazy(() => import("@/features/portfolio/pages/Public
 // Personal "saved" feed — /saved. Auth-gated, viewer's own bookmarks
 // across problems / writeups / roadmaps.
 const SavedPage          = lazy(() => import("@/features/bookmarks/pages/SavedPage"));
+// Solution Sprints — weekly featured problem + window leaderboard.
+const SprintsPage        = lazy(() => import("@/features/sprints/pages/SprintsPage"));
 
 /**
  * Phase 15 — redirect the legacy /student/:userId route onto
@@ -105,5 +107,8 @@ export const publicRoutes = (
 
     {/* ── Personal saved feed (bookmarks) ── */}
     <Route path="saved"                element={<ProtectedRoute><SavedPage /></ProtectedRoute>} />
+
+    {/* ── Solution Sprints — weekly featured problem + leaderboard ── */}
+    <Route path="sprints"              element={<ProtectedRoute><SprintsPage /></ProtectedRoute>} />
   </Route>
 );

@@ -114,6 +114,18 @@ const ALLOWLIST = [
     file: "backend/controllers/problemSubmissionController.js",
     why:  "Problem submissions feed into the cross-tenant catalogue on approval. submitter_id is the only tenant-scopable column, but we deliberately allow any org's student to contribute to the platform-wide catalogue. The approve-into-`problem_statements` write inherits the catalogue's cross-tenant policy; org-scoping the submitter lookup would prevent admins of any one org from moderating the queue.",
   },
+  {
+    file: "backend/controllers/searchController.js",
+    why:  "Global Ctrl+K palette searches the cross-tenant catalogue (problem_statements, roadmaps, problem_writeups) plus public portfolios. The `students` read is gated on public_portfolio=true — same opt-in privacy contract as portfolioController. Cross-tenant is intentional: a student should be able to find a public-portfolio holder in another org via search, the same way they can already reach /u/:handle directly.",
+  },
+  {
+    file: "backend/controllers/writeupCommentController.js",
+    why:  "writeup_comments hangs off problem_writeups, which is platform-wide (migration 35, no org_id). The `students` lookups are for author display name + avatar on the comment cards — same cross-tenant intent as the writeup author rendering in problemController. A student from org A commenting on an org B student's writeup is correct: the problem is the same problem for every org.",
+  },
+  {
+    file: "backend/controllers/sprintController.js",
+    why:  "Solution Sprints are platform-wide (migration 43): one featured problem per week, every org sees the same sprint. The leaderboard reads problem_writeups + writeup_votes (both cross-tenant) and `students` to render author display name + avatar + public handle — same cross-tenant rendering contract as problemController's writeup author surface.",
+  },
 ];
 
 const ALLOWED_FILES = new Set(ALLOWLIST.map(a => a.file));

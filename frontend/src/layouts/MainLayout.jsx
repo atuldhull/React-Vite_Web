@@ -4,6 +4,8 @@ import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
 import { mainNavigation } from "@/app/navigation";
 import BrandMark from "@/components/navigation/BrandMark";
 import InstallPwaButton from "@/components/ui/InstallPwaButton";
+import CommandPalette from "@/components/search/CommandPalette";
+import { useCommandPaletteHotkey } from "@/components/search/useCommandPaletteHotkey";
 import { cn } from "@/lib/cn";
 import { useAuthStore } from "@/store/auth-store";
 import { useUiStore } from "@/store/ui-store";
@@ -25,6 +27,8 @@ export default function MainLayout() {
   const isAuth = status === "authenticated" && user;
   const role = user?.role;
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  useCommandPaletteHotkey(paletteOpen, setPaletteOpen);
 
   // Logout: wait for backend to clear session, THEN navigate with replace
   // so the back button cannot re-expose protected pages.
@@ -125,6 +129,14 @@ export default function MainLayout() {
                           </>
                         )}
                       </NavLink>
+                      <NavLink to="/sprints" className={({ isActive }) => navClass(isActive)}>
+                        {({ isActive }) => (
+                          <>
+                            {isActive && <motion.span layoutId="nav-pill" className="absolute inset-0 rounded-full border border-primary/30 bg-primary/12" transition={{ type: "spring", bounce: 0.2, duration: 0.5 }} />}
+                            <span className="relative z-[1]">Sprints</span>
+                          </>
+                        )}
+                      </NavLink>
                       <NavLink to="/projects" className={({ isActive }) => navClass(isActive)}>
                         {({ isActive }) => (
                           <>
@@ -140,6 +152,25 @@ export default function MainLayout() {
 
               {/* Right: Actions + Hamburger */}
               <div className="flex items-center gap-2">
+                {/* Global search — Ctrl/Cmd+K. Auth-only because the
+                    backend endpoint is auth-gated and the palette
+                    surfaces personal trails (Notifications, Saved). */}
+                {isAuth && (
+                  <button
+                    type="button"
+                    onClick={() => setPaletteOpen(true)}
+                    className="hidden items-center gap-2 rounded-full border border-line/15 bg-white/[0.03] px-3 py-1.5 font-mono text-[10px] uppercase tracking-wider text-text-muted transition hover:border-primary/30 hover:text-white md:flex"
+                    aria-label="Open search (Ctrl+K)"
+                    title="Search (Ctrl+K)"
+                  >
+                    <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <circle cx="11" cy="11" r="7" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.3-4.3" />
+                    </svg>
+                    <span>Search</span>
+                    <kbd className="hidden rounded border border-line/20 bg-white/[0.04] px-1.5 py-0.5 font-mono text-[9px] lg:inline-block">⌘K</kbd>
+                  </button>
+                )}
                 {/* Install as PWA (Chrome/Edge show native prompt; iOS Safari shows a hint) */}
                 <InstallPwaButton className="hidden md:block" />
 
@@ -241,6 +272,20 @@ export default function MainLayout() {
                   className="overflow-hidden lg:hidden"
                 >
                   <div className="mt-3 space-y-1 border-t border-line/10 pt-3">
+                    {/* Search trigger — mobile drawer */}
+                    {isAuth && (
+                      <button
+                        type="button"
+                        onClick={() => { closeMobile(); setPaletteOpen(true); }}
+                        className="flex w-full items-center gap-3 rounded-xl border border-line/15 bg-white/[0.03] px-4 py-3 text-left font-mono text-[11px] uppercase tracking-[0.2em] text-text-soft transition active:bg-white/5"
+                      >
+                        <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <circle cx="11" cy="11" r="7" />
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.3-4.3" />
+                        </svg>
+                        Search everything
+                      </button>
+                    )}
                     {/* Nav links */}
                     {navItems.map((item) => (
                       <NavLink
@@ -268,6 +313,7 @@ export default function MainLayout() {
                           { to: "/arena", label: "Arena" },
                           { to: "/problems", label: "Problems" },
                           { to: "/roadmaps", label: "Roadmaps" },
+                          { to: "/sprints", label: "Sprints" },
                           { to: "/saved", label: "Saved" },
                           { to: "/projects", label: "Projects" },
                           { to: "/profile", label: "Profile" },
@@ -382,6 +428,11 @@ export default function MainLayout() {
           </div>
         </footer>
       </div>
+
+      {/* Global command palette — Ctrl/Cmd+K. Mounted at layout root so
+          it overlays every page. Gated on isAuth because the search
+          backend requires auth and the palette surfaces personal trails. */}
+      {isAuth && <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />}
     </div>
   );
 }

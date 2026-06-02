@@ -36,6 +36,9 @@ import roadmapRoutes      from "./roadmapRoutes.js";
 import portfolioRoutes    from "./portfolioRoutes.js";
 import bookmarkRoutes     from "./bookmarkRoutes.js";
 import problemSubmissionRoutes from "./problemSubmissionRoutes.js";
+import searchRoutes        from "./searchRoutes.js";
+import writeupCommentRoutes from "./writeupCommentRoutes.js";
+import sprintRoutes        from "./sprintRoutes.js";
 import { authLimiter, contactLimiter } from "../middleware/rateLimiter.js";
 
 export default function registerApiRoutes(app) {
@@ -76,4 +79,7 @@ export default function registerApiRoutes(app) {
   app.use("/api/portfolio",     portfolioRoutes);
   app.use("/api/bookmarks",     bookmarkRoutes);
   app.use("/api/problem-submissions", problemSubmissionRoutes);
+  app.use("/api/search",        searchRoutes);
+  app.use("/api/writeups",      writeupCommentRoutes);
+  app.use("/api/sprints",       sprintRoutes);
 }

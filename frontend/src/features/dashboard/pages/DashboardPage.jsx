@@ -12,6 +12,7 @@ import { user, arena, announcements as announcementsApi, notifications as notifA
 import AchievementBadge from "@/components/ui/AchievementBadge";
 import UserHoverCard from "@/components/social/UserHoverCard";
 import DailyProblemCard from "@/features/dashboard/components/DailyProblemCard";
+import SprintWidget from "@/features/sprints/components/SprintWidget";
 
 // Ambient math glyphs scattered across the page background — same
 // visual signature as the auth pages, anchors the logged-in surfaces
@@ -345,6 +346,11 @@ export default function DashboardPage() {
             transition={{ delay: 0.5 }}
             className="space-y-6"
           >
+            {/* Solution Sprint — weekly featured problem with a
+                window-scoped leaderboard. Drives focused engagement
+                on a single problem at a time. */}
+            <SprintWidget />
+
             {/* Daily problem of the day — rotating widget that drives
                 daily return visits. Streak badge sits in the header. */}
             <DailyProblemCard />

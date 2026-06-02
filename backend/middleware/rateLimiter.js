@@ -166,6 +166,21 @@ export const generalLimiter = rateLimit({
   },
 });
 
+/* ── Search: 120 requests per minute per user ──
+   The command palette debounces at 250ms client-side, so a human at
+   sustained typing speed lands at ~4 req/sec — the limiter only kicks
+   in for runaway scripts or someone holding a key. Per-USER (not IP)
+   because a whole CS lab on one NAT would otherwise share quota and
+   one bored student could lock everyone out of search. */
+export const searchLimiter = rateLimit({
+  windowMs:        60 * 1000,
+  max:             120,
+  standardHeaders: true,
+  legacyHeaders:   false,
+  keyGenerator:    (req) => req.session?.user?.id || ipKeyGenerator(req.ip),
+  handler:         limitReached,
+});
+
 /* ── Contact: 5 submissions per hour ── */
 export const contactLimiter = rateLimit({
   windowMs:        60 * 60 * 1000,
